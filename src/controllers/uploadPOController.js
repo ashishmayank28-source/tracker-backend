@@ -2,7 +2,13 @@
 import multer from "multer";
 import fs from "fs";
 import path from "path";
-import archiver from "../node_modules/archiver/index.js";
+import { createRequire } from "module"; // ✅ Added for CommonJS compatibility
+const require = createRequire(import.meta.url);
+const archiver = require("archiver"); // ✅ Safe import (fixes Render error)
+
+/* ------------------------------------------------------------------
+   Helper: Ensure directory exists
+------------------------------------------------------------------ */
 const ensureDir = (dir) => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 };
