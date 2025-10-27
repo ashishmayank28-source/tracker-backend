@@ -2,8 +2,7 @@
 import multer from "multer";
 import fs from "fs";
 import path from "path";
-import archiver from "archiver";
-
+import archiver from "../node_modules/archiver/index.js";
 const ensureDir = (dir) => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 };
