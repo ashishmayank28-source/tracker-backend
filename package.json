@@ -10,6 +10,7 @@
     "upsert:test-user": "node src/scripts/upsertTestUser.js"
   },
   "dependencies": {
+    "archiver": "^7.0.1",
     "bcryptjs": "^3.0.2",
     "browser-image-compression": "^2.0.2",
     "cors": "^2.8.5",
