@@ -1,0 +1,29 @@
+{
+  "name": "tracker-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "seed:excel": "node src/utils/excelSeed.js data/users.xlsx",
+    "upsert:test-user": "node src/scripts/upsertTestUser.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "browser-image-compression": "^2.0.2",
+    "cors": "^2.8.5",
+    "date-fns": "^4.1.0",
+    "dayjs": "^1.11.13",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.18.0",
+    "morgan": "^1.10.1",
+    "multer": "^2.0.2",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
