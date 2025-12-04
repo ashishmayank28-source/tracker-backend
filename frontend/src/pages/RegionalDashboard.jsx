@@ -1,23 +1,15 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../auth.jsx";
-import { useUserHierarchy } from "../context/UserHierarchyContext.jsx";
 import RegionalDailyTracker from "./RegionalDailyTracker.jsx";
 import ReportsViewer from "../components/ReportsViewer.jsx";
 import SampleBoardsAllocationRegional from "./SampleBoardsAllocationRegional.jsx";
-import RegionalRevenueTracker from "./RegionalRevenueTracker.jsx"; // ✅ Added
+import RegionalRevenueTracker from "./RegionalRevenueTracker.jsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
-// 🔹 Helper for safe numbers
-const safeNum = (v) => (isNaN(v) || v == null ? 0 : Number(v));
-
 export default function RegionalDashboard() {
   const { user, logout, token } = useAuth();
-  const { users, getReportees } = useUserHierarchy();
   const [activeTile, setActiveTile] = useState("dashboard");
-
-  // Old context-based reportees
-  const reportees = getReportees(user);
 
   // API-based regional team
   const [apiTeam, setApiTeam] = useState([]);
@@ -88,24 +80,14 @@ export default function RegionalDashboard() {
             <Tile label="📅 Daily Tracker" onClick={() => setActiveTile("daily")} />
             <Tile label="📊 Reports" onClick={() => setActiveTile("reports")} />
             <Tile label="💰 Revenue" onClick={() => setActiveTile("revenue")} />
-            <Tile label="🎁 Assets" onClick={() => setActiveTile("assets")} />
+            <Tile label="📦 Sample Boards" onClick={() => setActiveTile("assets")} />
           </div>
 
-          {/* Context-based Team */}
-          <div style={{ border: "1px solid #ccc", borderRadius: 8, padding: 15, marginBottom: 20 }}>
-            <h3 style={{ marginBottom: 10, fontSize: "18px" }}>👥 My Team (via Context)</h3>
-            {reportees.length === 0 ? (
-              <p style={{ color: "gray" }}>No users found under your region.</p>
-            ) : (
-              <UserTable list={reportees} />
-            )}
-          </div>
-
-          {/* API-based Team */}
+          {/* My Team */}
           <div style={{ border: "1px solid #ccc", borderRadius: 8, padding: 15 }}>
-            <h3 style={{ marginBottom: 10, fontSize: "18px" }}>👥 My Team (via API)</h3>
+            <h3 style={{ marginBottom: 10, fontSize: "18px" }}>👥 My Team</h3>
             {apiTeam.length === 0 ? (
-              <p style={{ color: "gray" }}>No users fetched from API.</p>
+              <p style={{ color: "gray" }}>No team members found.</p>
             ) : (
               <UserTable list={apiTeam} />
             )}
@@ -127,25 +109,13 @@ export default function RegionalDashboard() {
         </TileWrapper>
       )}
 
-      {/* Assets */}
+      {/* Assets - Sample Boards */}
       {activeTile === "assets" && (
         <TileWrapper onBack={() => setActiveTile("dashboard")}>
-          <h3>🎁 Assets</h3>
-          <div style={{ display: "flex", gap: "12px" }}>
-            <button onClick={() => setActiveTile("sample")}>📦 Sample Boards</button>
-            <button onClick={() => setActiveTile("gifts")}>🎁 Gifts</button>
-            <button onClick={() => setActiveTile("merch")}>🛍 Merchandise</button>
-            <button onClick={() => setActiveTile("companyAssets")}>🖥️ Company Assets</button>
-          </div>
-        </TileWrapper>
-      )}
-
-      {/* Sample Boards */}
-      {activeTile === "sample" && (
-        <TileWrapper onBack={() => setActiveTile("assets")}>
           <SampleBoardsAllocationRegional />
         </TileWrapper>
       )}
+
 
       {/* ✅ Revenue Tracker */}
       {activeTile === "revenue" && (

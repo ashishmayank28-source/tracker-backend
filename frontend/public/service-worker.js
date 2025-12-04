@@ -3,7 +3,7 @@
    Provides offline caching, app shell support, and fallback page
 ============================================================ */
 
-const CACHE_NAME = "sales-tracker-cache-v2";
+const CACHE_NAME = "sales-tracker-cache-v3";
 const URLS_TO_CACHE = [
   "/",
   "/index.html",
@@ -44,7 +44,17 @@ self.addEventListener("activate", (event) => {
 
 // Fetch: Serve cached content or fallback to network
 self.addEventListener("fetch", (event) => {
+  // Skip non-GET requests
   if (event.request.method !== "GET") return;
+
+  // Skip API calls - don't cache them
+  const url = new URL(event.request.url);
+  if (url.pathname.startsWith("/api/") || 
+      url.hostname.includes("onrender.com") ||
+      url.hostname.includes("localhost") ||
+      url.hostname === "127.0.0.1") {
+    return; // Let browser handle API requests normally
+  }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {

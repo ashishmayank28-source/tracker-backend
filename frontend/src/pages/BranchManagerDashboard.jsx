@@ -1,16 +1,31 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../auth.jsx";
-import { useUserHierarchy } from "../context/UserHierarchyContext.jsx";
 import ReportsViewer from "../components/ReportsViewer.jsx";
-import SampleBoardsAllocationBranch from "./SampleBoardsAllocationBranch.jsx";   // ✅ नया import
+import SampleBoardsAllocationBranch from "./SampleBoardsAllocationBranch.jsx";
 import RevenueTrackerBranch from "./RevenueTrackerBranch.jsx"; 
 
-export default function BranchManagerDashboard() {
-  const { user, logout } = useAuth();
-  const { getReportees } = useUserHierarchy();
-  const [activeTile, setActiveTile] = useState("dashboard");
+const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
-  const reportees = getReportees(user);
+export default function BranchManagerDashboard() {
+  const { user, logout, token } = useAuth();
+  const [activeTile, setActiveTile] = useState("dashboard");
+  const [reportees, setReportees] = useState([]);
+
+  // 🔹 Load team from API
+  useEffect(() => {
+    async function loadTeam() {
+      try {
+        const res = await fetch(`${API_BASE}/api/users/team`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        setReportees(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Error loading team:", err);
+      }
+    }
+    if (token) loadTeam();
+  }, [token]);
 
   return (
     <div style={{ padding: 20 }}>
@@ -59,10 +74,9 @@ export default function BranchManagerDashboard() {
           }}
         >
           <Tile label="📅 Daily Tracker" onClick={() => setActiveTile("daily")} />
-          <Tile label="📊 Reports" onClick={() => setActiveTile("reports")} />
           <Tile label="💰 Revenue" onClick={() => setActiveTile("revenue")} />
           <Tile label="👥 My Team" onClick={() => setActiveTile("team")} />
-          <Tile label="🎁 Assets" onClick={() => setActiveTile("assets")} />
+          <Tile label="📦 Sample Boards" onClick={() => setActiveTile("sample")} />
         </div>
       )}
 
@@ -70,14 +84,6 @@ export default function BranchManagerDashboard() {
       {activeTile === "daily" && (
         <TileWrapper onBack={() => setActiveTile("dashboard")}>
           <h3>📅 Daily Tracker (Branch: {user?.branch || "N/A"})</h3>
-          <ReportsViewer />
-        </TileWrapper>
-      )}
-
-      {/* --- Reports --- */}
-      {activeTile === "reports" && (
-        <TileWrapper onBack={() => setActiveTile("dashboard")}>
-          <h3>📊 Submitted & Summary Reports</h3>
           <ReportsViewer />
         </TileWrapper>
       )}
@@ -125,44 +131,10 @@ export default function BranchManagerDashboard() {
         </TileWrapper>
       )}
 
-      {/* --- Assets --- */}
-      {activeTile === "assets" && (
-        <TileWrapper onBack={() => setActiveTile("dashboard")}>
-          <h3>🎁 Assets</h3>
-          <div style={{ display: "flex", gap: "12px" }}>
-            <button onClick={() => setActiveTile("sample")}>📦 Sample Boards</button>
-            <button onClick={() => setActiveTile("gifts")}>🎁 Gifts</button>
-            <button onClick={() => setActiveTile("merch")}>🛍 Merchandise</button>
-            <button onClick={() => setActiveTile("companyAssets")}>🖥️ Company Assets</button>
-          </div>
-        </TileWrapper>
-      )}
-
       {/* --- Sample Boards --- */}
       {activeTile === "sample" && (
-        <TileWrapper onBack={() => setActiveTile("assets")}>
-          <SampleBoardsAllocationBranch />   {/* ✅ अब BM का नया allocation page */}
-        </TileWrapper>
-      )}
-
-      {/* --- Gifts --- */}
-      {activeTile === "gifts" && (
-        <TileWrapper onBack={() => setActiveTile("assets")}>
-          <p>🎁 Gifts allocation table yaha ayega.</p>
-        </TileWrapper>
-      )}
-
-      {/* --- Merchandise --- */}
-      {activeTile === "merch" && (
-        <TileWrapper onBack={() => setActiveTile("assets")}>
-          <p>🛍 Merchandise allocation table yaha ayega.</p>
-        </TileWrapper>
-      )}
-
-      {/* --- Company Assets --- */}
-      {activeTile === "companyAssets" && (
-        <TileWrapper onBack={() => setActiveTile("assets")}>
-          <p>🖥️ Company assets allocation table yaha ayega.</p>
+        <TileWrapper onBack={() => setActiveTile("dashboard")}>
+          <SampleBoardsAllocationBranch />
         </TileWrapper>
       )}
     </div>

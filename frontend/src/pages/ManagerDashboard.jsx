@@ -4,6 +4,8 @@ import ReportsViewer from "../components/ReportsViewer.jsx";
 import SampleBoardsAllocationManager from "./SampleBoardsAllocationManager.jsx";
 import RevenueTrackerManager from "./RevenueTrackerManager.jsx";
 
+const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
+
 export default function ManagerDashboard() {
   const { user, token, logout } = useAuth();
   const [activeTile, setActiveTile] = useState("dashboard");
@@ -14,11 +16,11 @@ export default function ManagerDashboard() {
     async function loadReportees() {
       try {
         const res = await fetch(
-          `http://localhost:5000/api/reports/reportees/${user.empCode}`,
+          `${API_BASE}/api/users/team`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const data = await res.json();
-        setReportees(data);
+        setReportees(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Error loading team:", err);
       }

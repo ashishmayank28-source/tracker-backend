@@ -4,7 +4,17 @@ import { useAuth } from "../auth.jsx";   // ✅ fixed import
 import { roleToDashboardPath } from "../utils/roleToPath.js";
 import { useNavigate } from "react-router-dom";
 
-export default function Login() {
+// Role mapping for validation
+const roleMapping = {
+  "Employee": ["Employee"],
+  "Manager": ["Manager"],
+  "Branch Manager": ["Branch Manager", "BranchManager"],
+  "Regional Manager": ["Regional Manager", "RegionalManager"],
+  "Admin": ["Admin"],
+  "Vendor": ["Vendor"]
+};
+
+export default function Login({ defaultRole }) {
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -19,6 +29,20 @@ export default function Login() {
       const data = await login(loginId, password);
 
       if (data?.user?.role) {
+        // Check if user's role matches the expected role from login page
+        if (defaultRole) {
+          const allowedRoles = roleMapping[defaultRole] || [defaultRole];
+          const userRole = data.user.role;
+          
+          if (!allowedRoles.some(r => r.toLowerCase() === userRole.toLowerCase())) {
+            // Logout and show error
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            setError(`Access denied. Please use the ${userRole} login page.`);
+            return;
+          }
+        }
+        
         const path = roleToDashboardPath(data.user.role);
         navigate(path, { replace: true });
       }
@@ -49,7 +73,7 @@ export default function Login() {
         }}
       >
         <h2 style={{ fontSize: "20px", fontWeight: "bold", marginBottom: 20, textAlign: "center" }}>
-          🔑 Login
+          🔑 {defaultRole ? `${defaultRole} Login` : "Login"}
         </h2>
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 15 }}>
