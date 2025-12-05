@@ -22,12 +22,12 @@ export const createRetailer = async (req, res) => {
       createdByName,
     } = req.body;
 
-    // Check if retailer with same mobile exists
-    const existing = await Retailer.findOne({ ownerMobile });
+    // Check if retailer with same mobile exists for this employee
+    const existing = await Retailer.findOne({ ownerMobile, createdBy });
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: "Retailer with this mobile number already exists",
+        message: "This mobile number is already registered in your retailer database",
       });
     }
 
@@ -221,6 +221,87 @@ export const searchByMobile = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to search retailer",
+    });
+  }
+};
+
+// Get all retailers for team (Manager/BM/RM/Admin)
+export const getTeamRetailers = async (req, res) => {
+  try {
+    const { branch, region, search, city } = req.query;
+    const userRole = req.user.role;
+    const filter = {};
+
+    // Role-based filtering
+    if (userRole === "Manager") {
+      // Manager sees retailers from their branch
+      if (req.user.branch) filter.branch = req.user.branch;
+    } else if (userRole === "BranchManager") {
+      // BM sees all retailers from their branch
+      if (req.user.branch) filter.branch = req.user.branch;
+    } else if (userRole === "RegionalManager") {
+      // RM sees all retailers from their region
+      if (req.user.region) filter.region = req.user.region;
+    }
+    // Admin sees all retailers (no filter)
+
+    // Apply additional filters from query
+    if (branch && userRole === "Admin") filter.branch = new RegExp(branch, "i");
+    if (region && (userRole === "Admin" || userRole === "RegionalManager")) {
+      filter.region = new RegExp(region, "i");
+    }
+    if (city) filter.city = new RegExp(city, "i");
+
+    // Text search
+    if (search) {
+      filter.$or = [
+        { companyName: new RegExp(search, "i") },
+        { ownerName: new RegExp(search, "i") },
+        { ownerMobile: new RegExp(search, "i") },
+        { createdBy: new RegExp(search, "i") },
+        { createdByName: new RegExp(search, "i") },
+      ];
+    }
+
+    const retailers = await Retailer.find(filter)
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({
+      success: true,
+      count: retailers.length,
+      data: retailers,
+    });
+  } catch (err) {
+    console.error("Get team retailers error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch retailers",
+    });
+  }
+};
+
+// Check if mobile exists for employee
+export const checkMobileExists = async (req, res) => {
+  try {
+    const { mobile } = req.params;
+    const empCode = req.user.empCode;
+    
+    const existing = await Retailer.findOne({ 
+      ownerMobile: mobile, 
+      createdBy: empCode 
+    });
+
+    res.json({
+      success: true,
+      exists: !!existing,
+      message: existing ? "This mobile is already registered in your database" : "Mobile available",
+    });
+  } catch (err) {
+    console.error("Check mobile error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to check mobile",
     });
   }
 };

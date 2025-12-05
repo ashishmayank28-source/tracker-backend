@@ -3,7 +3,8 @@ import { useAuth } from "../auth.jsx";
 import ReportsViewer from "../components/ReportsViewer.jsx";
 import SampleBoardsAllocationBranch from "./SampleBoardsAllocationBranch.jsx";
 import RevenueTrackerBranch from "./RevenueTrackerBranch.jsx";
-import PerformanceReviewBranch from "./PerformanceReviewBranch.jsx"; 
+import PerformanceReviewBranch from "./PerformanceReviewBranch.jsx";
+import RetailerDatabaseTeam from "./RetailerDatabaseTeam.jsx"; 
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
@@ -78,6 +79,7 @@ export default function BranchManagerDashboard() {
           <Tile label="💰 Revenue" onClick={() => setActiveTile("revenue")} />
           <Tile label="👥 My Team" onClick={() => setActiveTile("team")} />
           <Tile label="📦 Sample Boards" onClick={() => setActiveTile("sample")} />
+          <Tile label="🏬 Retailer DB" onClick={() => setActiveTile("retailer")} />
           <Tile label="⭐ Performance Review" onClick={() => setActiveTile("performance")} />
         </div>
       )}
@@ -137,6 +139,14 @@ export default function BranchManagerDashboard() {
       {activeTile === "sample" && (
         <TileWrapper onBack={() => setActiveTile("dashboard")}>
           <SampleBoardsAllocationBranch />
+        </TileWrapper>
+      )}
+
+      {/* --- Retailer Database --- */}
+      {activeTile === "retailer" && (
+        <TileWrapper onBack={() => setActiveTile("dashboard")}>
+          <h3>🏬 Retailer Database (Branch: {user?.branch || "N/A"})</h3>
+          <RetailerDatabaseTeam />
         </TileWrapper>
       )}
 

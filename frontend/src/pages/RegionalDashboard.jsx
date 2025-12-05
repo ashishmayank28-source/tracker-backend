@@ -4,6 +4,7 @@ import ReportsViewer from "../components/ReportsViewer.jsx";
 import SampleBoardsAllocationRegional from "./SampleBoardsAllocationRegional.jsx";
 import RegionalRevenueTracker from "./RegionalRevenueTracker.jsx";
 import PerformanceReviewRegional from "./PerformanceReviewRegional.jsx";
+import RetailerDatabaseTeam from "./RetailerDatabaseTeam.jsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
@@ -80,6 +81,7 @@ export default function RegionalDashboard() {
             <Tile label="📅 Daily Tracker" onClick={() => setActiveTile("daily")} />
             <Tile label="💰 Revenue" onClick={() => setActiveTile("revenue")} />
             <Tile label="📦 Sample Boards" onClick={() => setActiveTile("assets")} />
+            <Tile label="🏬 Retailer DB" onClick={() => setActiveTile("retailer")} />
             <Tile label="⭐ Performance Review" onClick={() => setActiveTile("performance")} />
           </div>
 
@@ -115,6 +117,14 @@ export default function RegionalDashboard() {
         <TileWrapper onBack={() => setActiveTile("dashboard")}>
           <h3>💰 Revenue Tracker (Region: {user?.region || "N/A"})</h3>
           <RegionalRevenueTracker />
+        </TileWrapper>
+      )}
+
+      {/* Retailer Database */}
+      {activeTile === "retailer" && (
+        <TileWrapper onBack={() => setActiveTile("dashboard")}>
+          <h3>🏬 Retailer Database (Region: {user?.region || "N/A"})</h3>
+          <RetailerDatabaseTeam />
         </TileWrapper>
       )}
 

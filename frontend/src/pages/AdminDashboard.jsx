@@ -9,6 +9,7 @@ import AssignmentTable from "./admin/AssignmentTable.jsx";
 import AdminRevenueTracker from "./AdminRevenueTracker.jsx";
 import AdminAttendance from "./admin/AdminAttendance.jsx";
 import PerformanceReview from "./admin/PerformanceReview.jsx";
+import RetailerDatabaseTeam from "./RetailerDatabaseTeam.jsx";
 
 function Tile({ to, label }) {
   return (
@@ -109,7 +110,12 @@ export default function AdminDashboard() {
           />
 
           <Route path="revenue" element={<AdminRevenueTracker />} />
-          <Route path="retailers" element={<h3>🏬 Retailers DB (coming soon)</h3>} />
+          <Route path="retailers" element={
+            <div>
+              <h3>🏬 Retailer Database (All Regions)</h3>
+              <RetailerDatabaseTeam />
+            </div>
+          } />
 
           {/* ✅ Daily Tracker with ReportViewer */}
           <Route

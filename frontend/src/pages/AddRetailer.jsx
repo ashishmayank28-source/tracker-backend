@@ -29,10 +29,28 @@ export default function AddRetailer() {
     setForm({ ...form, [field]: value });
   };
 
-  // Validate mobile (10 digits)
-  const handleMobileChange = (value) => {
+  const [mobileError, setMobileError] = useState("");
+
+  // Validate mobile (10 digits) and check if exists
+  const handleMobileChange = async (value) => {
     const cleaned = value.replace(/\D/g, "").slice(0, 10);
     setForm({ ...form, ownerMobile: cleaned });
+    setMobileError("");
+
+    // Check if 10 digits entered
+    if (cleaned.length === 10) {
+      try {
+        const res = await fetch(`${API_BASE}/api/retailers/check/${cleaned}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (data.exists) {
+          setMobileError("⚠️ This mobile is already registered in your database");
+        }
+      } catch (err) {
+        console.error("Check mobile error:", err);
+      }
+    }
   };
 
   // Validate PIN (6 digits)
@@ -47,6 +65,9 @@ export default function AddRetailer() {
     // Validation
     if (!form.ownerMobile || form.ownerMobile.length !== 10) {
       return alert("❌ Please enter valid 10-digit mobile number");
+    }
+    if (mobileError) {
+      return alert("❌ " + mobileError);
     }
     if (!form.companyName.trim()) {
       return alert("❌ Company Name is required");
@@ -96,6 +117,7 @@ export default function AddRetailer() {
           branch: user?.branch || "",
           region: user?.region || "",
         });
+        setMobileError("");
         setTimeout(() => setSuccess(false), 3000);
       } else {
         alert(data.message || "❌ Failed to add retailer");
@@ -141,15 +163,26 @@ export default function AddRetailer() {
           gap: 20,
         }}>
           {/* Owner Mobile */}
-          <FormField
-            label="Owner Mobile No. *"
-            type="tel"
-            value={form.ownerMobile}
-            onChange={(e) => handleMobileChange(e.target.value)}
-            placeholder="Enter 10-digit mobile"
-            maxLength={10}
-            required
-          />
+          <div>
+            <label style={labelStyle}>Owner Mobile No. *</label>
+            <input
+              type="tel"
+              value={form.ownerMobile}
+              onChange={(e) => handleMobileChange(e.target.value)}
+              placeholder="Enter 10-digit mobile"
+              maxLength={10}
+              required
+              style={{
+                ...inputStyle,
+                borderColor: mobileError ? "#ef4444" : "#d1d5db",
+              }}
+            />
+            {mobileError && (
+              <div style={{ color: "#ef4444", fontSize: 12, marginTop: 4 }}>
+                {mobileError}
+              </div>
+            )}
+          </div>
 
           {/* Company GSTN */}
           <FormField

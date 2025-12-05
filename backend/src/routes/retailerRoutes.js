@@ -8,6 +8,8 @@ import {
   deleteRetailer,
   getMyRetailers,
   searchByMobile,
+  getTeamRetailers,
+  checkMobileExists,
 } from "../controllers/retailerController.js";
 
 const router = express.Router();
@@ -23,6 +25,12 @@ router.get("/", getRetailers);
 
 // Get my retailers (created by logged-in user)
 router.get("/my", getMyRetailers);
+
+// Get team retailers (for Manager/BM/RM/Admin)
+router.get("/team", getTeamRetailers);
+
+// Check if mobile exists for employee
+router.get("/check/:mobile", checkMobileExists);
 
 // Search by mobile
 router.get("/search/:mobile", searchByMobile);
