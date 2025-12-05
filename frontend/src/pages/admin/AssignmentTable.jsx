@@ -71,10 +71,11 @@ export default function AssignmentTable() {
   }, [token]);
 
   // Calculate stock for each employee
-  const calculateEmpStock = (empCode) => {
+  // Stock = Received - (Used + Assigned Out to Others)
+  const calculateEmpStock = (empCode, empName) => {
     const stock = {};
     sampleItems.forEach(item => {
-      stock[item] = { assigned: 0, used: 0, available: 0 };
+      stock[item] = { assigned: 0, used: 0, assignedOut: 0, available: 0 };
     });
 
     assignments.forEach(a => {
@@ -82,28 +83,48 @@ export default function AssignmentTable() {
       const assignYear = new Date(a.createdAt || a.date).getFullYear();
       if (year !== "All" && assignYear !== parseInt(year)) return;
 
+      const item = a.item;
+      if (!stock[item]) return;
+
+      // ✅ Count RECEIVED qty (when this person is in employees array)
       (a.employees || []).forEach(emp => {
         if (emp.empCode === empCode) {
-          const item = a.item;
-          if (stock[item]) {
-            stock[item].assigned += emp.qty || 0;
-            stock[item].used += emp.usedQty || 0;
-            stock[item].available = stock[item].assigned - stock[item].used;
-          }
+          stock[item].assigned += emp.qty || 0;
+          stock[item].used += emp.usedQty || 0;
         }
       });
+
+      // ✅ Count ASSIGNED OUT qty (when this person assigned to others)
+      // Check if assignedBy matches this employee's empCode or name
+      if (a.assignerEmpCode === empCode || a.assignedBy === empName) {
+        // This person assigned this to someone else - count as assigned out
+        (a.employees || []).forEach(emp => {
+          // Don't count if assigned to self
+          if (emp.empCode !== empCode) {
+            stock[item].assignedOut += emp.qty || 0;
+          }
+        });
+      }
+    });
+
+    // Calculate available = assigned - used - assignedOut
+    sampleItems.forEach(item => {
+      stock[item].available = stock[item].assigned - stock[item].used - stock[item].assignedOut;
     });
 
     return stock;
   };
 
   // Get employee history
-  const getEmpHistory = (empCode) => {
+  const getEmpHistory = (empCode, empName) => {
     const history = [];
+    
+    // 1. Records where this employee RECEIVED stock
     assignments.forEach(a => {
       (a.employees || []).forEach(emp => {
         if (emp.empCode === empCode) {
           history.push({
+            type: "received",
             date: a.date,
             item: a.item,
             qty: emp.qty,
@@ -118,13 +139,36 @@ export default function AssignmentTable() {
         }
       });
     });
+
+    // 2. Records where this employee ASSIGNED OUT to others
+    assignments.forEach(a => {
+      if (a.assignerEmpCode === empCode || a.assignedBy === empName) {
+        (a.employees || []).forEach(emp => {
+          if (emp.empCode !== empCode) {
+            history.push({
+              type: "assigned_out",
+              date: a.date,
+              item: a.item,
+              qty: emp.qty,
+              assignedTo: emp.name,
+              assignedToCode: emp.empCode,
+              purpose: a.purpose,
+              rootId: a.rootId,
+              rmId: a.rmId,
+              bmId: a.bmId,
+            });
+          }
+        });
+      }
+    });
+
     return history.sort((a, b) => new Date(b.date) - new Date(a.date));
   };
 
   // Open history modal
   const openHistory = (emp) => {
     setSelectedEmp(emp);
-    setEmpHistory(getEmpHistory(emp.empCode));
+    setEmpHistory(getEmpHistory(emp.empCode, emp.name));
     setShowHistory(true);
   };
 
@@ -216,9 +260,9 @@ export default function AssignmentTable() {
             </thead>
             <tbody>
               {filteredEmps.map((emp, idx) => {
-                const stock = calculateEmpStock(emp.empCode);
+                const stock = calculateEmpStock(emp.empCode, emp.name);
                 const totalAssigned = Object.values(stock).reduce((sum, s) => sum + s.assigned, 0);
-                const totalUsed = Object.values(stock).reduce((sum, s) => sum + s.used, 0);
+                const totalUsed = Object.values(stock).reduce((sum, s) => sum + s.used + s.assignedOut, 0);
                 const totalAvailable = Object.values(stock).reduce((sum, s) => sum + s.available, 0);
 
                 return (
@@ -243,7 +287,7 @@ export default function AssignmentTable() {
                       <td key={item} style={{ padding: 8, border: "1px solid #ddd", textAlign: "center" }}>
                         <span style={{ color: "#1976d2" }}>{stock[item].assigned}</span>
                         <span style={{ color: "#999" }}> | </span>
-                        <span style={{ color: "#f57c00" }}>{stock[item].used}</span>
+                        <span style={{ color: "#f57c00" }}>{stock[item].used + stock[item].assignedOut}</span>
                         <span style={{ color: "#999" }}> | </span>
                         <span style={{ color: stock[item].available > 0 ? "#388e3c" : "#999" }}>{stock[item].available}</span>
                       </td>
@@ -329,23 +373,55 @@ export default function AssignmentTable() {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
                   <tr style={{ background: "#f5f5f5" }}>
+                    <th style={{ padding: 8, border: "1px solid #ddd" }}>Type</th>
                     <th style={{ padding: 8, border: "1px solid #ddd" }}>Date</th>
                     <th style={{ padding: 8, border: "1px solid #ddd" }}>Item</th>
-                    <th style={{ padding: 8, border: "1px solid #ddd" }}>Assigned Qty</th>
-                    <th style={{ padding: 8, border: "1px solid #ddd" }}>Used Qty</th>
+                    <th style={{ padding: 8, border: "1px solid #ddd" }}>Qty</th>
+                    <th style={{ padding: 8, border: "1px solid #ddd" }}>Used/Given To</th>
                     <th style={{ padding: 8, border: "1px solid #ddd" }}>Purpose</th>
-                    <th style={{ padding: 8, border: "1px solid #ddd" }}>Assigned By</th>
-                    <th style={{ padding: 8, border: "1px solid #ddd" }}>Root ID</th>
-                    <th style={{ padding: 8, border: "1px solid #ddd" }}>Used Against (Customers)</th>
+                    <th style={{ padding: 8, border: "1px solid #ddd" }}>By/To</th>
+                    <th style={{ padding: 8, border: "1px solid #ddd" }}>ID</th>
                   </tr>
                 </thead>
                 <tbody>
                   {empHistory.map((h, i) => (
-                    <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
+                    <tr key={i} style={{ 
+                      background: h.type === "assigned_out" 
+                        ? "#fff3e0" 
+                        : (i % 2 === 0 ? "#e8f5e9" : "#f1f8e9")
+                    }}>
+                      <td style={{ padding: 8, border: "1px solid #ddd" }}>
+                        <span style={{
+                          background: h.type === "received" ? "#4caf50" : "#ff9800",
+                          color: "white",
+                          padding: "2px 6px",
+                          borderRadius: 4,
+                          fontSize: 10,
+                          fontWeight: 600
+                        }}>
+                          {h.type === "received" ? "📥 Received" : "📤 Assigned Out"}
+                        </span>
+                      </td>
                       <td style={{ padding: 8, border: "1px solid #ddd" }}>{h.date}</td>
                       <td style={{ padding: 8, border: "1px solid #ddd" }}>{h.item}</td>
-                      <td style={{ padding: 8, border: "1px solid #ddd", textAlign: "center", color: "#1976d2", fontWeight: 600 }}>{h.qty}</td>
-                      <td style={{ padding: 8, border: "1px solid #ddd", textAlign: "center", color: "#f57c00", fontWeight: 600 }}>{h.usedQty}</td>
+                      <td style={{ padding: 8, border: "1px solid #ddd", textAlign: "center", fontWeight: 600, color: h.type === "received" ? "#1976d2" : "#f57c00" }}>
+                        {h.qty}
+                      </td>
+                      <td style={{ padding: 8, border: "1px solid #ddd" }}>
+                        {h.type === "received" ? (
+                          h.usedSamples?.length > 0 ? (
+                            <div style={{ fontSize: 11 }}>
+                              {h.usedSamples.map((us, j) => (
+                                <div key={j}><b>{us.customerId}</b> (Qty: {us.qty})</div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span style={{ color: "#999" }}>Used: {h.usedQty || 0}</span>
+                          )
+                        ) : (
+                          <span style={{ color: "#e65100" }}>{h.assignedTo} ({h.assignedToCode})</span>
+                        )}
+                      </td>
                       <td style={{ padding: 8, border: "1px solid #ddd" }}>
                         <span style={{
                           background: h.purpose?.includes("Project") ? "#e8f5e9" : "#e3f2fd",
@@ -356,20 +432,11 @@ export default function AssignmentTable() {
                           {h.purpose}
                         </span>
                       </td>
-                      <td style={{ padding: 8, border: "1px solid #ddd" }}>{h.assignedBy}</td>
-                      <td style={{ padding: 8, border: "1px solid #ddd", fontSize: 10, color: "#666" }}>{h.rootId}</td>
                       <td style={{ padding: 8, border: "1px solid #ddd" }}>
-                        {h.usedSamples?.length > 0 ? (
-                          <div style={{ fontSize: 11 }}>
-                            {h.usedSamples.map((us, j) => (
-                              <div key={j} style={{ marginBottom: 2 }}>
-                                <b>{us.customerId}</b> (Qty: {us.qty})
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <span style={{ color: "#999" }}>-</span>
-                        )}
+                        {h.type === "received" ? h.assignedBy : h.assignedTo}
+                      </td>
+                      <td style={{ padding: 8, border: "1px solid #ddd", fontSize: 10, color: "#666" }}>
+                        {h.bmId || h.rmId || h.rootId}
                       </td>
                     </tr>
                   ))}

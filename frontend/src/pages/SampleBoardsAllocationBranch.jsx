@@ -128,6 +128,7 @@ export default function SampleBoardsAllocationBranch() {
           }],
           purpose: finalPurpose,
           assignedBy: user?.name || "Unknown",
+          assignerEmpCode: user?.empCode || "", // ✅ Track who assigned
           role: user?.role || "BranchManager",
           branch: user?.branch || "Unknown",
           region: user?.region || "Unknown",

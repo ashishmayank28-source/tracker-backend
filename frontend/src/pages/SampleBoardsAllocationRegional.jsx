@@ -127,6 +127,7 @@ export default function SampleBoardsAllocationRegional() {
           }],
           purpose,
           assignedBy: user?.name || "Unknown",
+          assignerEmpCode: user?.empCode || "", // ✅ Track who assigned
           role: user?.role || "RegionalManager",
           region: user?.region || "Unknown",
           date: new Date().toLocaleString(),

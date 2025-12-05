@@ -29,6 +29,7 @@ const assignmentSchema = new mongoose.Schema({
   employees: [employeeSchema],
   purpose: { type: String, default: "" },
   assignedBy: { type: String, default: "" },
+  assignerEmpCode: { type: String, default: "" }, // ✅ EmpCode of the person who assigned
   role: { type: String, default: "" },
   region: { type: String, default: "" },
   branch: { type: String, default: "" },

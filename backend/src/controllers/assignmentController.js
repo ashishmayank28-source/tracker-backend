@@ -54,7 +54,7 @@ export const getRegionalStock = async (req, res) => {
 /* ---------- Regional Manager Allocation ---------- */
 export const allocateRegional = async (req, res) => {
   try {
-    const { rootId, item, employees, purpose, assignedBy, region } = req.body;
+    const { rootId, item, employees, purpose, assignedBy, region, assignerEmpCode } = req.body;
     const rmId = "RM" + Date.now();
 
     const assignment = new Assignment({
@@ -64,6 +64,7 @@ export const allocateRegional = async (req, res) => {
       employees,
       purpose,
       assignedBy,
+      assignerEmpCode: assignerEmpCode || req.user?.empCode,
       role: "RegionalManager",
       region,
       date: new Date().toLocaleString(),
@@ -113,7 +114,7 @@ export const getBranchStock = async (req, res) => {
 /* ---------- Branch Manager Allocation ---------- */
 export const createBranchAssignment = async (req, res) => {
   try {
-    const { rootId, rmId, item, employees, purpose, assignedBy, region } = req.body;
+    const { rootId, rmId, item, employees, purpose, assignedBy, region, assignerEmpCode } = req.body;
     const bmId = "BM" + Date.now();
 
     const assignment = new Assignment({
@@ -124,6 +125,7 @@ export const createBranchAssignment = async (req, res) => {
       employees,
       purpose,
       assignedBy,
+      assignerEmpCode: assignerEmpCode || req.user?.empCode, // Store assigner's empCode
       role: "BranchManager",
       region,
       date: new Date().toLocaleString(),
@@ -169,7 +171,7 @@ export const getManagerStock = async (req, res) => {
 /* ---------- Manager Allocation ---------- */
 export const allocateManager = async (req, res) => {
   try {
-    const { rootId, rmId, bmId, item, employees, purpose, assignedBy, region } = req.body;
+    const { rootId, rmId, bmId, item, employees, purpose, assignedBy, region, assignerEmpCode } = req.body;
     const managerId = "MGR" + Date.now();
 
     const newAssign = new Assignment({
@@ -181,6 +183,7 @@ export const allocateManager = async (req, res) => {
       employees,
       purpose,
       assignedBy,
+      assignerEmpCode: assignerEmpCode || req.user?.empCode,
       role: "Manager",
       region,
       date: new Date().toLocaleString(),
