@@ -26,22 +26,53 @@ export const getAdminHistory = async (req, res) => {
 /* ---------- Regional Manager Stock ---------- */
 export const getRegionalStock = async (req, res) => {
   try {
-    const rmAssignments = await Assignment.find({
-      "employees.empCode": req.user.empCode,
-    });
+    const userEmpCode = req.user.empCode;
+    const userName = req.user.name;
 
+    // 🔹 Fetch all assignments where RM is involved
+    const rmAssignments = await Assignment.find({
+      $or: [
+        { "employees.empCode": userEmpCode },  // received from Admin
+        { assignerEmpCode: userEmpCode },      // assigned by this RM (using empCode)
+        { assignedBy: userName },              // assigned by this RM (using name)
+      ],
+    }).sort({ date: -1 });
+
+    // 🔹 Calculate stock: Received - Used - Assigned Out
     const stockMap = {};
+    
     rmAssignments.forEach((a) => {
+      const item = a.item;
+      if (!stockMap[item]) {
+        stockMap[item] = { received: 0, used: 0, assignedOut: 0 };
+      }
+
+      // ✅ Count RECEIVED qty (when RM is in employees array)
       a.employees.forEach((emp) => {
-        if (emp.empCode === req.user.empCode) {
-          stockMap[a.item] = (stockMap[a.item] || 0) + (emp.qty || 0);
+        if (emp.empCode === userEmpCode) {
+          stockMap[item].received += (emp.qty || 0);
+          stockMap[item].used += (emp.usedQty || 0);
         }
       });
+
+      // ✅ Count ASSIGNED OUT qty (when RM assigned to others)
+      if (a.assignerEmpCode === userEmpCode || a.assignedBy === userName) {
+        a.employees.forEach((emp) => {
+          // Don't count if assigned to self
+          if (emp.empCode !== userEmpCode) {
+            stockMap[item].assignedOut += (emp.qty || 0);
+          }
+        });
+      }
     });
 
+    // Calculate available stock
     const stock = Object.keys(stockMap).map((k) => ({
       name: k,
-      stock: stockMap[k],
+      received: stockMap[k].received,
+      used: stockMap[k].used,
+      assignedOut: stockMap[k].assignedOut,
+      stock: stockMap[k].received - stockMap[k].used - stockMap[k].assignedOut,
     }));
 
     res.json({ stock, assignments: rmAssignments });
@@ -82,26 +113,53 @@ export const allocateRegional = async (req, res) => {
 /* ---------- Branch Manager Stock ---------- */
 export const getBranchStock = async (req, res) => {
   try {
-    // 🔹 Fetch both allocations where BM is receiver OR BM created
+    const userEmpCode = req.user.empCode;
+    const userName = req.user.name;
+
+    // 🔹 Fetch all assignments where BM is involved
     const bmAssignments = await Assignment.find({
       $or: [
-        { "employees.empCode": req.user.empCode },  // received from RM
-        { assignedBy: req.user.name },              // created by this BM
+        { "employees.empCode": userEmpCode },  // received from RM/Admin
+        { assignerEmpCode: userEmpCode },      // assigned by this BM (using empCode)
+        { assignedBy: userName },              // assigned by this BM (using name)
       ],
     }).sort({ date: -1 });
 
+    // 🔹 Calculate stock: Received - Used - Assigned Out
     const stockMap = {};
+    
     bmAssignments.forEach((a) => {
+      const item = a.item;
+      if (!stockMap[item]) {
+        stockMap[item] = { received: 0, used: 0, assignedOut: 0 };
+      }
+
+      // ✅ Count RECEIVED qty (when BM is in employees array)
       a.employees.forEach((emp) => {
-        if (emp.empCode === req.user.empCode) {
-          stockMap[a.item] = (stockMap[a.item] || 0) + (emp.qty || 0);
+        if (emp.empCode === userEmpCode) {
+          stockMap[item].received += (emp.qty || 0);
+          stockMap[item].used += (emp.usedQty || 0);
         }
       });
+
+      // ✅ Count ASSIGNED OUT qty (when BM assigned to others)
+      if (a.assignerEmpCode === userEmpCode || a.assignedBy === userName) {
+        a.employees.forEach((emp) => {
+          // Don't count if assigned to self
+          if (emp.empCode !== userEmpCode) {
+            stockMap[item].assignedOut += (emp.qty || 0);
+          }
+        });
+      }
     });
 
+    // Calculate available stock
     const stock = Object.keys(stockMap).map((k) => ({
       name: k,
-      stock: stockMap[k],
+      received: stockMap[k].received,
+      used: stockMap[k].used,
+      assignedOut: stockMap[k].assignedOut,
+      stock: stockMap[k].received - stockMap[k].used - stockMap[k].assignedOut,
     }));
 
     res.json({ stock, assignments: bmAssignments });
@@ -143,22 +201,53 @@ export const createBranchAssignment = async (req, res) => {
 /* ---------- Manager Stock ---------- */
 export const getManagerStock = async (req, res) => {
   try {
-    const mgrAssignments = await Assignment.find({
-      "employees.empCode": req.user.empCode,
-    });
+    const userEmpCode = req.user.empCode;
+    const userName = req.user.name;
 
+    // 🔹 Fetch all assignments where Manager is involved
+    const mgrAssignments = await Assignment.find({
+      $or: [
+        { "employees.empCode": userEmpCode },  // received from BM/RM/Admin
+        { assignerEmpCode: userEmpCode },      // assigned by this Manager (using empCode)
+        { assignedBy: userName },              // assigned by this Manager (using name)
+      ],
+    }).sort({ date: -1 });
+
+    // 🔹 Calculate stock: Received - Used - Assigned Out
     const stockMap = {};
+    
     mgrAssignments.forEach((a) => {
+      const item = a.item;
+      if (!stockMap[item]) {
+        stockMap[item] = { received: 0, used: 0, assignedOut: 0 };
+      }
+
+      // ✅ Count RECEIVED qty (when Manager is in employees array)
       a.employees.forEach((emp) => {
-        if (emp.empCode === req.user.empCode) {
-          stockMap[a.item] = (stockMap[a.item] || 0) + (emp.qty || 0);
+        if (emp.empCode === userEmpCode) {
+          stockMap[item].received += (emp.qty || 0);
+          stockMap[item].used += (emp.usedQty || 0);
         }
       });
+
+      // ✅ Count ASSIGNED OUT qty (when Manager assigned to others)
+      if (a.assignerEmpCode === userEmpCode || a.assignedBy === userName) {
+        a.employees.forEach((emp) => {
+          // Don't count if assigned to self
+          if (emp.empCode !== userEmpCode) {
+            stockMap[item].assignedOut += (emp.qty || 0);
+          }
+        });
+      }
     });
 
+    // Calculate available stock
     const stock = Object.keys(stockMap).map((k) => ({
       name: k,
-      stock: stockMap[k],
+      received: stockMap[k].received,
+      used: stockMap[k].used,
+      assignedOut: stockMap[k].assignedOut,
+      stock: stockMap[k].received - stockMap[k].used - stockMap[k].assignedOut,
     }));
 
     res.json({ stock, assignments: mgrAssignments });

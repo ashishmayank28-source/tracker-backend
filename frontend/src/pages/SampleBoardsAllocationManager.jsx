@@ -152,11 +152,27 @@ export default function SampleBoardsAllocationManager() {
       <h3>📊 My Current Stock</h3>
       {stock.length > 0 ? (
         <table border="1" cellPadding="6" style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>{stock.map((s) => <th key={s.name}>{s.name}</th>)}</tr>
+          <thead style={{ background: "#f5f5f5" }}>
+            <tr>
+              <th>Item</th>
+              <th style={{ color: "#1976d2" }}>Received</th>
+              <th style={{ color: "#f57c00" }}>Used</th>
+              <th style={{ color: "#e65100" }}>Assigned Out</th>
+              <th style={{ color: "#388e3c", fontWeight: "bold" }}>Available</th>
+            </tr>
           </thead>
           <tbody>
-            <tr>{stock.map((s) => <td key={s.name}>{s.stock}</td>)}</tr>
+            {stock.map((s) => (
+              <tr key={s.name}>
+                <td>{s.name}</td>
+                <td style={{ textAlign: "center", color: "#1976d2" }}>{s.received || 0}</td>
+                <td style={{ textAlign: "center", color: "#f57c00" }}>{s.used || 0}</td>
+                <td style={{ textAlign: "center", color: "#e65100" }}>{s.assignedOut || 0}</td>
+                <td style={{ textAlign: "center", color: s.stock > 0 ? "#388e3c" : "#999", fontWeight: "bold" }}>
+                  {s.stock}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       ) : (

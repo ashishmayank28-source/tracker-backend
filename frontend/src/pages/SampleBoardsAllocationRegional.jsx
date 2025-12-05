@@ -224,14 +224,22 @@ export default function SampleBoardsAllocationRegional() {
             <thead style={{ background: "#f5f5f5" }}>
               <tr>
                 <th>Item</th>
-                <th>Available Qty</th>
+                <th style={{ color: "#1976d2" }}>Received</th>
+                <th style={{ color: "#f57c00" }}>Used</th>
+                <th style={{ color: "#e65100" }}>Assigned Out</th>
+                <th style={{ color: "#388e3c", fontWeight: "bold" }}>Available</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item) => (
                 <tr key={item.name}>
                   <td>{item.name}</td>
-                  <td>{safeNum(item.stock)}</td>
+                  <td style={{ textAlign: "center", color: "#1976d2" }}>{safeNum(item.received)}</td>
+                  <td style={{ textAlign: "center", color: "#f57c00" }}>{safeNum(item.used)}</td>
+                  <td style={{ textAlign: "center", color: "#e65100" }}>{safeNum(item.assignedOut)}</td>
+                  <td style={{ textAlign: "center", color: safeNum(item.stock) > 0 ? "#388e3c" : "#999", fontWeight: "bold" }}>
+                    {safeNum(item.stock)}
+                  </td>
                 </tr>
               ))}
             </tbody>
