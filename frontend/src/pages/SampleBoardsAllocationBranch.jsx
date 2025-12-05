@@ -253,47 +253,87 @@ export default function SampleBoardsAllocationBranch() {
         <div style={{ marginTop: 30 }}>
           <h3>📑 Assignment History</h3>
           <div style={{ overflowX: "auto" }}>
-            <table border="1" cellPadding="6" style={{ width: "100%", borderCollapse: "collapse", minWidth: 800 }}>
+            <table border="1" cellPadding="6" style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
               <thead style={{ background: "#f5f5f5" }}>
                 <tr>
-                  <th>Root ID</th>
-                  <th>RM ID</th>
-                  <th>BM ID</th>
+                  <th>Type</th>
                   <th>Date</th>
                   <th>Item</th>
-                  <th>Employee</th>
-                  <th>Qty (T/U/A)</th>
+                  <th>Qty</th>
+                  <th>From/To</th>
                   <th>Purpose</th>
-                  <th>Assigned By</th>
+                  <th>ID</th>
                   <th>LR Details</th>
                 </tr>
               </thead>
               <tbody>
-                {assignments.map((a, i) =>
-                  (a.employees || []).map((emp, j) => {
-                    const available = safeNum(emp.qty) - safeNum(emp.usedQty);
+                {/* Received Assignments (where BM is in employees) */}
+                {assignments
+                  .filter(a => (a.employees || []).some(e => e.empCode === user?.empCode))
+                  .map((a, i) => {
+                    const emp = a.employees.find(e => e.empCode === user?.empCode);
+                    const available = safeNum(emp?.qty) - safeNum(emp?.usedQty);
                     return (
-                      <tr key={`${i}-${j}`}>
-                        <td>{a.rootId || "-"}</td>
-                        <td>{a.rmId || "-"}</td>
-                        <td>{a.bmId || "-"}</td>
-                        <td>{a.date}</td>
-                        <td>{a.item}</td>
-                        <td>{emp.name} ({emp.empCode})</td>
+                      <tr key={`recv-${i}`} style={{ background: "#e8f5e9" }}>
                         <td>
-                          <span>{safeNum(emp.qty)}</span> / {" "}
-                          <span style={{ color: "#f59e0b" }}>{safeNum(emp.usedQty)}</span> / {" "}
-                          <span style={{ fontWeight: "bold", color: available > 0 ? "green" : "red" }}>
-                            {available}
+                          <span style={{
+                            background: "#4caf50",
+                            color: "white",
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                            fontSize: 11,
+                            fontWeight: 600
+                          }}>
+                            📥 Received
                           </span>
                         </td>
+                        <td>{a.date}</td>
+                        <td>{a.item}</td>
+                        <td>
+                          <span style={{ color: "#1976d2", fontWeight: 600 }}>{safeNum(emp?.qty)}</span>
+                          <span style={{ color: "#999" }}> (Used: </span>
+                          <span style={{ color: "#f57c00" }}>{safeNum(emp?.usedQty)}</span>
+                          <span style={{ color: "#999" }}>, Avl: </span>
+                          <span style={{ color: available > 0 ? "#388e3c" : "#999", fontWeight: 600 }}>{available}</span>
+                          <span style={{ color: "#999" }}>)</span>
+                        </td>
+                        <td>From: <b>{a.assignedBy}</b></td>
                         <td>{a.purpose}</td>
-                        <td>{a.assignedBy}</td>
+                        <td style={{ fontSize: 11 }}>{a.rmId || a.rootId}</td>
                         <td>{a.lrNo || "-"}</td>
                       </tr>
                     );
-                  })
-                )}
+                  })}
+                
+                {/* Assigned Out (where BM assigned to others) */}
+                {assignments
+                  .filter(a => a.assignerEmpCode === user?.empCode || a.assignedBy === user?.name)
+                  .filter(a => !(a.employees || []).some(e => e.empCode === user?.empCode))
+                  .map((a, i) =>
+                    (a.employees || []).map((emp, j) => (
+                      <tr key={`out-${i}-${j}`} style={{ background: "#fff3e0" }}>
+                        <td>
+                          <span style={{
+                            background: "#ff9800",
+                            color: "white",
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                            fontSize: 11,
+                            fontWeight: 600
+                          }}>
+                            📤 Assigned Out
+                          </span>
+                        </td>
+                        <td>{a.date}</td>
+                        <td>{a.item}</td>
+                        <td style={{ color: "#e65100", fontWeight: 600 }}>{safeNum(emp.qty)}</td>
+                        <td>To: <b>{emp.name}</b> ({emp.empCode})</td>
+                        <td>{a.purpose}</td>
+                        <td style={{ fontSize: 11 }}>{a.bmId}</td>
+                        <td>{a.lrNo || "-"}</td>
+                      </tr>
+                    ))
+                  )}
               </tbody>
             </table>
           </div>

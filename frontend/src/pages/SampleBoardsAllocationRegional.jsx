@@ -343,63 +343,104 @@ export default function SampleBoardsAllocationRegional() {
         <div style={{ marginTop: 30 }}>
           <h3>📑 Assignment History</h3>
           <div style={{ marginBottom: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <input type="text" placeholder="Filter by ID" onChange={(e) => setAssignmentsFilter((p) => ({ ...p, id: e.target.value }))} />
-            <input type="text" placeholder="Filter by Employee" onChange={(e) => setAssignmentsFilter((p) => ({ ...p, emp: e.target.value }))} />
-            <input type="text" placeholder="Filter by Item" onChange={(e) => setAssignmentsFilter((p) => ({ ...p, item: e.target.value }))} />
-            <input type="text" placeholder="Filter by Purpose" onChange={(e) => setAssignmentsFilter((p) => ({ ...p, purpose: e.target.value }))} />
+            <input type="text" placeholder="Filter by ID" onChange={(e) => setAssignmentsFilter((p) => ({ ...p, id: e.target.value }))} style={{ padding: "6px" }} />
+            <input type="text" placeholder="Filter by Employee" onChange={(e) => setAssignmentsFilter((p) => ({ ...p, emp: e.target.value }))} style={{ padding: "6px" }} />
+            <input type="text" placeholder="Filter by Item" onChange={(e) => setAssignmentsFilter((p) => ({ ...p, item: e.target.value }))} style={{ padding: "6px" }} />
+            <input type="text" placeholder="Filter by Purpose" onChange={(e) => setAssignmentsFilter((p) => ({ ...p, purpose: e.target.value }))} style={{ padding: "6px" }} />
           </div>
 
           <div style={{ overflowX: "auto" }}>
-            <table border="1" cellPadding="6" style={{ width: "100%", borderCollapse: "collapse", minWidth: 800 }}>
+            <table border="1" cellPadding="6" style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
               <thead style={{ background: "#f5f5f5" }}>
                 <tr>
-                  <th>Root ID</th>
-                  <th>RM ID</th>
-                  <th>BM ID</th>
+                  <th>Type</th>
                   <th>Date</th>
                   <th>Item</th>
-                  <th>Employee</th>
-                  <th>Qty (T/U/A)</th>
+                  <th>Qty</th>
+                  <th>From/To</th>
                   <th>Purpose</th>
-                  <th>Assigned By</th>
+                  <th>ID</th>
                 </tr>
               </thead>
               <tbody>
+                {/* Received Assignments (where RM is in employees) */}
                 {assignments
+                  .filter(a => (a.employees || []).some(e => e.empCode === user?.empCode))
                   .filter((a) =>
                     (a.rootId || "").toLowerCase().includes(assignmentsFilter.id.toLowerCase()) ||
-                    (a.rmId || "").toLowerCase().includes(assignmentsFilter.id.toLowerCase()) ||
-                    (a.bmId || "").toLowerCase().includes(assignmentsFilter.id.toLowerCase())
+                    (a.rmId || "").toLowerCase().includes(assignmentsFilter.id.toLowerCase())
                   )
                   .filter((a) => (a.item || "").toLowerCase().includes(assignmentsFilter.item.toLowerCase()))
                   .filter((a) => (a.purpose || "").toLowerCase().includes(assignmentsFilter.purpose.toLowerCase()))
-                  .map((a, i) =>
+                  .map((a, i) => {
+                    const emp = a.employees.find(e => e.empCode === user?.empCode);
+                    const available = safeNum(emp?.qty) - safeNum(emp?.usedQty);
+                    return (
+                      <tr key={`recv-${i}`} style={{ background: "#e8f5e9" }}>
+                        <td>
+                          <span style={{
+                            background: "#4caf50",
+                            color: "white",
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                            fontSize: 11,
+                            fontWeight: 600
+                          }}>
+                            📥 Received
+                          </span>
+                        </td>
+                        <td>{a.date}</td>
+                        <td>{a.item}</td>
+                        <td>
+                          <span style={{ color: "#1976d2", fontWeight: 600 }}>{safeNum(emp?.qty)}</span>
+                          <span style={{ color: "#999" }}> (Used: </span>
+                          <span style={{ color: "#f57c00" }}>{safeNum(emp?.usedQty)}</span>
+                          <span style={{ color: "#999" }}>, Avl: </span>
+                          <span style={{ color: available > 0 ? "#388e3c" : "#999", fontWeight: 600 }}>{available}</span>
+                          <span style={{ color: "#999" }}>)</span>
+                        </td>
+                        <td>From: <b>{a.assignedBy}</b></td>
+                        <td>{a.purpose}</td>
+                        <td style={{ fontSize: 11 }}>{a.rootId}</td>
+                      </tr>
+                    );
+                  })}
+                
+                {/* Assigned Out (where RM assigned to others) */}
+                {assignments
+                  .filter(a => a.assignerEmpCode === user?.empCode || a.assignedBy === user?.name)
+                  .filter(a => !(a.employees || []).some(e => e.empCode === user?.empCode))
+                  .filter((a) =>
+                    (a.rootId || "").toLowerCase().includes(assignmentsFilter.id.toLowerCase()) ||
+                    (a.rmId || "").toLowerCase().includes(assignmentsFilter.id.toLowerCase())
+                  )
+                  .filter((a) => (a.item || "").toLowerCase().includes(assignmentsFilter.item.toLowerCase()))
+                  .filter((a) => (a.purpose || "").toLowerCase().includes(assignmentsFilter.purpose.toLowerCase()))
+                  .flatMap((a, i) =>
                     (a.employees || [])
-                      .filter((emp) =>
-                        (emp.name || "").toLowerCase().includes(assignmentsFilter.emp.toLowerCase())
-                      )
-                      .map((emp, j) => {
-                        const available = safeNum(emp.qty) - safeNum(emp.usedQty);
-                        return (
-                          <tr key={`${i}-${j}`}>
-                            <td>{a.rootId || "-"}</td>
-                            <td>{a.rmId || "-"}</td>
-                            <td>{a.bmId || "-"}</td>
-                            <td>{a.date}</td>
-                            <td>{a.item}</td>
-                            <td>{emp.name} ({emp.empCode})</td>
-                            <td>
-                              <span>{safeNum(emp.qty)}</span> / {" "}
-                              <span style={{ color: "#f59e0b" }}>{safeNum(emp.usedQty)}</span> / {" "}
-                              <span style={{ fontWeight: "bold", color: available > 0 ? "green" : "red" }}>
-                                {available}
-                              </span>
-                            </td>
-                            <td>{a.purpose}</td>
-                            <td>{a.assignedBy}</td>
-                          </tr>
-                        );
-                      })
+                      .filter((emp) => (emp.name || "").toLowerCase().includes(assignmentsFilter.emp.toLowerCase()))
+                      .map((emp, j) => (
+                        <tr key={`out-${i}-${j}`} style={{ background: "#fff3e0" }}>
+                          <td>
+                            <span style={{
+                              background: "#ff9800",
+                              color: "white",
+                              padding: "2px 8px",
+                              borderRadius: 4,
+                              fontSize: 11,
+                              fontWeight: 600
+                            }}>
+                              📤 Assigned Out
+                            </span>
+                          </td>
+                          <td>{a.date}</td>
+                          <td>{a.item}</td>
+                          <td style={{ color: "#e65100", fontWeight: 600 }}>{safeNum(emp.qty)}</td>
+                          <td>To: <b>{emp.name}</b> ({emp.empCode})</td>
+                          <td>{a.purpose}</td>
+                          <td style={{ fontSize: 11 }}>{a.rmId}</td>
+                        </tr>
+                      ))
                   )}
               </tbody>
             </table>
