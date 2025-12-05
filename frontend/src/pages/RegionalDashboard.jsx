@@ -4,6 +4,7 @@ import RegionalDailyTracker from "./RegionalDailyTracker.jsx";
 import ReportsViewer from "../components/ReportsViewer.jsx";
 import SampleBoardsAllocationRegional from "./SampleBoardsAllocationRegional.jsx";
 import RegionalRevenueTracker from "./RegionalRevenueTracker.jsx";
+import PerformanceReviewRegional from "./PerformanceReviewRegional.jsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
@@ -81,6 +82,7 @@ export default function RegionalDashboard() {
             <Tile label="📊 Reports" onClick={() => setActiveTile("reports")} />
             <Tile label="💰 Revenue" onClick={() => setActiveTile("revenue")} />
             <Tile label="📦 Sample Boards" onClick={() => setActiveTile("assets")} />
+            <Tile label="⭐ Performance Review" onClick={() => setActiveTile("performance")} />
           </div>
 
           {/* My Team */}
@@ -122,6 +124,13 @@ export default function RegionalDashboard() {
         <TileWrapper onBack={() => setActiveTile("dashboard")}>
           <h3>💰 Revenue Tracker (Region: {user?.region || "N/A"})</h3>
           <RegionalRevenueTracker />
+        </TileWrapper>
+      )}
+
+      {/* ✅ Performance Review */}
+      {activeTile === "performance" && (
+        <TileWrapper onBack={() => setActiveTile("dashboard")}>
+          <PerformanceReviewRegional />
         </TileWrapper>
       )}
     </div>

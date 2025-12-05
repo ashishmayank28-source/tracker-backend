@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../auth.jsx";
 import ReportsViewer from "../components/ReportsViewer.jsx";
 import SampleBoardsAllocationBranch from "./SampleBoardsAllocationBranch.jsx";
-import RevenueTrackerBranch from "./RevenueTrackerBranch.jsx"; 
+import RevenueTrackerBranch from "./RevenueTrackerBranch.jsx";
+import PerformanceReviewBranch from "./PerformanceReviewBranch.jsx"; 
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
@@ -77,6 +78,7 @@ export default function BranchManagerDashboard() {
           <Tile label="💰 Revenue" onClick={() => setActiveTile("revenue")} />
           <Tile label="👥 My Team" onClick={() => setActiveTile("team")} />
           <Tile label="📦 Sample Boards" onClick={() => setActiveTile("sample")} />
+          <Tile label="⭐ Performance Review" onClick={() => setActiveTile("performance")} />
         </div>
       )}
 
@@ -135,6 +137,13 @@ export default function BranchManagerDashboard() {
       {activeTile === "sample" && (
         <TileWrapper onBack={() => setActiveTile("dashboard")}>
           <SampleBoardsAllocationBranch />
+        </TileWrapper>
+      )}
+
+      {/* --- Performance Review --- */}
+      {activeTile === "performance" && (
+        <TileWrapper onBack={() => setActiveTile("dashboard")}>
+          <PerformanceReviewBranch />
         </TileWrapper>
       )}
     </div>
