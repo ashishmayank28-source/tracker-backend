@@ -270,20 +270,103 @@ export default function SampleBoardsAllocationRegional() {
             </label>
           </div>
 
-          <div style={{ marginBottom: 15 }}>
-            <b>Assign To:</b>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-              {employees.map((emp) => (
-                <label key={emp.empCode} style={{ border: "1px solid #ccc", borderRadius: 4, padding: "4px 8px" }}>
-                  <input
-                    type="checkbox"
-                    checked={!!selectedEmps.find((e) => e.empCode === emp.empCode)}
-                    onChange={() => toggleEmployee(emp)}
-                  />{" "}
-                  {emp.name} ({emp.empCode})
-                </label>
-              ))}
-            </div>
+          {/* 🔹 Assign To - Grouped by Role */}
+          <div style={{ 
+            marginBottom: 20, 
+            padding: 15, 
+            background: "#f8fafc", 
+            borderRadius: 8, 
+            border: "1px solid #e2e8f0" 
+          }}>
+            {/* Branch Managers */}
+            {employees.filter(e => e.role === "BranchManager" || e.role === "Branch Manager").length > 0 && (
+              <div style={{ marginBottom: 15 }}>
+                <div style={{ color: "#ea580c", fontWeight: 600, marginBottom: 8 }}>Branch Managers:</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {employees.filter(e => e.role === "BranchManager" || e.role === "Branch Manager").map((emp) => (
+                    <label 
+                      key={emp.empCode} 
+                      style={{ 
+                        border: "2px solid #ea580c", 
+                        borderRadius: 6, 
+                        padding: "6px 12px",
+                        background: selectedEmps.find(e => e.empCode === emp.empCode) ? "#ffedd5" : "white",
+                        cursor: "pointer",
+                        fontSize: 13,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!!selectedEmps.find((e) => e.empCode === emp.empCode)}
+                        onChange={() => toggleEmployee(emp)}
+                        style={{ marginRight: 6 }}
+                      />
+                      {emp.name} ({emp.empCode})
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Managers */}
+            {employees.filter(e => e.role === "Manager").length > 0 && (
+              <div style={{ marginBottom: 15 }}>
+                <div style={{ color: "#9333ea", fontWeight: 600, marginBottom: 8 }}>Managers:</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {employees.filter(e => e.role === "Manager").map((emp) => (
+                    <label 
+                      key={emp.empCode} 
+                      style={{ 
+                        border: "2px solid #9333ea", 
+                        borderRadius: 6, 
+                        padding: "6px 12px",
+                        background: selectedEmps.find(e => e.empCode === emp.empCode) ? "#f3e8ff" : "white",
+                        cursor: "pointer",
+                        fontSize: 13,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!!selectedEmps.find((e) => e.empCode === emp.empCode)}
+                        onChange={() => toggleEmployee(emp)}
+                        style={{ marginRight: 6 }}
+                      />
+                      {emp.name} ({emp.empCode})
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Employees */}
+            {employees.filter(e => e.role === "Employee").length > 0 && (
+              <div>
+                <div style={{ color: "#0284c7", fontWeight: 600, marginBottom: 8 }}>Employees:</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {employees.filter(e => e.role === "Employee").map((emp) => (
+                    <label 
+                      key={emp.empCode} 
+                      style={{ 
+                        border: "2px solid #0284c7", 
+                        borderRadius: 6, 
+                        padding: "6px 12px",
+                        background: selectedEmps.find(e => e.empCode === emp.empCode) ? "#e0f2fe" : "white",
+                        cursor: "pointer",
+                        fontSize: 13,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!!selectedEmps.find((e) => e.empCode === emp.empCode)}
+                        onChange={() => toggleEmployee(emp)}
+                        style={{ marginRight: 6 }}
+                      />
+                      {emp.name} ({emp.empCode})
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Allocation Table */}
