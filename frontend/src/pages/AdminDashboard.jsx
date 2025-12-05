@@ -80,11 +80,10 @@ export default function AdminDashboard() {
         <Tile to="users" label="👥 Users" />
         <Tile to="attendance" label="📅 Attendance" />
         <Tile to="performance" label="⭐ Performance Review" />
-        <Tile to="reports" label="📊 Reports" />
+        <Tile to="daily" label="📝 Daily Tracker" />
         <Tile to="revenue" label="💰 Revenue" />
         <Tile to="assets" label="🎁 Assets" />
         <Tile to="retailers" label="🏬 Retailers DB" />
-        <Tile to="daily" label="📝 Daily Tracker" />
         <Tile to="dump" label="🗂 Dump Management" />
         <Tile to="ledger" label="📊 Assignment Ledger" />
         <Tile to="assignment-table" label="📋 Assignment Table" />

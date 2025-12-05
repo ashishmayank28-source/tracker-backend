@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../auth.jsx";
-import RegionalDailyTracker from "./RegionalDailyTracker.jsx";
 import ReportsViewer from "../components/ReportsViewer.jsx";
 import SampleBoardsAllocationRegional from "./SampleBoardsAllocationRegional.jsx";
 import RegionalRevenueTracker from "./RegionalRevenueTracker.jsx";
@@ -79,7 +78,6 @@ export default function RegionalDashboard() {
             }}
           >
             <Tile label="📅 Daily Tracker" onClick={() => setActiveTile("daily")} />
-            <Tile label="📊 Reports" onClick={() => setActiveTile("reports")} />
             <Tile label="💰 Revenue" onClick={() => setActiveTile("revenue")} />
             <Tile label="📦 Sample Boards" onClick={() => setActiveTile("assets")} />
             <Tile label="⭐ Performance Review" onClick={() => setActiveTile("performance")} />
@@ -97,15 +95,8 @@ export default function RegionalDashboard() {
         </>
       )}
 
-      {/* Daily Tracker */}
+      {/* Daily Tracker - Now shows ReportsViewer */}
       {activeTile === "daily" && (
-        <TileWrapper onBack={() => setActiveTile("dashboard")}>
-          <RegionalDailyTracker />
-        </TileWrapper>
-      )}
-
-      {/* Reports */}
-      {activeTile === "reports" && (
         <TileWrapper onBack={() => setActiveTile("dashboard")}>
           <ReportsViewer />
         </TileWrapper>
