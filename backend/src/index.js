@@ -19,6 +19,7 @@ import assignmentRoutes from "./routes/assignmentRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import revenueRoutes from "./routes/revenueRoutes.js";
 import holidayRoutes from "./routes/holidayRoutes.js";
+import retailerRoutes from "./routes/retailerRoutes.js";
 
 
 async function start() {
@@ -57,6 +58,7 @@ async function start() {
   app.use("/api/revenue", uploadRoutes);
   app.use("/api/revenue", revenueRoutes);
   app.use("/api/holidays", holidayRoutes);
+  app.use("/api/retailers", retailerRoutes);
   app.use("/uploads", express.static("uploads"));
 
   // 🔹 404 Fallback

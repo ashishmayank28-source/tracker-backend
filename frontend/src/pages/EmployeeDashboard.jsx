@@ -5,9 +5,10 @@ import MyReports from "./MyReports.jsx";
 import AttendanceStatus from "./AttendanceStatus.jsx";
 import RetailerDatabase from "./RetailerDatabase.jsx";
 import Notifications from "./Notifications.jsx";
-import SampleBoardsAllocationEmp from "./SampleBoardsAllocationEmp.jsx";  // ✅ import
-import MyAssets from "./MyAssets.jsx";   // agar ye use karna ho to
+import SampleBoardsAllocationEmp from "./SampleBoardsAllocationEmp.jsx";
+import MyAssets from "./MyAssets.jsx";
 import RevenueTrackerEmp from "./RevenueTrackerEmp.jsx";
+import AddRetailer from "./AddRetailer.jsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
@@ -91,6 +92,7 @@ export default function EmployeeDashboard({ readOnly = false }) {
           <Tile label="📅 Attendance" onClick={() => setActiveTile("attendance")} />
           <Tile label="💰 Revenue" onClick={() => setActiveTile("revenue")} />
           <Tile label="🎁 Assets" onClick={() => setActiveTile("assets")} />
+          <Tile label="➕ Add Retailer" onClick={() => setActiveTile("addRetailer")} />
           <Tile label="🏬 Retailer DB" onClick={() => setActiveTile("retailer")} />
           <Tile label="🔔 Notifications" onClick={() => setActiveTile("notifications")} />
         </div>
@@ -138,7 +140,13 @@ export default function EmployeeDashboard({ readOnly = false }) {
         </TileWrapper>
       )}
 
-     
+      {/* ➕ Add Retailer */}
+      {activeTile === "addRetailer" && (
+        <TileWrapper onBack={() => setActiveTile("dashboard")}>
+          <AddRetailer />
+        </TileWrapper>
+      )}
+
       {/* --- Retailer Database --- */}
       {activeTile === "retailer" && (
         <TileWrapper onBack={() => setActiveTile("dashboard")}>
