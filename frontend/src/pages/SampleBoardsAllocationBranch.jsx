@@ -45,22 +45,24 @@ export default function SampleBoardsAllocationBranch() {
   }, [token, user]);
 
   /* 🔹 Fetch stock + history (BM) */
-  useEffect(() => {
-    async function fetchStock() {
-      try {
-        const res = await fetch(`${API_BASE}/api/assignments/branch/stock`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error("Failed to fetch stock");
-        const data = await res.json();
-        setItems(data?.stock || []);
-        setAssignments(data?.assignments || []);
-      } catch (err) {
-        console.error("Error fetching stock:", err);
-        setItems([]);
-      }
+  async function fetchStock() {
+    try {
+      const res = await fetch(`${API_BASE}/api/assignments/branch/stock`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to fetch stock");
+      const data = await res.json();
+      setItems(data?.stock || []);
+      setAssignments(data?.assignments || []);
+    } catch (err) {
+      console.error("Error fetching stock:", err);
+      setItems([]);
     }
+  }
+
+  useEffect(() => {
     if (token && user?.role === "BranchManager") fetchStock();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, user]);
    
   /* 🔹 Toggle employee */
@@ -176,7 +178,23 @@ export default function SampleBoardsAllocationBranch() {
 
   return (
     <div style={{ padding: 20 }}>
-      <h2>📦 Sample Allocation (Branch Manager)</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15 }}>
+        <h2 style={{ margin: 0 }}>📦 Sample Allocation (Branch Manager)</h2>
+        <button
+          onClick={fetchStock}
+          style={{
+            padding: "8px 16px",
+            background: "#3b82f6",
+            color: "white",
+            border: "none",
+            borderRadius: 6,
+            cursor: "pointer",
+            fontWeight: 500,
+          }}
+        >
+          🔄 Refresh
+        </button>
+      </div>
 
       {/* 🔹 Search + History Toggle */}
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 15, gap: 8 }}>

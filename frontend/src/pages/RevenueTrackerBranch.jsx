@@ -266,6 +266,9 @@ export default function RevenueTrackerBranch() {
         <button onClick={loadRevenue} style={btnBlueSmall}>
           🔍 Filter
         </button>
+        <button onClick={loadRevenue} style={{ ...btnBlueSmall, background: "#3b82f6" }}>
+          🔄 Refresh
+        </button>
         <button onClick={exportToExcel} style={btnBlueSmall}>
           📤 Export Excel
         </button>

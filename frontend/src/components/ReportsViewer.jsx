@@ -140,9 +140,34 @@ export default function ReportsViewer() {
     )
   );
 
+  /* ---------- Refresh Data ---------- */
+  function handleRefresh() {
+    if (view === "reports") {
+      loadReports(from, to);
+    } else {
+      loadSummary(from, to);
+    }
+  }
+
   return (
     <div style={{ padding: 20 }}>
-      <h3 style={{ marginBottom: 20 }}>📊 Reports Viewer</h3>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <h3 style={{ margin: 0 }}>📊 Reports Viewer</h3>
+        <button
+          onClick={handleRefresh}
+          style={{
+            padding: "8px 16px",
+            background: "#3b82f6",
+            color: "white",
+            border: "none",
+            borderRadius: 6,
+            cursor: "pointer",
+            fontWeight: 500,
+          }}
+        >
+          🔄 Refresh
+        </button>
+      </div>
 
       {/* Toggle buttons */}
       <div style={{ marginBottom: 15 }}>

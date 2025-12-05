@@ -252,6 +252,7 @@ export default function RevenueTrackerManager() {
         <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={inputStyle}/>
         <input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={inputStyle}/>
         <button onClick={loadRevenue} style={btnBlueSmall}>🔍 Filter</button>
+        <button onClick={loadRevenue} style={{ ...btnBlueSmall, background: "#3b82f6" }}>🔄 Refresh</button>
         <button onClick={exportToExcel} style={btnBlueSmall}>📤 Export Excel</button>
         <button onClick={addManualRow} style={btnBlueSmall}>➕ Add Manual Sale</button>
         <button onClick={submitAll} style={btnGreenSmall}>📨 Submit Approved ({approvedCount})</button>

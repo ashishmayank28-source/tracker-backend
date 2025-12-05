@@ -107,6 +107,7 @@ export default function RevenueTrackerEmp() {
         <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={inputStyle} />
         <input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={inputStyle} />
         <button onClick={() => { setFrom(""); setTo(""); }} style={btnGray}>Clear</button>
+        <button onClick={fetchRevenue} style={{ ...btnGray, background: "#3b82f6", color: "white" }}>🔄 Refresh</button>
       </div>
 
       {/* ✅ Total Value Summary */}

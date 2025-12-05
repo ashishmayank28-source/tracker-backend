@@ -55,35 +55,40 @@ export default function AttendanceStatus() {
   const [dayReports, setDayReports] = useState([]);
   const [dayLoading, setDayLoading] = useState(false);
 
-  // 🔹 Load reports for the month
-  useEffect(() => {
+  // 🔹 Load reports and holidays for the month
+  async function fetchAttendanceData() {
     if (!token) return;
     const from = view.startOf("month").format("YYYY-MM-DD");
     const to = view.endOf("month").format("YYYY-MM-DD");
     
     // Fetch reports
-    (async () => {
+    try {
       const res = await fetch(
         `${API_BASE}/api/customers/my-reports?from=${from}&to=${to}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const data = await res.json();
       setItems(Array.isArray(data) ? data : []);
-    })();
+    } catch (err) {
+      console.error("Fetch reports error:", err);
+    }
 
     // Fetch holidays
-    (async () => {
-      try {
-        const res = await fetch(
-          `${API_BASE}/api/holidays/range?from=${from}&to=${to}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const data = await res.json();
-        setHolidays(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Fetch holidays error:", err);
-      }
-    })();
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/holidays/range?from=${from}&to=${to}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = await res.json();
+      setHolidays(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Fetch holidays error:", err);
+    }
+  }
+
+  useEffect(() => {
+    fetchAttendanceData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, token]);
 
   // 🔹 Group by date
@@ -178,9 +183,11 @@ export default function AttendanceStatus() {
           display: "flex",
           justifyContent: "space-between",
           marginBottom: "16px",
+          flexWrap: "wrap",
+          gap: 10,
         }}
       >
-        <h2 style={{ fontSize: "20px", fontWeight: "700" }}>
+        <h2 style={{ fontSize: "20px", fontWeight: "700", margin: 0 }}>
           📅 Attendance Portal
         </h2>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
@@ -193,6 +200,20 @@ export default function AttendanceStatus() {
           <div style={{ fontWeight: "600" }}>{view.format("MMMM YYYY")}</div>
           <button onClick={() => setView(view.add(1, "month"))} style={btn}>
             Next ▶
+          </button>
+          <button
+            onClick={fetchAttendanceData}
+            style={{
+              padding: "6px 14px",
+              background: "#3b82f6",
+              color: "white",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontWeight: 500,
+            }}
+          >
+            🔄 Refresh
           </button>
         </div>
       </div>

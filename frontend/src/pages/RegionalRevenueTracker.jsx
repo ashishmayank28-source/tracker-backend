@@ -129,6 +129,9 @@ export default function RegionalRevenueTracker() {
         <button onClick={loadRevenue} style={btnBlueSmall}>
           🔍 Filter
         </button>
+        <button onClick={loadRevenue} style={{ ...btnBlueSmall, background: "#3b82f6" }}>
+          🔄 Refresh
+        </button>
         <button onClick={() => { setFrom(""); setTo(""); setBranch(""); setEmpName(""); loadRevenue(); }} style={{ ...btnBlueSmall, background: "#6b7280" }}>
           Clear
         </button>

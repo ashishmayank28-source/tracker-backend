@@ -50,22 +50,24 @@ export default function AssignmentTable() {
   }, [token]);
 
   // Fetch all assignments
-  useEffect(() => {
-    async function fetchAssignments() {
-      try {
-        setLoading(true);
-        const res = await fetch(`${API_BASE}/api/assignments/history/admin?ts=${Date.now()}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        setAssignments(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Error fetching assignments:", err);
-      } finally {
-        setLoading(false);
-      }
+  async function fetchAssignments() {
+    try {
+      setLoading(true);
+      const res = await fetch(`${API_BASE}/api/assignments/history/admin?ts=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setAssignments(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Error fetching assignments:", err);
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     if (token) fetchAssignments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   // Calculate stock for each employee
@@ -138,7 +140,23 @@ export default function AssignmentTable() {
 
   return (
     <div style={{ padding: 20 }}>
-      <h2 style={{ marginBottom: 20 }}>📋 Assignment Table (Employee-wise Stock)</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <h2 style={{ margin: 0 }}>📋 Assignment Table (Employee-wise Stock)</h2>
+        <button
+          onClick={fetchAssignments}
+          style={{
+            padding: "8px 16px",
+            background: "#3b82f6",
+            color: "white",
+            border: "none",
+            borderRadius: 6,
+            cursor: "pointer",
+            fontWeight: 500,
+          }}
+        >
+          🔄 Refresh
+        </button>
+      </div>
 
       {/* Filters */}
       <div style={{ display: "flex", gap: 15, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>

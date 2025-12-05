@@ -509,6 +509,9 @@ function SubmittedReports({ token, setHistoryCustomer }) {
         <button onClick={applyFilter} style={btnBlueSmall}>
           🔍 Filter
         </button>
+        <button onClick={() => loadReports(from, to)} style={{ ...btnBlueSmall, background: "#3b82f6" }}>
+          🔄 Refresh
+        </button>
         {(from || to) && (
           <button 
             onClick={clearFilter} 

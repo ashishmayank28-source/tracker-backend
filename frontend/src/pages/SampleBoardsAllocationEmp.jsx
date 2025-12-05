@@ -69,7 +69,23 @@ export default function SampleBoardsAllocationEmp() {
 
   return (
     <div style={{ padding: 20 }}>
-      <h2>📦 Sample Boards Allocation</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15 }}>
+        <h2 style={{ margin: 0 }}>📦 Sample Boards Allocation</h2>
+        <button
+          onClick={fetchStock}
+          style={{
+            padding: "8px 16px",
+            background: "#3b82f6",
+            color: "white",
+            border: "none",
+            borderRadius: 6,
+            cursor: "pointer",
+            fontWeight: 500,
+          }}
+        >
+          🔄 Refresh
+        </button>
+      </div>
 
       {/* Stock Section */}
       <h3>📊 My Current Stock</h3>

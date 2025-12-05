@@ -131,7 +131,23 @@ export default function UsersTile() {
 
   return (
     <div style={{ padding: "10px" }}>
-      <h3 style={{ marginBottom: "15px", fontSize: "18px" }}>👥 Manage Users</h3>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15 }}>
+        <h3 style={{ margin: 0, fontSize: "18px" }}>👥 Manage Users</h3>
+        <button
+          onClick={loadUsers}
+          style={{
+            padding: "8px 16px",
+            background: "#3b82f6",
+            color: "white",
+            border: "none",
+            borderRadius: 6,
+            cursor: "pointer",
+            fontWeight: 500,
+          }}
+        >
+          🔄 Refresh
+        </button>
+      </div>
       {err && <p style={{ color: "red" }}>{err}</p>}
 
       {/* ➕ Create User Form */}
