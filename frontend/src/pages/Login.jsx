@@ -4,12 +4,14 @@ import { useAuth } from "../auth.jsx";   // ✅ fixed import
 import { roleToDashboardPath } from "../utils/roleToPath.js";
 import { useNavigate } from "react-router-dom";
 
-// Role mapping for validation
+// Role mapping for validation - all variations
 const roleMapping = {
   "Employee": ["Employee"],
   "Manager": ["Manager"],
   "Branch Manager": ["Branch Manager", "BranchManager"],
+  "BranchManager": ["Branch Manager", "BranchManager"],
   "Regional Manager": ["Regional Manager", "RegionalManager"],
+  "RegionalManager": ["Regional Manager", "RegionalManager"],
   "Admin": ["Admin"],
   "Vendor": ["Vendor"]
 };

@@ -70,8 +70,17 @@ export default function SampleBoardsAllocationAdmin() {
     );
   };
 
-  /* 🔹 Save assignment */
+  /* 🔹 Save assignment - Generate SEPARATE ID for EACH employee */
   const handleAllot = async () => {
+    if (!selectedItem) {
+      alert("❌ Please select an item first!");
+      return;
+    }
+    if (!purpose) {
+      alert("❌ Please select a purpose!");
+      return;
+    }
+
     const totalQty = selectedEmps.reduce((sum, e) => sum + (e.qty || 0), 0);
     const found = items.find((i) => i.name === selectedItem);
     if (found && totalQty > found.Balance) {
@@ -79,31 +88,40 @@ export default function SampleBoardsAllocationAdmin() {
       return;
     }
 
-    const rootId = "A" + Date.now();
-
-    const newAssignment = {
-      rootId,
-      item: selectedItem,
-      employees: selectedEmps,
-      purpose,
-      assignedBy: user.name,
-      role: "Admin",
-      region: user.region || "Unknown",
-      date: new Date().toLocaleString(),
-      toVendor: false,
-    };
+    const timestamp = Date.now();
+    const createdIds = [];
 
     try {
-      const res = await fetch(`${API_BASE}/api/assignments/admin`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}` },
-        body: JSON.stringify(newAssignment),
-      });
+      // Create SEPARATE assignment for EACH selected employee
+      for (let i = 0; i < selectedEmps.length; i++) {
+        const emp = selectedEmps[i];
+        const rootId = `A${timestamp}-${i + 1}`; // Unique ID for each
+        
+        const newAssignment = {
+          rootId,
+          item: selectedItem,
+          employees: [emp], // Single employee per assignment
+          purpose,
+          assignedBy: user.name,
+          role: "Admin",
+          region: emp.region || user.region || "Unknown",
+          date: new Date().toLocaleString(),
+          toVendor: false,
+        };
 
-      if (!res.ok) throw new Error(`Failed to save assignment: ${res.status}`);
-      await res.json();
+        const res = await fetch(`${API_BASE}/api/assignments/admin`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(newAssignment),
+        });
+
+        if (!res.ok) throw new Error(`Failed to save assignment for ${emp.name}`);
+        createdIds.push(rootId);
+      }
+
       fetchHistory();
 
       setItems((prev) =>
@@ -116,7 +134,7 @@ export default function SampleBoardsAllocationAdmin() {
 
       setSelectedEmps([]);
       setPurpose("");
-      alert(`✅ Stock assigned! Root ID: ${rootId}`);
+      alert(`✅ Stock assigned!\n${createdIds.length} separate IDs created:\n${createdIds.join("\n")}`);
     } catch (err) {
       console.error("Save error:", err);
       alert("❌ Failed to save assignment in DB!");
@@ -305,21 +323,88 @@ export default function SampleBoardsAllocationAdmin() {
         ➕ Add Row
       </button>
 
-      {/* 🔹 Assign To */}
+      {/* 🔹 Assign To - Region-wise Hierarchy */}
       <div style={{ marginTop: 30 }}>
         <b>Assign To:</b>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-          {employees.map((emp) => (
-            <label key={emp.empCode} style={{ border: "1px solid #ccc", borderRadius: 4, padding: "4px 8px" }}>
-              <input
-                type="checkbox"
-                checked={!!selectedEmps.find((e) => e.empCode === emp.empCode)}
-                onChange={() => toggleEmployee(emp)}
-              />{" "}
-              {emp.name} ({emp.empCode})
-            </label>
-          ))}
-        </div>
+        {(() => {
+          // Group employees by region, then by role
+          const grouped = employees.reduce((acc, emp) => {
+            const region = emp.region || "Unknown Region";
+            if (!acc[region]) acc[region] = { RM: [], BM: [], Manager: [], Employee: [] };
+            const role = emp.role || "Employee";
+            if (role.includes("Regional")) acc[region].RM.push(emp);
+            else if (role.includes("Branch")) acc[region].BM.push(emp);
+            else if (role === "Manager") acc[region].Manager.push(emp);
+            else acc[region].Employee.push(emp);
+            return acc;
+          }, {});
+
+          return Object.entries(grouped).map(([region, roles]) => (
+            <div key={region} style={{ marginTop: 15, border: "1px solid #ddd", borderRadius: 8, padding: 10 }}>
+              <h4 style={{ margin: "0 0 10px 0", color: "#1976d2" }}>🌍 {region}</h4>
+              
+              {/* Regional Managers */}
+              {roles.RM.length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <b style={{ color: "#9c27b0" }}>Regional Managers:</b>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                    {roles.RM.map((emp) => (
+                      <label key={emp.empCode} style={{ border: "1px solid #9c27b0", borderRadius: 4, padding: "3px 6px", fontSize: 12, background: selectedEmps.find(e => e.empCode === emp.empCode) ? "#e1bee7" : "white" }}>
+                        <input type="checkbox" checked={!!selectedEmps.find((e) => e.empCode === emp.empCode)} onChange={() => toggleEmployee(emp)} />{" "}
+                        {emp.name} ({emp.empCode})
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Branch Managers */}
+              {roles.BM.length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <b style={{ color: "#ff9800" }}>Branch Managers:</b>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                    {roles.BM.map((emp) => (
+                      <label key={emp.empCode} style={{ border: "1px solid #ff9800", borderRadius: 4, padding: "3px 6px", fontSize: 12, background: selectedEmps.find(e => e.empCode === emp.empCode) ? "#ffe0b2" : "white" }}>
+                        <input type="checkbox" checked={!!selectedEmps.find((e) => e.empCode === emp.empCode)} onChange={() => toggleEmployee(emp)} />{" "}
+                        {emp.name} ({emp.empCode})
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Managers */}
+              {roles.Manager.length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <b style={{ color: "#4caf50" }}>Managers:</b>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                    {roles.Manager.map((emp) => (
+                      <label key={emp.empCode} style={{ border: "1px solid #4caf50", borderRadius: 4, padding: "3px 6px", fontSize: 12, background: selectedEmps.find(e => e.empCode === emp.empCode) ? "#c8e6c9" : "white" }}>
+                        <input type="checkbox" checked={!!selectedEmps.find((e) => e.empCode === emp.empCode)} onChange={() => toggleEmployee(emp)} />{" "}
+                        {emp.name} ({emp.empCode})
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Employees */}
+              {roles.Employee.length > 0 && (
+                <div>
+                  <b style={{ color: "#2196f3" }}>Employees:</b>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                    {roles.Employee.map((emp) => (
+                      <label key={emp.empCode} style={{ border: "1px solid #2196f3", borderRadius: 4, padding: "3px 6px", fontSize: 12, background: selectedEmps.find(e => e.empCode === emp.empCode) ? "#bbdefb" : "white" }}>
+                        <input type="checkbox" checked={!!selectedEmps.find((e) => e.empCode === emp.empCode)} onChange={() => toggleEmployee(emp)} />{" "}
+                        {emp.name} ({emp.empCode})
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ));
+        })()}
       </div>
 
       {/* 🔹 Allocation Table */}
@@ -375,12 +460,34 @@ export default function SampleBoardsAllocationAdmin() {
           <div style={{ marginTop: 15 }}>
             <label>
               <b>Purpose:</b>{" "}
-              <select value={purpose} onChange={(e) => setPurpose(e.target.value)}>
-                <option value="">-- Select Purpose --</option>
-                <option value="Team Bifurcation">Team Bifurcation</option>
-                <option value="Project/Marketing">Project/Marketing</option>
-              </select>
+              {(() => {
+                // Auto-detect purpose based on selected employee roles
+                const hasRM = selectedEmps.some(e => (e.role || "").includes("Regional"));
+                const hasBM = selectedEmps.some(e => (e.role || "").includes("Branch"));
+                const hasOnlyRMorBM = selectedEmps.every(e => (e.role || "").includes("Regional") || (e.role || "").includes("Branch"));
+                
+                // If only RM/BM selected → Team Bifurcation
+                // If Emp/Manager selected → Project/Marketing
+                const autoPurpose = hasOnlyRMorBM && (hasRM || hasBM) ? "Team Bifurcation" : "Project/Marketing";
+                
+                // Auto-set purpose if not manually changed
+                if (!purpose && autoPurpose) {
+                  setTimeout(() => setPurpose(autoPurpose), 0);
+                }
+                
+                return (
+                  <select value={purpose} onChange={(e) => setPurpose(e.target.value)}>
+                    <option value="">-- Select Purpose --</option>
+                    <option value="Team Bifurcation">Team Bifurcation (for RM/BM)</option>
+                    <option value="Project/Marketing">Project/Marketing (for Emp/Manager)</option>
+                  </select>
+                );
+              })()}
             </label>
+            <span style={{ marginLeft: 10, fontSize: 12, color: "#666" }}>
+              {purpose === "Project/Marketing" && "✅ Will have 'Submit to Vendor' option"}
+              {purpose === "Team Bifurcation" && "ℹ️ For further team distribution"}
+            </span>
           </div>
 
           <button
@@ -398,7 +505,7 @@ export default function SampleBoardsAllocationAdmin() {
         </>
       )}
 
-      {/* 🔹 Assignment History */}{/* 🔹 Assignment History */}
+      {/* 🔹 Assignment History */}
 {showHistory && (
   <div style={{ marginTop: 30 }}>
     <h3>📑 Assignment History</h3>
@@ -414,7 +521,9 @@ export default function SampleBoardsAllocationAdmin() {
       <input type="text" placeholder="Filter by Role" onChange={(e) => setFilters((p) => ({ ...p, role: e.target.value }))} />
     </div>
 
-    <table border="1" cellPadding="6" style={{ width: "100%", borderCollapse: "collapse" }}>
+    {/* Scrollable Table Container */}
+    <div style={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+    <table border="1" cellPadding="6" style={{ minWidth: "1200px", borderCollapse: "collapse" }}>
       <thead>
         <tr>
           <th>Root ID</th>
@@ -542,6 +651,7 @@ export default function SampleBoardsAllocationAdmin() {
   )}
 </tbody>
     </table>
+    </div> {/* End scrollable wrapper */}
   </div>
 )}
       <button

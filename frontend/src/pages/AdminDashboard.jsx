@@ -5,6 +5,7 @@ import AssetsTile from "./admin/AssetsTile.jsx";
 import ReportDump from "./admin/ReportDump.jsx";
 import ReportViewer from "../components/ReportsViewer.jsx";
 import AssignmentLedger from "./admin/AssignmentLedger.jsx";
+import AssignmentTable from "./admin/AssignmentTable.jsx";
 import AdminRevenueTracker from "./AdminRevenueTracker.jsx";
 import AdminAttendance from "./admin/AdminAttendance.jsx";
 import PerformanceReview from "./admin/PerformanceReview.jsx";
@@ -86,6 +87,7 @@ export default function AdminDashboard() {
         <Tile to="daily" label="📝 Daily Tracker" />
         <Tile to="dump" label="🗂 Dump Management" />
         <Tile to="ledger" label="📊 Assignment Ledger" />
+        <Tile to="assignment-table" label="📋 Assignment Table" />
       </div>
 
       {/* Sub-Routes */}
@@ -126,6 +128,9 @@ export default function AdminDashboard() {
 
           {/* ✅ Assignment Ledger (Tree View) */}
           <Route path="ledger" element={<AssignmentLedger />} />
+
+          {/* ✅ Assignment Table (Employee-wise Stock) */}
+          <Route path="assignment-table" element={<AssignmentTable />} />
         </Routes>
       </div>
     </div>

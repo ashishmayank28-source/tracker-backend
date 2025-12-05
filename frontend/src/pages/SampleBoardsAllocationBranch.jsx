@@ -59,7 +59,6 @@ export default function SampleBoardsAllocationBranch() {
         console.error("Error fetching stock:", err);
         setItems([]);
       }
-      {console.logassignments}
     }
     if (token && user?.role === "BranchManager") fetchStock();
   }, [token, user]);
@@ -86,8 +85,13 @@ export default function SampleBoardsAllocationBranch() {
     );
   };
 
-  /* 🔹 Allot stock further (BM → Employees) */
+  /* 🔹 Allot stock further (BM → Employees) - Separate ID for each, Project/Marketing purpose */
   const handleAllot = async () => {
+    if (!selectedItem) {
+      alert("❌ Please select an item first!");
+      return;
+    }
+
     const stockItem = items.find((i) => i.name === selectedItem);
     const totalQty = selectedEmps.reduce((sum, e) => sum + safeNum(e.qty), 0);
 
@@ -96,40 +100,54 @@ export default function SampleBoardsAllocationBranch() {
       return;
     }
 
-const parent = assignments.find(a => a.item === selectedItem);  // to fetch root & rmId
+    const timestamp = Date.now();
+    const parent = assignments.find(a => a.item === selectedItem);
+    const createdIds = [];
 
-const newAssignment = {
-  rootId: parent?.rootId || "NA",   // Admin rootId carry
-  rmId: parent?.rmId || "NA",       // RM ID carry from previous allocation
-  bmId: "BM" + Date.now(),          // new BM ID
-  item: selectedItem,
-  employees: selectedEmps.map((e) => ({
-    empCode: e.empCode,
-    name: e.name,
-    qty: safeNum(e.qty),
-    extra: e.extra || {},
-  })),
-  purpose,
-  assignedBy: user?.name || "Unknown",
-  role: user?.role || "BranchManager",
-  branch: user?.branch || "Unknown",
-  region: user?.region || "Unknown",
-  date: new Date().toLocaleString(),
-};
+    // BM assigns to Emp/Manager → Purpose is always Project/Marketing
+    const finalPurpose = purpose || "Project/Marketing";
+
     try {
-      const res = await fetch(`${API_BASE}/api/assignments/allocate/bm`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(newAssignment),
-      });
+      // Create SEPARATE assignment for EACH selected employee
+      for (let i = 0; i < selectedEmps.length; i++) {
+        const emp = selectedEmps[i];
+        const bmId = `BM${timestamp}-${i + 1}`; // Unique BM ID for each
 
-      if (!res.ok) throw new Error("Failed to save allocation");
-      const saved = await res.json();
+        const newAssignment = {
+          rootId: parent?.rootId || "NA",
+          rmId: parent?.rmId || "NA",
+          bmId,
+          item: selectedItem,
+          employees: [{
+            empCode: emp.empCode,
+            name: emp.name,
+            qty: safeNum(emp.qty),
+            extra: emp.extra || {},
+          }],
+          purpose: finalPurpose,
+          assignedBy: user?.name || "Unknown",
+          role: user?.role || "BranchManager",
+          branch: user?.branch || "Unknown",
+          region: user?.region || "Unknown",
+          date: new Date().toLocaleString(),
+          toVendor: false, // Ready for Submit to Vendor
+        };
 
-      setAssignments([saved, ...assignments]);
+        const res = await fetch(`${API_BASE}/api/assignments/allocate/bm`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(newAssignment),
+        });
+
+        if (!res.ok) throw new Error(`Failed to allocate for ${emp.name}`);
+        const saved = await res.json();
+        setAssignments((prev) => [saved, ...prev]);
+        createdIds.push(bmId);
+      }
+
       setItems((prev) =>
         prev.map((i) =>
           i.name === selectedItem ? { ...i, stock: safeNum(i.stock) - totalQty } : i
@@ -138,7 +156,7 @@ const newAssignment = {
 
       setSelectedEmps([]);
       setPurpose("");
-      alert(`✅ Stock allocated successfully!`);
+      alert(`✅ Stock allocated!\n${createdIds.length} separate IDs created:\n${createdIds.join("\n")}\n\nThese can now be submitted to Vendor.`);
     } catch (err) {
       console.error("Allocation error:", err);
       alert("❌ Failed to allocate");
@@ -215,43 +233,51 @@ const newAssignment = {
       {showHistory && (
         <div style={{ marginTop: 30 }}>
           <h3>📑 Assignment History</h3>
-          <table border="1" cellPadding="6" style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead style={{ background: "#f5f5f5" }}>
-              <tr>
-                <th>Root ID</th>
-                <th>RM ID</th>
-                <th>BM ID</th>
-                <th>Date</th>
-                <th>Item</th>
-                <th>Employee</th>
-                <th>Qty</th>
-                <th>Purpose</th>
-                <th>Assigned By</th>
-                <th>LR Details (From Vendor)</th> {/* 🔹 NEW */}
-              </tr>
-            </thead>
-            <tbody>
-              {assignments.map((a, i) =>
-                (a.employees || []).map((emp, j) => (
-                  <tr key={`${i}-${j}`}>
-                    <td>{a.rootId || "-"}</td>
-                    <td>{a.rmId || "-"}</td>
-                    <td>{a.bmId || "-"}</td>
-                    <td>{a.date}</td>
-                    <td>{a.item}</td>
-                    <td>{emp.name} ({emp.empCode})</td>
-                    <td>{safeNum(emp.qty)}</td>
-                    <td>{a.purpose}</td>
-                    <td>{a.assignedBy}</td>
-                    {/* 🔹 Vendor LR Details Display */}
-              <td>{a.lrNo || "-"}</td>
-                    
-
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+          <div style={{ overflowX: "auto" }}>
+            <table border="1" cellPadding="6" style={{ width: "100%", borderCollapse: "collapse", minWidth: 800 }}>
+              <thead style={{ background: "#f5f5f5" }}>
+                <tr>
+                  <th>Root ID</th>
+                  <th>RM ID</th>
+                  <th>BM ID</th>
+                  <th>Date</th>
+                  <th>Item</th>
+                  <th>Employee</th>
+                  <th>Qty (T/U/A)</th>
+                  <th>Purpose</th>
+                  <th>Assigned By</th>
+                  <th>LR Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {assignments.map((a, i) =>
+                  (a.employees || []).map((emp, j) => {
+                    const available = safeNum(emp.qty) - safeNum(emp.usedQty);
+                    return (
+                      <tr key={`${i}-${j}`}>
+                        <td>{a.rootId || "-"}</td>
+                        <td>{a.rmId || "-"}</td>
+                        <td>{a.bmId || "-"}</td>
+                        <td>{a.date}</td>
+                        <td>{a.item}</td>
+                        <td>{emp.name} ({emp.empCode})</td>
+                        <td>
+                          <span>{safeNum(emp.qty)}</span> / {" "}
+                          <span style={{ color: "#f59e0b" }}>{safeNum(emp.usedQty)}</span> / {" "}
+                          <span style={{ fontWeight: "bold", color: available > 0 ? "green" : "red" }}>
+                            {available}
+                          </span>
+                        </td>
+                        <td>{a.purpose}</td>
+                        <td>{a.assignedBy}</td>
+                        <td>{a.lrNo || "-"}</td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
       
@@ -363,6 +389,47 @@ const newAssignment = {
           </div>
         </>
       )}
+
+      {/* 🔹 Team Sample Usage History */}
+      <div style={{ marginTop: 40 }}>
+        <h3>📋 Team Sample Usage History</h3>
+        {assignments.some((a) =>
+          (a.employees || []).some((e) => e.usedSamples?.length > 0)
+        ) ? (
+          <div style={{ overflowX: "auto" }}>
+            <table border="1" cellPadding="8" style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+              <thead style={{ background: "#d1fae5" }}>
+                <tr>
+                  <th>Employee</th>
+                  <th>Item</th>
+                  <th>Used Against (Customer ID / Project)</th>
+                  <th>Qty Used</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {assignments.flatMap((h) =>
+                  (h.employees || [])
+                    .filter((e) => e.usedSamples?.length > 0)
+                    .flatMap((e) =>
+                      e.usedSamples.map((us, idx) => (
+                        <tr key={`${h._id}-${e.empCode}-${idx}`}>
+                          <td>{e.name} ({e.empCode})</td>
+                          <td>{h.item}</td>
+                          <td style={{ fontWeight: "bold", color: "#1d4ed8" }}>{us.customerId}</td>
+                          <td style={{ textAlign: "center" }}>{us.qty}</td>
+                          <td>{us.usedAt ? new Date(us.usedAt).toLocaleDateString() : "-"}</td>
+                        </tr>
+                      ))
+                    )
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p style={{ color: "#6b7280" }}>⚠️ No samples used yet by team members.</p>
+        )}
+      </div>
     </div>
   );
 }

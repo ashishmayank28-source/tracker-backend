@@ -84,8 +84,17 @@ export default function SampleBoardsAllocationRegional() {
     );
   };
 
-  /* 🔹 Allot stock (RM → BM/Employees) */
+  /* 🔹 Allot stock (RM → BM/Employees) - Generate SEPARATE ID for EACH */
   const handleAllot = async () => {
+    if (!selectedItem) {
+      alert("❌ Please select an item first!");
+      return;
+    }
+    if (!purpose) {
+      alert("❌ Please select a purpose!");
+      return;
+    }
+
     const stockItem = items.find((i) => i.name === selectedItem);
     const totalQty = selectedEmps.reduce((sum, e) => sum + safeNum(e.qty), 0);
 
@@ -94,37 +103,48 @@ export default function SampleBoardsAllocationRegional() {
       return;
     }
 
-    const newAssignment = {
-  rootId: assignments.find(a => a.item === selectedItem)?.rootId || "NA",  // admin rootId carry
-  rmId: "RM" + Date.now(), // generate new RM ID
-  item: selectedItem,
-  employees: selectedEmps.map((e) => ({
-    empCode: e.empCode,
-    name: e.name,
-    qty: safeNum(e.qty),
-    extra: e.extra || {},
-  })),
-  purpose,
-  assignedBy: user?.name || "Unknown",
-  role: user?.role || "RegionalManager",
-  region: user?.region || "Unknown",
-  date: new Date().toLocaleString(),
-};
+    const timestamp = Date.now();
+    const baseRootId = assignments.find(a => a.item === selectedItem)?.rootId || "NA";
+    const createdIds = [];
 
     try {
-      const res = await fetch(`${API_BASE}/api/assignments/allocate/rm`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(newAssignment),
-      });
+      // Create SEPARATE assignment for EACH selected employee
+      for (let i = 0; i < selectedEmps.length; i++) {
+        const emp = selectedEmps[i];
+        const rmId = `RM${timestamp}-${i + 1}`; // Unique RM ID for each
 
-      if (!res.ok) throw new Error("Failed to save allocation");
-      const saved = await res.json();
+        const newAssignment = {
+          rootId: baseRootId,
+          rmId,
+          item: selectedItem,
+          employees: [{
+            empCode: emp.empCode,
+            name: emp.name,
+            qty: safeNum(emp.qty),
+            extra: emp.extra || {},
+          }],
+          purpose,
+          assignedBy: user?.name || "Unknown",
+          role: user?.role || "RegionalManager",
+          region: user?.region || "Unknown",
+          date: new Date().toLocaleString(),
+        };
 
-      setAssignments([saved, ...assignments]);
+        const res = await fetch(`${API_BASE}/api/assignments/allocate/rm`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(newAssignment),
+        });
+
+        if (!res.ok) throw new Error(`Failed to allocate for ${emp.name}`);
+        const saved = await res.json();
+        setAssignments((prev) => [saved, ...prev]);
+        createdIds.push(rmId);
+      }
+
       setItems((prev) =>
         prev.map((i) =>
           i.name === selectedItem
@@ -135,7 +155,7 @@ export default function SampleBoardsAllocationRegional() {
 
       setSelectedEmps([]);
       setPurpose("");
-      alert(`✅ Stock allocated successfully!`);
+      alert(`✅ Stock allocated!\n${createdIds.length} separate IDs created:\n${createdIds.join("\n")}`);
     } catch (err) {
       console.error("Allocation error:", err);
       alert("❌ Failed to allocate");
@@ -310,52 +330,104 @@ export default function SampleBoardsAllocationRegional() {
             <input type="text" placeholder="Filter by Purpose" onChange={(e) => setAssignmentsFilter((p) => ({ ...p, purpose: e.target.value }))} />
           </div>
 
-          <table border="1" cellPadding="6" style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th>Root ID</th>
-                <th>RM ID</th>
-                <th>BM ID</th>
-                <th>Date</th>
-                <th>Item</th>
-                <th>Employee</th>
-                <th>Qty</th>
-                <th>Purpose</th>
-                <th>Assigned By</th>
-              </tr>
-            </thead>
-            <tbody>
-              {assignments
-                .filter((a) =>
-                  (a.rootId || "").toLowerCase().includes(assignmentsFilter.id.toLowerCase()) ||
-                  (a.rmId || "").toLowerCase().includes(assignmentsFilter.id.toLowerCase()) ||
-                  (a.bmId || "").toLowerCase().includes(assignmentsFilter.id.toLowerCase())
-                )
-                .filter((a) => (a.item || "").toLowerCase().includes(assignmentsFilter.item.toLowerCase()))
-                .filter((a) => (a.purpose || "").toLowerCase().includes(assignmentsFilter.purpose.toLowerCase()))
-                .map((a, i) =>
-                  (a.employees || [])
-                    .filter((emp) =>
-                      (emp.name || "").toLowerCase().includes(assignmentsFilter.emp.toLowerCase())
-                    )
-                    .map((emp, j) => (
-                      <tr key={`${i}-${j}`}>
-                        <td>{a.rootId || "-"}</td>
-                        <td>{a.rmId || "-"}</td>
-                        <td>{a.bmId || "-"}</td>
-                        <td>{a.date}</td>
-                        <td>{a.item}</td>
-                        <td>{emp.name} ({emp.empCode})</td>
-                        <td>{safeNum(emp.qty)}</td>
-                        <td>{a.purpose}</td>
-                        <td>{a.assignedBy}</td>
-                      </tr>
-                    ))
-                )}
-            </tbody>
-          </table>
+          <div style={{ overflowX: "auto" }}>
+            <table border="1" cellPadding="6" style={{ width: "100%", borderCollapse: "collapse", minWidth: 800 }}>
+              <thead style={{ background: "#f5f5f5" }}>
+                <tr>
+                  <th>Root ID</th>
+                  <th>RM ID</th>
+                  <th>BM ID</th>
+                  <th>Date</th>
+                  <th>Item</th>
+                  <th>Employee</th>
+                  <th>Qty (T/U/A)</th>
+                  <th>Purpose</th>
+                  <th>Assigned By</th>
+                </tr>
+              </thead>
+              <tbody>
+                {assignments
+                  .filter((a) =>
+                    (a.rootId || "").toLowerCase().includes(assignmentsFilter.id.toLowerCase()) ||
+                    (a.rmId || "").toLowerCase().includes(assignmentsFilter.id.toLowerCase()) ||
+                    (a.bmId || "").toLowerCase().includes(assignmentsFilter.id.toLowerCase())
+                  )
+                  .filter((a) => (a.item || "").toLowerCase().includes(assignmentsFilter.item.toLowerCase()))
+                  .filter((a) => (a.purpose || "").toLowerCase().includes(assignmentsFilter.purpose.toLowerCase()))
+                  .map((a, i) =>
+                    (a.employees || [])
+                      .filter((emp) =>
+                        (emp.name || "").toLowerCase().includes(assignmentsFilter.emp.toLowerCase())
+                      )
+                      .map((emp, j) => {
+                        const available = safeNum(emp.qty) - safeNum(emp.usedQty);
+                        return (
+                          <tr key={`${i}-${j}`}>
+                            <td>{a.rootId || "-"}</td>
+                            <td>{a.rmId || "-"}</td>
+                            <td>{a.bmId || "-"}</td>
+                            <td>{a.date}</td>
+                            <td>{a.item}</td>
+                            <td>{emp.name} ({emp.empCode})</td>
+                            <td>
+                              <span>{safeNum(emp.qty)}</span> / {" "}
+                              <span style={{ color: "#f59e0b" }}>{safeNum(emp.usedQty)}</span> / {" "}
+                              <span style={{ fontWeight: "bold", color: available > 0 ? "green" : "red" }}>
+                                {available}
+                              </span>
+                            </td>
+                            <td>{a.purpose}</td>
+                            <td>{a.assignedBy}</td>
+                          </tr>
+                        );
+                      })
+                  )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
+
+      {/* 🔹 Team Sample Usage History */}
+      <div style={{ marginTop: 40 }}>
+        <h3>📋 Team Sample Usage History</h3>
+        {assignments.some((a) =>
+          (a.employees || []).some((e) => e.usedSamples?.length > 0)
+        ) ? (
+          <div style={{ overflowX: "auto" }}>
+            <table border="1" cellPadding="8" style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+              <thead style={{ background: "#d1fae5" }}>
+                <tr>
+                  <th>Employee</th>
+                  <th>Item</th>
+                  <th>Used Against (Customer ID / Project)</th>
+                  <th>Qty Used</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {assignments.flatMap((h) =>
+                  (h.employees || [])
+                    .filter((e) => e.usedSamples?.length > 0)
+                    .flatMap((e) =>
+                      e.usedSamples.map((us, idx) => (
+                        <tr key={`${h._id}-${e.empCode}-${idx}`}>
+                          <td>{e.name} ({e.empCode})</td>
+                          <td>{h.item}</td>
+                          <td style={{ fontWeight: "bold", color: "#1d4ed8" }}>{us.customerId}</td>
+                          <td style={{ textAlign: "center" }}>{us.qty}</td>
+                          <td>{us.usedAt ? new Date(us.usedAt).toLocaleDateString() : "-"}</td>
+                        </tr>
+                      ))
+                    )
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p style={{ color: "#6b7280" }}>⚠️ No samples used yet by team members.</p>
+        )}
+      </div>
     </div>
   );
 }

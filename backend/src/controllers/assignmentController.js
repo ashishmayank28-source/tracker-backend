@@ -286,35 +286,42 @@ export const submitToVendor = async (req, res) => {
   }
 };
 /* ---------- LR UPDATE ---------- */
+// Now accepts assignmentId which can be bmId, rmId, or rootId
+// Priority: bmId > rmId > rootId (most specific first)
 export const updateLRNo = async (req, res) => {
   try {
-    const { rootId } = req.params;
+    const { rootId } = req.params; // This can be bmId, rmId, or rootId
     const { lrNo } = req.body;
+    const assignmentId = rootId; // Rename for clarity
 
-    // 1️⃣ Find the base assignment first
-    const base = await Assignment.findOne({ rootId });
-    if (!base)
-      return res.status(404).json({ success: false, message: "Assignment not found" });
+    // 1️⃣ Try to find by BM ID first (most specific)
+    let assignment = await Assignment.findOne({ bmId: assignmentId });
+    let query = { bmId: assignmentId };
 
-    // 2️⃣ Determine what to use as base key
-    let query = {};
-
-    if (base.bmId && base.bmId.trim() !== "") {
-      // Case: BM level
-      query = { bmId: base.bmId };
-    } else if (base.rmId && base.rmId.trim() !== "") {
-      // Case: RM level
-      query = { rmId: base.rmId };
-    } else {
-      // Case: Root/Admin level
-      query = { rootId: base.rootId };
+    // 2️⃣ If not found by bmId, try rmId
+    if (!assignment) {
+      assignment = await Assignment.findOne({ rmId: assignmentId });
+      query = { rmId: assignmentId };
     }
 
-    // 3️⃣ Update LR No everywhere matching that base key
+    // 3️⃣ If still not found, try rootId
+    if (!assignment) {
+      assignment = await Assignment.findOne({ rootId: assignmentId });
+      query = { rootId: assignmentId };
+    }
+
+    if (!assignment) {
+      return res.status(404).json({ success: false, message: "Assignment not found" });
+    }
+
+    // 4️⃣ Update LR No ONLY for the specific matching record
+    // If we found by bmId, only update that specific bmId
     const result = await Assignment.updateMany(
       query,
       { $set: { lrNo, lrUpdatedAt: new Date().toLocaleString() } }
     );
+
+    console.log(`🔹 LR Update: ${assignmentId} → ${lrNo} (${result.modifiedCount} records)`);
 
     res.json({
       success: true,

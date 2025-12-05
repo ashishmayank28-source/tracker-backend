@@ -25,11 +25,11 @@ export default function VendorDashboard() {
     if (token) fetchAssignments();
   }, [token]);
 
-  /* 🔹 Update LR No. */
-  async function handleLRUpdate(rootId, lrNo) {
+  /* 🔹 Update LR No. - Now uses specific ID (bmId/rmId/rootId) */
+  async function handleLRUpdate(assignmentId, lrNo) {
     if (!lrNo.trim()) return;
     try {
-      const res = await fetch(`${API_BASE}/api/assignments/vendor/lr/${rootId}`, {
+      const res = await fetch(`${API_BASE}/api/assignments/vendor/lr/${assignmentId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -42,9 +42,12 @@ export default function VendorDashboard() {
 
       if (res.ok && data.success) {
         alert("✅ LR No. Updated Successfully");
-        // update LR instantly in state
+        // Update LR in state - match by bmId, rmId, or rootId
         setAssignments((prev) =>
-          prev.map((a) => (a.rootId === rootId ? { ...a, lrNo } : a))
+          prev.map((a) => {
+            const aId = a.bmId || a.rmId || a.rootId;
+            return aId === assignmentId ? { ...a, lrNo } : a;
+          })
         );
       } else {
         alert(data.message || "❌ Failed to update LR No.");
@@ -217,39 +220,44 @@ export default function VendorDashboard() {
                       {a.assignedBy}
                     </td>
                     <td style={{ padding: "8px", border: "1px solid #ddd" }}>
-  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-    <input
-      type="text"
-      placeholder="Enter LR No"
-      defaultValue={a.lrNo || ""}
-      id={`vendor-lr-${a.rootId}-${j}`}
-      style={{
-        width: "100px",
-        padding: "6px 8px",
-        border: "1px solid #ccc",
-        borderRadius: 4,
-      }}
-    />
-    <button
-      onClick={() => {
-        const val = document
-          .getElementById(`vendor-lr-${a.rootId}-${j}`)
-          .value.trim();
-        if (!val) return alert("Please enter LR No first!");
-        handleLRUpdate(a.rootId, val);
-      }}
-      style={{
-        background: "#4caf50",
-        color: "white",
-        border: "none",
-        borderRadius: 4,
-        padding: "4px 8px",
-        cursor: "pointer",
-      }}
-    >
-      Update
-    </button>
-  </div>
+  {(() => {
+    // Use most specific ID: bmId > rmId > rootId
+    const updateId = a.bmId || a.rmId || a.rootId;
+    const inputId = `vendor-lr-${updateId}-${j}`;
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+        <input
+          type="text"
+          placeholder="Enter LR No"
+          defaultValue={a.lrNo || ""}
+          id={inputId}
+          style={{
+            width: "100px",
+            padding: "6px 8px",
+            border: "1px solid #ccc",
+            borderRadius: 4,
+          }}
+        />
+        <button
+          onClick={() => {
+            const val = document.getElementById(inputId).value.trim();
+            if (!val) return alert("Please enter LR No first!");
+            handleLRUpdate(updateId, val);
+          }}
+          style={{
+            background: "#4caf50",
+            color: "white",
+            border: "none",
+            borderRadius: 4,
+            padding: "4px 8px",
+            cursor: "pointer",
+          }}
+        >
+          Update
+        </button>
+      </div>
+    );
+  })()}
 </td>
                   </tr>
                 ))
