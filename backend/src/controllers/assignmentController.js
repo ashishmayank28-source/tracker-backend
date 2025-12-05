@@ -719,3 +719,48 @@ export const getAssignmentSummary = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch summary" });
   }
 };
+
+/* =============================================================
+   📊 Get Region-wide Sample Usage (for RM dashboard)
+============================================================= */
+export const getRegionUsage = async (req, res) => {
+  try {
+    const { region } = req.query;
+
+    // Find all assignments in this region that have used samples
+    const assignments = await Assignment.find({
+      region: region ? new RegExp(region, "i") : { $exists: true },
+    }).lean();
+
+    // Extract all used samples
+    const usageList = [];
+
+    assignments.forEach((a) => {
+      (a.employees || []).forEach((emp) => {
+        if (emp.usedSamples && emp.usedSamples.length > 0) {
+          emp.usedSamples.forEach((us) => {
+            usageList.push({
+              empCode: emp.empCode,
+              empName: emp.name,
+              item: a.item,
+              customerId: us.customerId,
+              qty: us.qty,
+              usedAt: us.usedAt,
+              assignmentId: a._id,
+              rootId: a.rootId,
+              bmId: a.bmId,
+            });
+          });
+        }
+      });
+    });
+
+    // Sort by date descending
+    usageList.sort((a, b) => new Date(b.usedAt) - new Date(a.usedAt));
+
+    res.json(usageList);
+  } catch (err) {
+    console.error("Region usage fetch error:", err);
+    res.status(500).json({ message: "Failed to fetch region usage" });
+  }
+};

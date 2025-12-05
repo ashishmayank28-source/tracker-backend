@@ -24,6 +24,7 @@ export default function SampleBoardsAllocationRegional() {
     item: "",
     purpose: "",
   });
+  const [teamUsage, setTeamUsage] = useState([]); // Team's sample usage
 
   /* 🔹 Fetch RM team */
   useEffect(() => {
@@ -59,8 +60,26 @@ export default function SampleBoardsAllocationRegional() {
     }
   }
 
+  /* 🔹 Fetch team usage (all assignments in region with used samples) */
+  async function fetchTeamUsage() {
+    try {
+      const res = await fetch(`${API_BASE}/api/assignments/region-usage?region=${user?.region || ""}&ts=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to fetch team usage");
+      const data = await res.json();
+      setTeamUsage(data || []);
+    } catch (err) {
+      console.error("Error fetching team usage:", err);
+      setTeamUsage([]);
+    }
+  }
+
   useEffect(() => {
-    if (token && user?.role === "RegionalManager") fetchStock();
+    if (token && user?.role === "RegionalManager") {
+      fetchStock();
+      fetchTeamUsage();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, user]);
 
@@ -542,9 +561,7 @@ export default function SampleBoardsAllocationRegional() {
       {/* 🔹 Team Sample Usage History */}
       <div style={{ marginTop: 40 }}>
         <h3>📋 Team Sample Usage History</h3>
-        {assignments.some((a) =>
-          (a.employees || []).some((e) => e.usedSamples?.length > 0)
-        ) ? (
+        {teamUsage.length > 0 ? (
           <div style={{ overflowX: "auto" }}>
             <table border="1" cellPadding="8" style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
               <thead style={{ background: "#d1fae5" }}>
@@ -557,21 +574,15 @@ export default function SampleBoardsAllocationRegional() {
                 </tr>
               </thead>
               <tbody>
-                {assignments.flatMap((h) =>
-                  (h.employees || [])
-                    .filter((e) => e.usedSamples?.length > 0)
-                    .flatMap((e) =>
-                      e.usedSamples.map((us, idx) => (
-                        <tr key={`${h._id}-${e.empCode}-${idx}`}>
-                          <td>{e.name} ({e.empCode})</td>
-                          <td>{h.item}</td>
-                          <td style={{ fontWeight: "bold", color: "#1d4ed8" }}>{us.customerId}</td>
-                          <td style={{ textAlign: "center" }}>{us.qty}</td>
-                          <td>{us.usedAt ? new Date(us.usedAt).toLocaleDateString() : "-"}</td>
-                        </tr>
-                      ))
-                    )
-                )}
+                {teamUsage.map((usage, idx) => (
+                  <tr key={idx} style={{ background: idx % 2 === 0 ? "#f0fdf4" : "#dcfce7" }}>
+                    <td>{usage.empName} ({usage.empCode})</td>
+                    <td>{usage.item}</td>
+                    <td style={{ fontWeight: "bold", color: "#1d4ed8" }}>{usage.customerId}</td>
+                    <td style={{ textAlign: "center" }}>{usage.qty}</td>
+                    <td>{usage.usedAt ? new Date(usage.usedAt).toLocaleDateString() : "-"}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

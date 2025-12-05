@@ -27,6 +27,7 @@ import {
   addUsedSample,
   getAssignmentLedger,
   getAssignmentSummary,
+  getRegionUsage,
 } from "../controllers/assignmentController.js";
 
 import { protect, adminOnly, vendorOnly } from "../middleware/authMiddleware.js";
@@ -109,5 +110,8 @@ router.get("/ledger", protect, adminOnly, getAssignmentLedger);
 
 // ✅ Admin: Get Assignment Summary (Year/Lot wise)
 router.get("/summary", protect, adminOnly, getAssignmentSummary);
+
+// ✅ RM: Get Region-wide sample usage
+router.get("/region-usage", protect, getRegionUsage);
 
 export default router;
