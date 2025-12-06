@@ -543,41 +543,41 @@ function SubmittedReports({ token, setHistoryCustomer }) {
 
       {!loading && !err && !!reports.length && (
         <div style={{ maxHeight: "60vh", overflowY: "auto" }}>
-          <table style={tableStyle}>
+        <table style={tableStyle}>
             <thead style={{ position: "sticky", top: 0, background: "#fff" }}>
-              <tr style={{ background: "#f9f9f9" }}>
-                <th style={th}>Customer ID</th>
-                <th style={th}>Customer Mob No.</th>
-                <th style={th}>Name</th>
-                <th style={th}>Company</th>
-                <th style={th}>Discussion</th>
-                <th style={th}>Date</th>
-                <th style={th}>History</th>
+            <tr style={{ background: "#f9f9f9" }}>
+              <th style={th}>Customer ID</th>
+              <th style={th}>Customer Mob No.</th>
+              <th style={th}>Name</th>
+              <th style={th}>Company</th>
+              <th style={th}>Discussion</th>
+              <th style={th}>Date</th>
+              <th style={th}>History</th>
+            </tr>
+          </thead>
+          <tbody>
+            {reports.map((r, i) => (
+              <tr key={i}>
+                <td style={td}>{r.customerId}</td>
+                <td style={td}>{r.customerMobile || "NA"}</td>
+                <td style={td}>{r.name}</td>
+                <td style={td}>{r.company}</td>
+                <td style={td}>{r.discussion}</td>
+                <td style={td}>
+                  {r.date ? new Date(r.date).toLocaleDateString() : "-"}
+                </td>
+                <td style={td}>
+                  <button
+                    onClick={() => setHistoryCustomer(r.customerId)}
+                    style={btnBlueSmall}
+                  >
+                    View
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {reports.map((r, i) => (
-                <tr key={i}>
-                  <td style={td}>{r.customerId}</td>
-                  <td style={td}>{r.customerMobile || "NA"}</td>
-                  <td style={td}>{r.name}</td>
-                  <td style={td}>{r.company}</td>
-                  <td style={td}>{r.discussion}</td>
-                  <td style={td}>
-                    {r.date ? new Date(r.date).toLocaleDateString() : "-"}
-                  </td>
-                  <td style={td}>
-                    <button
-                      onClick={() => setHistoryCustomer(r.customerId)}
-                      style={btnBlueSmall}
-                    >
-                      View
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            ))}
+          </tbody>
+        </table>
         </div>
       )}
     </div>

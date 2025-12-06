@@ -8,7 +8,7 @@ const router = express.Router();
 // ✅ Create User (Admin only)
 router.post("/", protect, adminOnly, async (req, res) => {
   try {
-    const { empCode, password, name, role, area, branch, region, managerEmpCode, branchManagerEmpCode, regionalManagerEmpCode } = req.body;
+    const { empCode, password, name, role, area, branch, region, managerEmpCode, branchManagerEmpCode, regionalManagerEmpCode, email, mobile, courierAddress } = req.body;
 
     if (!["Employee","Manager","BranchManager","RegionalManager","Admin","Vendor"].includes(role)) {
       return res.status(400).json({ message: "Invalid role" });
@@ -27,6 +27,9 @@ router.post("/", protect, adminOnly, async (req, res) => {
       managerEmpCode,
       branchManagerEmpCode,
       regionalManagerEmpCode,
+      email,
+      mobile,
+      courierAddress,
     });
 
     await user.save();
@@ -89,15 +92,87 @@ router.get("/team", protect, async (req, res) => {
     res.status(500).json({ message: "Failed to fetch team" });
   }
 });
-// Get single user by empCode
+// Get single user by empCode (omit passwordHash)
 router.get("/:empCode", protect, async (req, res) => {
   try {
-    const user = await User.findOne({ empCode: req.params.empCode });
+    const user = await User.findOne({ empCode: req.params.empCode }).select("-passwordHash").lean();
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json(user);
   } catch (err) {
     console.error("User fetch error:", err);
     res.status(500).json({ message: "Failed to fetch user" });
+  }
+});
+
+// Get current logged-in user (by token)
+router.get("/me/profile", protect, async (req, res) => {
+  try {
+    const empCode = req.user.empCode;
+    if (!empCode) return res.status(400).json({ message: "empCode missing in token" });
+    const user = await User.findOne({ empCode }).select("-passwordHash").lean();
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
+  } catch (err) {
+    console.error("Get me error:", err);
+    res.status(500).json({ message: "Failed to fetch profile" });
+  }
+});
+
+/* ---------- Update courier address (self OR admin) ---------- */
+router.put("/:empCode/address", protect, async (req, res) => {
+  try {
+    const { empCode } = req.params;
+    const { courierAddress } = req.body;
+
+    // Only allow user to update their own address or admin
+    if (req.user.empCode !== empCode && req.user.role?.toLowerCase() !== "admin") {
+      return res.status(403).json({ message: "Not authorized to update this address" });
+    }
+
+    const user = await User.findOneAndUpdate(
+      { empCode },
+      { $set: { courierAddress: courierAddress || "" } },
+      { new: true }
+    ).select("-passwordHash").lean();
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({ success: true, message: "Address updated", user });
+  } catch (err) {
+    console.error("Update address error:", err);
+    res.status(500).json({ message: "Failed to update address" });
+  }
+});
+
+/* ---------- Update profile (self OR admin) ---------- */
+router.put('/:empCode', protect, async (req, res) => {
+  try {
+    const { empCode } = req.params;
+    const { name, email, mobile, courierAddress } = req.body;
+
+    // Only allow user to update their own profile or admin
+    if (req.user.empCode !== empCode && req.user.role?.toLowerCase() !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized to update this profile' });
+    }
+
+    const update = {};
+    if (typeof name === 'string') update.name = name;
+    if (typeof email === 'string') update.email = email;
+    if (typeof mobile === 'string') update.mobile = mobile;
+    if (typeof courierAddress === 'string') update.courierAddress = courierAddress;
+
+    const user = await User.findOneAndUpdate(
+      { empCode },
+      { $set: update },
+      { new: true }
+    ).select('-passwordHash').lean();
+
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    res.json({ success: true, message: 'Profile updated', user });
+  } catch (err) {
+    console.error('Update profile error:', err);
+    res.status(500).json({ message: 'Failed to update profile' });
   }
 });
 

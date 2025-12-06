@@ -29,6 +29,11 @@ const userSchema = new mongoose.Schema(
     dateOfLeaving: { type: String },              // DOL if employee left
     remarks: { type: String },                    // Admin remarks
 
+    // Contact information
+    email: { type: String, lowercase: true, trim: true },
+    mobile: { type: String, trim: true },
+    courierAddress: { type: String, default: "" },
+
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

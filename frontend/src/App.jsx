@@ -23,6 +23,7 @@ import { UserHierarchyProvider } from "./context/UserHierarchyContext.jsx";
 import SampleBoardAllocationRegional from "./pages/SampleBoardsAllocationRegional.jsx";
 import VendorLogin from "./pages/VendorLogin.jsx";
 import VendorDashboard from "./pages/VendorDashboard.jsx";
+import Profile from "./pages/Profile.jsx";
 
 /* ---------- Guards ---------- */
 function RequireAdmin({ children }) {
@@ -188,6 +189,16 @@ export default function App() {
             element={
               <RequireRole roles={["Vendor"]}>
                 <VendorDashboard />
+              </RequireRole>
+            }
+          />
+
+          {/* Profile for all logged-in users */}
+          <Route
+            path="/profile"
+            element={
+              <RequireRole roles={["Employee", "Manager", "BranchManager", "RegionalManager", "Admin", "Vendor"]}>
+                <Profile />
               </RequireRole>
             }
           />

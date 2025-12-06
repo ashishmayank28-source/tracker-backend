@@ -53,3 +53,4 @@ const Retailer = mongoose.model("Retailer", retailerSchema);
 
 export default Retailer;
 
+
