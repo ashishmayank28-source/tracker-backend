@@ -3,6 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import { connectDB } from './config/db.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 // 🔹 Routes
 import authRoutes from './routes/authRoutes.js';
@@ -61,7 +63,26 @@ async function start() {
   app.use("/api/retailers", retailerRoutes);
   app.use("/uploads", express.static("uploads"));
 
-  // 🔹 404 Fallback
+  // Serve frontend static files if built (Vite build outputs to frontend/dist)
+  try {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const clientDist = path.join(__dirname, '../../frontend/dist');
+    app.use(express.static(clientDist));
+
+    // SPA fallback: serve index.html for non-API routes so client-side routing works
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) return next();
+      const indexFile = path.join(clientDist, 'index.html');
+      res.sendFile(indexFile, (err) => {
+        if (err) next();
+      });
+    });
+  } catch (err) {
+    console.warn('Frontend static serving not configured:', err && err.message);
+  }
+
+  // 🔹 404 Fallback (API / other requests)
   app.use((req, res) =>
     res.status(404).json({ message: 'Not Found', path: req.originalUrl })
   );
