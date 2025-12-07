@@ -113,10 +113,17 @@ function Revisit({ token, user, setHistoryCustomer }) {
 
   async function loadHistory(id) {
     if (!id) return;
-    const res = await fetch(`${API_BASE}/api/customers/${id}/history`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setHistory(await res.json());
+    try {
+      const res = await fetch(`${API_BASE}/api/customers/${id}/history`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      // API returns { customerId, name, visits: [...] }
+      setHistory(data.visits || data || []);
+    } catch (err) {
+      console.error("Error loading history:", err);
+      setHistory([]);
+    }
   }
 
   // 🔹 Handle PO file compression
@@ -587,44 +594,94 @@ function SubmittedReports({ token, setHistoryCustomer }) {
 /* ------------------ Customer History (Inline) ------------------ */
 function CustomerHistory({ token, id, onBack }) {
   const [history, setHistory] = useState([]);
+  const [customerInfo, setCustomerInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
   useEffect(() => {
     async function loadHistory() {
-      const res = await fetch(`${API_BASE}/api/customers/${id}/history`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setHistory(await res.json());
+      setLoading(true);
+      try {
+        const res = await fetch(`${API_BASE}/api/customers/${id}/history`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        // API returns { customerId, name, visits: [...], ... }
+        setCustomerInfo(data);
+        setHistory(data.visits || []);
+      } catch (err) {
+        console.error("Error loading history:", err);
+        setHistory([]);
+      } finally {
+        setLoading(false);
+      }
     }
     if (id) loadHistory();
   }, [id, token]);
+
+  if (loading) {
+    return (
+      <div>
+        <button onClick={onBack} style={btnBack}>← Back</button>
+        <p>Loading history...</p>
+      </div>
+    );
+  }
 
   return (
     <div>
       <button onClick={onBack} style={btnBack}>
         ← Back
       </button>
-      <h3 style={{ marginBottom: 10 }}>📑 Customer History ({id})</h3>
-      <table style={tableStyle}>
-        <thead>
-          <tr>
-            <th style={th}>Date</th>
-            <th style={th}>Discussion</th>
-            <th style={th}>Order Status</th>
-            <th style={th}>Order Value</th>
-          </tr>
-        </thead>
-        <tbody>
-          {history.map((h, i) => (
-            <tr key={i}>
-              <td style={td}>
-                {h.date ? new Date(h.date).toLocaleDateString() : "-"}
-              </td>
-              <td style={td}>{h.discussion || "-"}</td>
-              <td style={td}>{h.orderStatus || "-"}</td>
-              <td style={td}>{h.orderValue || "-"}</td>
+      
+      {/* Customer Info */}
+      {customerInfo && (
+        <div style={{ marginBottom: 15, padding: 12, background: "#f8f9fa", borderRadius: 8 }}>
+          <h3 style={{ margin: 0, fontSize: 16 }}>📑 {customerInfo.name}</h3>
+          <p style={{ margin: "4px 0", fontSize: 13, color: "#666" }}>
+            ID: {customerInfo.customerId} | Mobile: {customerInfo.customerMobile || customerInfo.mobile || "NA"}
+          </p>
+          {customerInfo.company && <p style={{ margin: 0, fontSize: 13, color: "#666" }}>Company: {customerInfo.company}</p>}
+        </div>
+      )}
+
+      {history.length === 0 ? (
+        <p style={{ color: "#666" }}>No history found for this customer.</p>
+      ) : (
+        <table style={tableStyle}>
+          <thead>
+            <tr style={{ background: "#f9f9f9" }}>
+              <th style={th}>Date</th>
+              <th style={th}>Type</th>
+              <th style={th}>Discussion</th>
+              <th style={th}>Order Status</th>
+              <th style={th}>Order Value</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {history.map((h, i) => (
+              <tr key={i}>
+                <td style={td}>
+                  {h.date ? new Date(h.date).toLocaleDateString() : "-"}
+                </td>
+                <td style={td}>{h.meetingType || "-"}</td>
+                <td style={td}>{h.discussion || "-"}</td>
+                <td style={td}>
+                  <span style={{
+                    padding: "2px 8px",
+                    borderRadius: 4,
+                    fontSize: 11,
+                    background: h.orderStatus === "Won" ? "#dcfce7" : h.orderStatus === "Lost" ? "#fee2e2" : "#f3f4f6",
+                    color: h.orderStatus === "Won" ? "#166534" : h.orderStatus === "Lost" ? "#dc2626" : "#374151",
+                  }}>
+                    {h.orderStatus || "-"}
+                  </span>
+                </td>
+                <td style={td}>{h.orderValue ? `₹${h.orderValue}` : "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

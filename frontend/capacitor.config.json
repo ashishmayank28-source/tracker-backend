@@ -4,9 +4,20 @@
   "webDir": "dist",
   "android": {
     "allowMixedContent": true,
-    "overScrollMode": "never"
+    "overScrollMode": "never",
+    "webContentsDebuggingEnabled": true
   },
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "cleartext": true,
+    "errorPath": "/index.html"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1000,
+      "launchAutoHide": true,
+      "backgroundColor": "#7c3aed",
+      "showSpinner": false
+    }
   }
 }

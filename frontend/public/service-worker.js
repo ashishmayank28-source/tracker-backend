@@ -1,21 +1,19 @@
 /* ============================================================
-   🚀 Sales Tracker PWA Service Worker
-   Provides offline caching, app shell support, and fallback page
+   🚀 Sales Tracker PWA Service Worker v4
+   Provides offline caching, SPA routing, and fallback page
 ============================================================ */
 
-const CACHE_NAME = "sales-tracker-cache-v3";
+const CACHE_NAME = "sales-tracker-cache-v4";
 const URLS_TO_CACHE = [
   "/",
   "/index.html",
   "/manifest.json",
   "/offline.html",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
 ];
 
 // Install: Cache core files
 self.addEventListener("install", (event) => {
-  console.log("📦 Installing Service Worker...");
+  console.log("📦 Installing Service Worker v4...");
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(URLS_TO_CACHE);
@@ -26,7 +24,7 @@ self.addEventListener("install", (event) => {
 
 // Activate: Remove old cache versions
 self.addEventListener("activate", (event) => {
-  console.log("✅ Service Worker activated");
+  console.log("✅ Service Worker v4 activated");
   event.waitUntil(
     caches.keys().then((cacheNames) =>
       Promise.all(
@@ -42,45 +40,48 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Fetch: Serve cached content or fallback to network
+// Fetch: Handle all requests with SPA-friendly routing
 self.addEventListener("fetch", (event) => {
   // Skip non-GET requests
   if (event.request.method !== "GET") return;
 
-  // Skip API calls - don't cache them
   const url = new URL(event.request.url);
+
+  // Skip API calls - let them go to network
   if (url.pathname.startsWith("/api/") || 
+      url.pathname.startsWith("/uploads/") ||
       url.hostname.includes("onrender.com") ||
-      url.hostname.includes("localhost") ||
-      url.hostname === "127.0.0.1") {
-    return; // Let browser handle API requests normally
+      url.hostname.includes("render.com")) {
+    return;
   }
 
-  // 🔄 SPA Navigation: For HTML document requests, always serve index.html
-  // This fixes the "not found" issue on page refresh in mobile
-  if (event.request.mode === "navigate" || 
-      event.request.destination === "document") {
+  // 🔄 SPA Navigation: For ALL navigation requests, serve index.html
+  // This is the key fix for "not found" on page refresh/scroll
+  if (event.request.mode === "navigate") {
     event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          // If we got a valid response, cache and return it
-          if (response && response.status === 200) {
-            return response;
+      caches.match("/index.html")
+        .then((cached) => {
+          if (cached) {
+            // Also try to update cache in background
+            fetch(event.request).then((response) => {
+              if (response && response.status === 200) {
+                caches.open(CACHE_NAME).then((cache) => {
+                  cache.put("/index.html", response);
+                });
+              }
+            }).catch(() => {});
+            return cached;
           }
-          // If 404 or error, serve cached index.html for SPA routing
-          return caches.match("/index.html") || caches.match("/");
-        })
-        .catch(() => {
-          // 📴 Offline: serve cached index.html or offline page
-          return caches.match("/index.html") || 
-                 caches.match("/") || 
-                 caches.match("/offline.html");
+          // No cache, try network
+          return fetch(event.request).catch(() => {
+            return caches.match("/offline.html");
+          });
         })
     );
     return;
   }
 
-  // For other assets (JS, CSS, images), use cache-first strategy
+  // For static assets, use cache-first with network fallback
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
@@ -88,14 +89,23 @@ self.addEventListener("fetch", (event) => {
       return fetch(event.request)
         .then((response) => {
           if (!response || response.status !== 200) return response;
-          const cloned = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cloned));
+          
+          // Cache JS, CSS, and image files
+          const contentType = response.headers.get("content-type") || "";
+          if (contentType.includes("javascript") || 
+              contentType.includes("text/css") ||
+              contentType.includes("image/")) {
+            const cloned = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, cloned);
+            });
+          }
           return response;
         })
         .catch(() => {
-          // 📴 Offline fallback for other documents
+          // If navigation fails, serve index.html
           if (event.request.destination === "document") {
-            return caches.match("/offline.html");
+            return caches.match("/index.html");
           }
         });
     })

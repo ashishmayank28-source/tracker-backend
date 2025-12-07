@@ -44,15 +44,12 @@ export default function Layout({ children }) {
           <div className="relative" ref={profileRef}>
             <button
               onClick={() => setShowProfile(!showProfile)}
-              className="flex items-center gap-2 hover:bg-gray-100 rounded-lg px-3 py-2 transition"
+              className="flex items-center gap-2 hover:bg-purple-50 rounded-full p-1.5 pr-3 transition border border-transparent hover:border-purple-200"
             >
-              {/* Avatar - Larger Size */}
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-base shadow-md">
+              {/* Avatar */}
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow">
                 {user.name?.charAt(0)?.toUpperCase() || "U"}
               </div>
-              <span className="text-sm font-medium text-gray-700 hidden sm:block">
-                {user.name || "User"}
-              </span>
               <svg
                 className={`w-4 h-4 text-gray-400 transition-transform ${showProfile ? "rotate-180" : ""}`}
                 fill="none"
@@ -63,36 +60,50 @@ export default function Layout({ children }) {
               </svg>
             </button>
 
-            {/* Profile Dropdown - Fixed Positioning */}
+            {/* Profile Dropdown */}
             {showProfile && (
               <div 
-                className="absolute mt-2 w-60 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden"
+                className="absolute mt-2 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden"
                 style={{ 
-                  right: "8px",
-                  zIndex: 9999,
-                  maxWidth: "calc(100vw - 24px)"
+                  right: 0,
+                  width: "220px",
+                  zIndex: 9999
                 }}
               >
-                {/* User Info */}
-                <div className="px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
-                  <p className="font-semibold">{user.name}</p>
-                  <p className="text-xs text-purple-200">{user.empCode}</p>
-                  <p className="text-xs text-purple-200">{user.role}</p>
+                {/* User Info Header */}
+                <div className="px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white font-bold">
+                      {user.name?.charAt(0)?.toUpperCase() || "U"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-medium text-sm truncate">{user.name}</p>
+                      <p className="text-purple-200 text-xs">{user.empCode}</p>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Menu */}
-                <div className="py-1 bg-white">
+                {/* Role Badge */}
+                <div className="px-4 py-2 bg-purple-50 border-b border-purple-100">
+                  <span className="text-xs text-purple-600 font-medium">{user.role}</span>
+                </div>
+
+                {/* Menu Items */}
+                <div className="py-1">
                   <button
                     onClick={goToProfile}
-                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-purple-50 flex items-center gap-2"
+                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition"
                   >
-                    <span>👤</span> View Profile
+                    <span className="w-5 text-center">👤</span>
+                    <span>View Profile</span>
                   </button>
+                  <div className="border-t border-gray-100 my-1"></div>
                   <button
                     onClick={handleLogout}
-                    className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 transition"
                   >
-                    <span>🚪</span> Logout
+                    <span className="w-5 text-center">🚪</span>
+                    <span>Logout</span>
                   </button>
                 </div>
               </div>
