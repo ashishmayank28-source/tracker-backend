@@ -8,14 +8,18 @@ import {
   uploadPOForManager,
   managerPOUploader,
   submitBMEntries,
-  getRMRevenue,      // ✅ NEW
-  getAdminRevenue,   // ✅ NEW
+  getRMRevenue,
+  getAdminRevenue,
+  getBMRevenue,  // ✅ NEW - BM gets manager submitted
 } from "../controllers/revenueController.js";
 
 const router = express.Router();
 
 // ✅ Manager Revenue route
 router.get("/manager", protect, getManagerRevenue);
+
+// ✅ Branch Manager Revenue route (Manager submitted + direct reportees)
+router.get("/bm", protect, getBMRevenue);
 
 // ✅ Regional Manager Revenue route (BM submitted)
 router.get("/rm", protect, getRMRevenue);

@@ -171,12 +171,13 @@ export const approveRevenue = async (req, res) => {
     const now = new Date();
 
     // 🔹 Step 1: Update the visit directly and permanently inside Customer
+    const approvedByName = `${managerCode} - ${managerName}`;
     const updatedCustomer = await Customer.findOneAndUpdate(
       { "visits._id": id },
       {
         $set: {
           "visits.$.approved": true,
-          "visits.$.approvedBy": managerName,
+          "visits.$.approvedBy": approvedByName,
           "visits.$.approvedDate": now,
           "visits.$.orderStatus": "Approved", // permanent fix flag
         },
@@ -219,7 +220,7 @@ export const approveRevenue = async (req, res) => {
       orderValue: Number(visit.orderValue) || 0,
       orderStatus: "Approved",
       approved: true,
-      approvedBy: managerName,
+      approvedBy: approvedByName,
       approvedDate: now,
       isManual: false,
       date: visit.date || now,
@@ -315,7 +316,7 @@ export const addManualSale = async (req, res) => {
   }
 };
 /* =============================================================
-   📤 Submit Manager Report Upward
+   📤 Submit Manager Report Upward (to BM)
 ============================================================= */
 export const submitManagerReport = async (req, res) => {
   try {
@@ -324,20 +325,64 @@ export const submitManagerReport = async (req, res) => {
     if (!reports?.length)
       return res.status(400).json({ message: "No reports to submit" });
 
+    let updatedCount = 0;
+    const now = new Date();
+
     for (const r of reports) {
-      await Customer.findOneAndUpdate(
-        { "visits._id": r._id },
-        {
-          $set: {
-            "visits.$.submitted": true,
-            "visits.$.submittedBy": manager.name,
-            "visits.$.submittedDate": new Date(),
-          },
-        }
-      );
+      // 1️⃣ Update Customer visits
+      if (r._id) {
+        await Customer.findOneAndUpdate(
+          { "visits._id": r._id },
+          {
+            $set: {
+              "visits.$.submitted": true,
+              "visits.$.isSubmitted": true,
+              "visits.$.submittedBy": `${manager.empCode} - ${manager.name}`,
+              "visits.$.submittedDate": now,
+              "visits.$.submittedToBM": true,
+            },
+          }
+        );
+      }
+
+      // 2️⃣ Update Revenue collection entries
+      if (r.poNumber && r.empCode) {
+        await Revenue.updateOne(
+          { poNumber: r.poNumber, empCode: r.empCode },
+          {
+            $set: {
+              isSubmitted: true,
+              submittedBy: `${manager.empCode} - ${manager.name}`,
+              submittedDate: now,
+              submittedToBM: true,
+            },
+          }
+        );
+      }
+      updatedCount++;
     }
 
-    res.json({ success: true, message: "Manager reports submitted upward" });
+    // 3️⃣ Also mark ALL approved Revenue entries from this manager as submitted
+    await Revenue.updateMany(
+      { 
+        managerCode: manager.empCode,
+        approved: true,
+        isSubmitted: { $ne: true }
+      },
+      {
+        $set: {
+          isSubmitted: true,
+          submittedBy: `${manager.empCode} - ${manager.name}`,
+          submittedDate: now,
+          submittedToBM: true,
+        },
+      }
+    );
+
+    res.json({ 
+      success: true, 
+      message: `✅ ${updatedCount} reports submitted to Branch Manager` 
+    });
   } catch (err) {
     console.error("Submit Manager Report Error:", err);
     res.status(500).json({ message: "Failed to submit report" });
@@ -448,6 +493,119 @@ export const getRevenueTrackerManager = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch revenue data" });
   }
 };
+/* =============================================================
+   📊 Branch Manager View - Manager Submitted + Direct Reportees
+============================================================= */
+export const getBMRevenue = async (req, res) => {
+  try {
+    const bmCode = req.user?.empCode;
+    const bmBranch = req.user?.branch;
+    const { from, to, empCode } = req.query;
+
+    console.log("🔍 BM Revenue - Code:", bmCode, "Branch:", bmBranch);
+
+    // 1️⃣ Find all managers and employees who report to this BM
+    const reportees = await User.find({
+      $or: [
+        { "reportTo.empCode": bmCode },
+        { managerEmpCode: bmCode },
+        { branch: bmBranch },
+      ],
+    }).lean();
+
+    const reporteeEmpCodes = reportees.map((r) => r.empCode);
+    const managerCodes = reportees
+      .filter((r) => r.role === "Manager")
+      .map((r) => r.empCode);
+
+    console.log("🔍 BM Reportees:", reporteeEmpCodes.length, "Managers:", managerCodes.length);
+
+    // 2️⃣ Get ALL submitted Revenue entries from managers in this branch
+    let revenues = await Revenue.find({
+      $or: [
+        { managerCode: { $in: managerCodes }, submittedToBM: true },
+        { managerCode: { $in: managerCodes }, isSubmitted: true },
+        { empCode: { $in: reporteeEmpCodes }, approved: true },
+        { managerCode: bmCode }, // BM's own manual entries
+      ],
+    }).lean();
+
+    console.log("🔍 Revenue collection entries for BM:", revenues.length);
+
+    // 3️⃣ Get approved Customer visits from direct reportees and managers
+    const customers = await Customer.find({
+      $or: [
+        { "visits.createdBy": { $in: reporteeEmpCodes } },
+        { "createdBy.empCode": { $in: reporteeEmpCodes } },
+      ],
+    }).lean();
+
+    customers.forEach((c) => {
+      (c.visits || []).forEach((v) => {
+        // Include if approved/won and from reportee
+        if ((v.approved || v.orderStatus === "Approved" || v.orderStatus === "Won") &&
+            reporteeEmpCodes.includes(v.createdBy)) {
+          // Avoid duplicates
+          const exists = revenues.some(
+            (r) => r.poNumber === v.poNumber && r.empCode === v.createdBy
+          );
+          if (!exists && v.orderValue) {
+            const emp = reportees.find((e) => e.empCode === v.createdBy);
+            revenues.push({
+              _id: v._id,
+              customerId: c.customerId,
+              customerMobile: c.customerMobile || "NA",
+              customerName: c.name || "-",
+              customerType: c.customerType || "-",
+              verticalType: v.vertical || c.vertical || "-",
+              distributorCode: v.distributorCode || "-",
+              distributorName: v.distributorName || "-",
+              orderType: v.orderType || "-",
+              itemName: v.itemName || "-",
+              poNumber: v.poNumber || "-",
+              poFileUrl: v.poFileUrl || "-",
+              orderValue: v.orderValue || 0,
+              empCode: v.createdBy || c.createdBy?.empCode || "-",
+              empName: emp?.name || c.createdBy?.name || "-",
+              branch: v.branch || emp?.branch || bmBranch || "-",
+              region: v.region || emp?.region || "-",
+              date: v.date || c.createdAt,
+              approved: v.approved || v.orderStatus === "Approved",
+              approvedBy: v.approvedBy || "-",
+              submittedBy: v.submittedBy || "-",
+              isSubmitted: v.isSubmitted || v.submitted || false,
+            });
+          }
+        }
+      });
+    });
+
+    console.log("🔍 Total revenues for BM after merge:", revenues.length);
+
+    // Filter by empCode if provided
+    if (empCode && empCode !== "all") {
+      revenues = revenues.filter((r) => r.empCode === empCode);
+    }
+
+    // Date filtering
+    if (from && to) {
+      const fromDate = new Date(from);
+      const toDate = new Date(to);
+      toDate.setHours(23, 59, 59, 999);
+      revenues = revenues.filter((r) => {
+        const d = new Date(r.date);
+        return d >= fromDate && d <= toDate;
+      });
+    }
+
+    revenues.sort((a, b) => new Date(b.date) - new Date(a.date));
+    res.json(revenues);
+  } catch (err) {
+    console.error("BM Revenue Error:", err);
+    res.status(500).json({ message: "Failed to fetch BM revenue" });
+  }
+};
+
 /* =============================================================
  📤 BM: Submit ALL Approved Entries to RM/Admin
 ============================================================= */
