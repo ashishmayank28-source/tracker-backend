@@ -46,8 +46,8 @@ export default function Layout({ children }) {
               onClick={() => setShowProfile(!showProfile)}
               className="flex items-center gap-2 hover:bg-gray-100 rounded-lg px-3 py-2 transition"
             >
-              {/* Avatar - First Letter */}
-              <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+              {/* Avatar - Larger Size */}
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-base shadow-md">
                 {user.name?.charAt(0)?.toUpperCase() || "U"}
               </div>
               <span className="text-sm font-medium text-gray-700 hidden sm:block">
@@ -63,30 +63,34 @@ export default function Layout({ children }) {
               </svg>
             </button>
 
-            {/* Profile Dropdown */}
+            {/* Profile Dropdown - Fixed Positioning */}
             {showProfile && (
               <div 
-                className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden"
-                style={{ zIndex: 9999 }}
+                className="absolute mt-2 w-60 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden"
+                style={{ 
+                  right: "8px",
+                  zIndex: 9999,
+                  maxWidth: "calc(100vw - 24px)"
+                }}
               >
                 {/* User Info */}
-                <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-                  <p className="font-semibold text-gray-800">{user.name}</p>
-                  <p className="text-xs text-gray-500">{user.empCode}</p>
-                  <p className="text-xs text-gray-500">{user.role}</p>
+                <div className="px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                  <p className="font-semibold">{user.name}</p>
+                  <p className="text-xs text-purple-200">{user.empCode}</p>
+                  <p className="text-xs text-purple-200">{user.role}</p>
                 </div>
 
                 {/* Menu */}
-                <div className="py-1">
+                <div className="py-1 bg-white">
                   <button
                     onClick={goToProfile}
-                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-purple-50 flex items-center gap-2"
                   >
                     <span>👤</span> View Profile
                   </button>
                   <button
                     onClick={handleLogout}
-                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                   >
                     <span>🚪</span> Logout
                   </button>
