@@ -31,8 +31,13 @@ const userSchema = new mongoose.Schema(
 
     // Contact information
     email: { type: String, lowercase: true, trim: true },
-    mobile: { type: String, trim: true },
+    mobile: { type: String, trim: true },           // Primary mobile
+    mobile2: { type: String, trim: true },          // Secondary mobile (optional)
     courierAddress: { type: String, default: "" },
+    designation: { type: String, trim: true },      // Job title/designation
+
+    // Profile photo (base64 or URL)
+    profilePhoto: { type: String, default: "" },
 
     isActive: { type: Boolean, default: true },
   },

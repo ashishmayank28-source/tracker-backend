@@ -1,5 +1,12 @@
 {
   "appId": "com.sales.tracker",
   "appName": "Sales Tracker",
-  "webDir": "dist"
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": true,
+    "overScrollMode": "never"
+  },
+  "server": {
+    "androidScheme": "https"
+  }
 }

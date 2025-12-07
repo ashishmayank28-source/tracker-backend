@@ -1,0 +1,24 @@
+# Render Blueprint - Auto Deploy Configuration
+# Push to main branch to trigger auto-deploy
+
+services:
+  # Backend API + Frontend (combined)
+  - type: web
+    name: sales-tracker
+    env: node
+    region: singapore  # Choose: oregon, frankfurt, ohio, singapore
+    plan: free
+    buildCommand: cd backend && npm install && cd ../frontend && npm install && npm run build
+    startCommand: cd backend && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGO_URI
+        sync: false  # Set this manually in Render Dashboard
+      - key: JWT_SECRET
+        sync: false  # Set this manually in Render Dashboard
+    autoDeploy: true  # Auto deploy on push to connected branch
+

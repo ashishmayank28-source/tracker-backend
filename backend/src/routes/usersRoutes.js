@@ -8,7 +8,7 @@ const router = express.Router();
 // ✅ Create User (Admin only)
 router.post("/", protect, adminOnly, async (req, res) => {
   try {
-    const { empCode, password, name, role, area, branch, region, managerEmpCode, branchManagerEmpCode, regionalManagerEmpCode, email, mobile, courierAddress } = req.body;
+    const { empCode, password, name, role, area, branch, region, managerEmpCode, branchManagerEmpCode, regionalManagerEmpCode, email, mobile, mobile2, courierAddress, designation } = req.body;
 
     if (!["Employee","Manager","BranchManager","RegionalManager","Admin","Vendor"].includes(role)) {
       return res.status(400).json({ message: "Invalid role" });
@@ -29,7 +29,9 @@ router.post("/", protect, adminOnly, async (req, res) => {
       regionalManagerEmpCode,
       email,
       mobile,
+      mobile2,
       courierAddress,
+      designation,
     });
 
     await user.save();
@@ -144,11 +146,37 @@ router.put("/:empCode/address", protect, async (req, res) => {
   }
 });
 
+/* ---------- Upload Profile Photo ---------- */
+router.put('/:empCode/photo', protect, async (req, res) => {
+  try {
+    const { empCode } = req.params;
+    const { profilePhoto } = req.body;
+
+    // Only allow user to update their own photo or admin
+    if (req.user.empCode !== empCode && req.user.role?.toLowerCase() !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized to update this photo' });
+    }
+
+    const user = await User.findOneAndUpdate(
+      { empCode },
+      { $set: { profilePhoto: profilePhoto || "" } },
+      { new: true }
+    ).select('-passwordHash').lean();
+
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    res.json({ success: true, message: 'Photo updated', user });
+  } catch (err) {
+    console.error('Update photo error:', err);
+    res.status(500).json({ message: 'Failed to update photo' });
+  }
+});
+
 /* ---------- Update profile (self OR admin) ---------- */
 router.put('/:empCode', protect, async (req, res) => {
   try {
     const { empCode } = req.params;
-    const { name, email, mobile, courierAddress } = req.body;
+    const { name, email, mobile, mobile2, courierAddress, designation, profilePhoto } = req.body;
 
     // Only allow user to update their own profile or admin
     if (req.user.empCode !== empCode && req.user.role?.toLowerCase() !== 'admin') {
@@ -159,7 +187,10 @@ router.put('/:empCode', protect, async (req, res) => {
     if (typeof name === 'string') update.name = name;
     if (typeof email === 'string') update.email = email;
     if (typeof mobile === 'string') update.mobile = mobile;
+    if (typeof mobile2 === 'string') update.mobile2 = mobile2;
     if (typeof courierAddress === 'string') update.courierAddress = courierAddress;
+    if (typeof designation === 'string') update.designation = designation;
+    if (typeof profilePhoto === 'string') update.profilePhoto = profilePhoto;
 
     const user = await User.findOneAndUpdate(
       { empCode },

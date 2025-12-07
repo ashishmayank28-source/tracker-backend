@@ -1,6 +1,7 @@
-import { Link, Routes, Route } from "react-router-dom";
+import { useState } from "react";
 import { useAuth } from "../auth.jsx";
 import UsersTile from "./admin/UsersTile.jsx";
+import UserDetailsTile from "./admin/UserDetailsTile.jsx";
 import AssetsTile from "./admin/AssetsTile.jsx";
 import ReportDump from "./admin/ReportDump.jsx";
 import ReportViewer from "../components/ReportsViewer.jsx";
@@ -11,133 +12,188 @@ import AdminAttendance from "./admin/AdminAttendance.jsx";
 import PerformanceReview from "./admin/PerformanceReview.jsx";
 import RetailerDatabaseTeam from "./RetailerDatabaseTeam.jsx";
 
-function Tile({ to, label }) {
+export default function AdminDashboard() {
+  const { user } = useAuth();
+  const [activeTile, setActiveTile] = useState("dashboard");
+
   return (
-    <Link
-      to={to}
-      style={{
-        border: "1px solid #ccc",
-        borderRadius: 8,
-        padding: 20,
-        textAlign: "center",
-        cursor: "pointer",
-        background: "#f9f9f9",
-        fontWeight: "bold",
-        textDecoration: "none",
-        color: "inherit",
-        transition: "all 0.2s ease",
-      }}
-    >
-      {label}
-    </Link>
+    <div style={{ maxWidth: "1400px", margin: "0 auto", padding: 20 }}>
+      {/* Header */}
+      <div style={{ marginBottom: 20 }}>
+        <h2 style={{ fontSize: "24px", fontWeight: "600", margin: 0 }}>
+          ⚙️ Admin Dashboard
+        </h2>
+      </div>
+
+      {/* Dashboard Tiles */}
+      {activeTile === "dashboard" && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+            gap: 20,
+          }}
+        >
+          <Tile label="👥 Users" onClick={() => setActiveTile("users")} color="#3b82f6" />
+          <Tile label="📋 User Details" onClick={() => setActiveTile("user-details")} color="#8b5cf6" />
+          <Tile label="📅 Attendance" onClick={() => setActiveTile("attendance")} color="#10b981" />
+          <Tile label="⭐ Performance" onClick={() => setActiveTile("performance")} color="#f59e0b" />
+          <Tile label="📝 Daily Tracker" onClick={() => setActiveTile("daily")} color="#06b6d4" />
+          <Tile label="💰 Revenue" onClick={() => setActiveTile("revenue")} color="#22c55e" />
+          <Tile label="🎁 Assets" onClick={() => setActiveTile("assets")} color="#ec4899" />
+          <Tile label="🏬 Retailers DB" onClick={() => setActiveTile("retailers")} color="#6366f1" />
+          <Tile label="🗂 Dump Management" onClick={() => setActiveTile("dump")} color="#ef4444" />
+          <Tile label="📊 Assignment Ledger" onClick={() => setActiveTile("ledger")} color="#14b8a6" />
+          <Tile label="📋 Assignment Table" onClick={() => setActiveTile("assignment-table")} color="#a855f7" />
+        </div>
+      )}
+
+      {/* Users Management */}
+      {activeTile === "users" && (
+        <TileWrapper title="👥 Manage Users" onBack={() => setActiveTile("dashboard")}>
+          <UsersTile />
+        </TileWrapper>
+      )}
+
+      {/* User Details */}
+      {activeTile === "user-details" && (
+        <TileWrapper title="📋 User Details" onBack={() => setActiveTile("dashboard")}>
+          <UserDetailsTile />
+        </TileWrapper>
+      )}
+
+      {/* Attendance */}
+      {activeTile === "attendance" && (
+        <TileWrapper title="📅 Attendance" onBack={() => setActiveTile("dashboard")}>
+          <AdminAttendance />
+        </TileWrapper>
+      )}
+
+      {/* Performance Review */}
+      {activeTile === "performance" && (
+        <TileWrapper title="⭐ Performance Review" onBack={() => setActiveTile("dashboard")}>
+          <PerformanceReview />
+        </TileWrapper>
+      )}
+
+      {/* Daily Tracker */}
+      {activeTile === "daily" && (
+        <TileWrapper title="📝 Daily Tracker" onBack={() => setActiveTile("dashboard")}>
+          <ReportViewer />
+        </TileWrapper>
+      )}
+
+      {/* Revenue */}
+      {activeTile === "revenue" && (
+        <TileWrapper title="💰 Revenue Tracker" onBack={() => setActiveTile("dashboard")}>
+          <AdminRevenueTracker />
+        </TileWrapper>
+      )}
+
+      {/* Assets */}
+      {activeTile === "assets" && (
+        <TileWrapper title="🎁 Assets Management" onBack={() => setActiveTile("dashboard")}>
+          <AssetsTile />
+        </TileWrapper>
+      )}
+
+      {/* Retailers Database */}
+      {activeTile === "retailers" && (
+        <TileWrapper title="🏬 Retailer Database (All Regions)" onBack={() => setActiveTile("dashboard")}>
+          <RetailerDatabaseTeam />
+        </TileWrapper>
+      )}
+
+      {/* Dump Management */}
+      {activeTile === "dump" && (
+        <TileWrapper title="🗂 Dump Management" onBack={() => setActiveTile("dashboard")}>
+          <ReportDump />
+        </TileWrapper>
+      )}
+
+      {/* Assignment Ledger */}
+      {activeTile === "ledger" && (
+        <TileWrapper title="📊 Assignment Ledger" onBack={() => setActiveTile("dashboard")}>
+          <AssignmentLedger />
+        </TileWrapper>
+      )}
+
+      {/* Assignment Table */}
+      {activeTile === "assignment-table" && (
+        <TileWrapper title="📋 Assignment Table" onBack={() => setActiveTile("dashboard")}>
+          <AssignmentTable />
+        </TileWrapper>
+      )}
+    </div>
   );
 }
 
-export default function AdminDashboard() {
-  const { user, logout } = useAuth();
-
+/* --- Reusable Tile Component --- */
+function Tile({ label, onClick, color = "#3b82f6" }) {
   return (
-    <div style={{ maxWidth: "1200px", margin: "0 auto", padding: 20 }}>
-      {/* Header */}
+    <div
+      onClick={onClick}
+      style={{
+        border: "none",
+        borderRadius: 12,
+        padding: 24,
+        textAlign: "center",
+        cursor: "pointer",
+        background: `linear-gradient(135deg, ${color}15 0%, ${color}05 100%)`,
+        fontWeight: "600",
+        fontSize: 15,
+        color: "#1e293b",
+        transition: "all 0.2s ease",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+        borderLeft: `4px solid ${color}`,
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-2px)";
+        e.currentTarget.style.boxShadow = `0 4px 12px ${color}30`;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.08)";
+      }}
+    >
+      {label}
+    </div>
+  );
+}
+
+/* --- Wrapper with Back button --- */
+function TileWrapper({ title, onBack, children }) {
+  return (
+    <div>
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
           alignItems: "center",
+          gap: 15,
           marginBottom: 20,
+          paddingBottom: 15,
+          borderBottom: "1px solid #e2e8f0",
         }}
       >
-        <h2 style={{ fontSize: "24px", fontWeight: "600" }}>⚙️ Admin Dashboard</h2>
-        {user && (
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <span>
-              Hi <b>{user.name}</b> · {user.role}
-            </span>
-            <button
-              onClick={logout}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 6,
-                background: "#f44336",
-                color: "#fff",
-                border: "none",
-                cursor: "pointer",
-              }}
-            >
-              Logout
-            </button>
-          </div>
-        )}
+        <button
+          onClick={onBack}
+          style={{
+            padding: "8px 16px",
+            background: "#f1f5f9",
+            border: "1px solid #e2e8f0",
+            borderRadius: 8,
+            cursor: "pointer",
+            fontWeight: 500,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          ← Back
+        </button>
+        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>{title}</h3>
       </div>
-
-      {/* Main Tiles */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-          gap: 20,
-        }}
-      >
-        <Tile to="users" label="👥 Users" />
-        <Tile to="attendance" label="📅 Attendance" />
-        <Tile to="performance" label="⭐ Performance Review" />
-        <Tile to="daily" label="📝 Daily Tracker" />
-        <Tile to="revenue" label="💰 Revenue" />
-        <Tile to="assets" label="🎁 Assets" />
-        <Tile to="retailers" label="🏬 Retailers DB" />
-        <Tile to="dump" label="🗂 Dump Management" />
-        <Tile to="ledger" label="📊 Assignment Ledger" />
-        <Tile to="assignment-table" label="📋 Assignment Table" />
-      </div>
-
-      {/* Sub-Routes */}
-      <div style={{ marginTop: 30 }}>
-        <Routes>
-          <Route path="users" element={<UsersTile />} />
-          <Route path="attendance" element={<AdminAttendance />} />
-          <Route path="performance" element={<PerformanceReview />} />
-          <Route path="assets" element={<AssetsTile />} />
-
-          {/* ✅ Reports section */}
-          <Route
-            path="reports"
-            element={
-              <div>
-                <h3>📊 Reports</h3>
-                <ReportViewer /> {/* Admin → sees all users' reports */}
-              </div>
-            }
-          />
-
-          <Route path="revenue" element={<AdminRevenueTracker />} />
-          <Route path="retailers" element={
-            <div>
-              <h3>🏬 Retailer Database (All Regions)</h3>
-              <RetailerDatabaseTeam />
-            </div>
-          } />
-
-          {/* ✅ Daily Tracker with ReportViewer */}
-          <Route
-            path="daily"
-            element={
-              <div>
-                <h3>📝 Daily Tracker</h3>
-                <ReportViewer /> {/* Same component reused */}
-              </div>
-            }
-          />
-
-          {/* 🔹 Dump Route */}
-          <Route path="dump" element={<ReportDump />} />
-
-          {/* ✅ Assignment Ledger (Tree View) */}
-          <Route path="ledger" element={<AssignmentLedger />} />
-
-          {/* ✅ Assignment Table (Employee-wise Stock) */}
-          <Route path="assignment-table" element={<AssignmentTable />} />
-        </Routes>
-      </div>
+      {children}
     </div>
   );
 }

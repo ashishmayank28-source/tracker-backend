@@ -14,8 +14,6 @@ import RegionalDashboard from "./pages/RegionalDashboard.jsx";
 import BranchManagerDashboard from "./pages/BranchManagerDashboard.jsx";
 import ManagerDashboard from "./pages/ManagerDashboard.jsx";
 import EmployeeDashboard from "./pages/EmployeeDashboard.jsx";
-import UsersTile from "./pages/admin/UsersTile.jsx";
-import AssetsTile from "./pages/admin/AssetsTile.jsx";
 import CustomerHistory from "./pages/CustomerHistory.jsx";
 import MyReports from "./pages/MyReports.jsx";
 import CustomerFullHistory from "./pages/CustomerFullHistory.jsx";
@@ -175,7 +173,7 @@ export default function App() {
 
           {/* Admin */}
           <Route
-            path="/admin/*"
+            path="/admin"
             element={
               <RequireAdmin>
                 <AdminDashboard />

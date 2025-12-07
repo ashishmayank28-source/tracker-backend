@@ -23,7 +23,9 @@ export function AuthProvider({ children }) {
   const navigate = useNavigate();
 
   /* ---------- LOGIN (API based) ---------- */
-  async function login(loginId, password) {
+  async function login(loginId, password, options = {}) {
+    const { skipRedirect = false } = options;
+    
     const res = await fetch(`${API_BASE}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -36,13 +38,13 @@ export function AuthProvider({ children }) {
     // save to state
     setAuth(data.token, data.user);
 
-    // redirect to dashboard
-    if (data?.user?.role) {
+    // redirect to dashboard (unless skipRedirect is true)
+    if (!skipRedirect && data?.user?.role) {
       const dashboardPath = roleToDashboardPath(data.user.role);
       navigate(dashboardPath, { replace: true });
     }
 
-    return data.user;
+    return { user: data.user, token: data.token };
   }
 
   /* ---------- SET AUTH (manual save for VendorLogin, etc.) ---------- */

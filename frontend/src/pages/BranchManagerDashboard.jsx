@@ -32,37 +32,10 @@ export default function BranchManagerDashboard() {
   return (
     <div style={{ padding: 20 }}>
       {/* 🔹 Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 20,
-        }}
-      >
-        <h2 style={{ fontSize: "22px", fontWeight: "bold" }}>
+      <div style={{ marginBottom: 20 }}>
+        <h2 style={{ fontSize: "22px", fontWeight: "bold", margin: 0 }}>
           🏢 Branch Manager Dashboard
         </h2>
-        {user && (
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span>
-              Hi <b>{user.name}</b> · {user.role}
-            </span>
-            <button
-              onClick={logout}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 4,
-                background: "#f44336",
-                color: "#fff",
-                border: "none",
-                cursor: "pointer",
-              }}
-            >
-              Logout
-            </button>
-          </div>
-        )}
       </div>
 
       {/* --- Dashboard Tiles --- */}

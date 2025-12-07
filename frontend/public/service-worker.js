@@ -56,6 +56,31 @@ self.addEventListener("fetch", (event) => {
     return; // Let browser handle API requests normally
   }
 
+  // 🔄 SPA Navigation: For HTML document requests, always serve index.html
+  // This fixes the "not found" issue on page refresh in mobile
+  if (event.request.mode === "navigate" || 
+      event.request.destination === "document") {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // If we got a valid response, cache and return it
+          if (response && response.status === 200) {
+            return response;
+          }
+          // If 404 or error, serve cached index.html for SPA routing
+          return caches.match("/index.html") || caches.match("/");
+        })
+        .catch(() => {
+          // 📴 Offline: serve cached index.html or offline page
+          return caches.match("/index.html") || 
+                 caches.match("/") || 
+                 caches.match("/offline.html");
+        })
+    );
+    return;
+  }
+
+  // For other assets (JS, CSS, images), use cache-first strategy
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
@@ -68,7 +93,7 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(() => {
-          // 📴 Offline fallback
+          // 📴 Offline fallback for other documents
           if (event.request.destination === "document") {
             return caches.match("/offline.html");
           }
