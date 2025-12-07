@@ -123,14 +123,14 @@ export default function AdminRevenueTracker() {
               <th style={th}>PO No.</th>
               <th style={th}>Uploaded PO</th>
               <th style={th}>Date</th>
-              <th style={thYellow}>Approved By</th>
-              <th style={th}>Submitted By</th>
+              <th style={thYellow}>Approved</th>
+              <th style={thRed}>Reject</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="16" style={{ textAlign: "center", padding: 20 }}>
+                <td colSpan="17" style={{ textAlign: "center", padding: 20 }}>
                   ⏳ Loading data...
                 </td>
               </tr>
@@ -162,13 +162,25 @@ export default function AdminRevenueTracker() {
                     )}
                   </td>
                   <td style={td}>{r.date ? new Date(r.date).toLocaleDateString() : "-"}</td>
-                  <td style={tdYellow}>{r.approvedBy || "-"}</td>
-                  <td style={td}>{r.submittedBy || "-"}</td>
+                  <td style={tdYellow}>
+                    {r.approvedBy ? (
+                      <span style={{ color: "#16a34a", fontWeight: 600 }}>✅ {r.approvedBy}</span>
+                    ) : (
+                      <span style={{ color: "#9ca3af" }}>-</span>
+                    )}
+                  </td>
+                  <td style={tdRed}>
+                    {r.rejected ? (
+                      <span style={{ color: "#dc2626", fontWeight: 600 }}>❌ {r.rejectedBy || "-"}</span>
+                    ) : (
+                      <span style={{ color: "#9ca3af" }}>-</span>
+                    )}
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="16" style={{ textAlign: "center", padding: 20 }}>
+                <td colSpan="17" style={{ textAlign: "center", padding: 20 }}>
                   No submitted revenue found. (Only BM-submitted entries appear here - no duplicates)
                 </td>
               </tr>
@@ -198,8 +210,10 @@ export default function AdminRevenueTracker() {
 const tableStyle = { width: "100%", borderCollapse: "collapse", minWidth: 1500 };
 const th = { padding: "10px", borderBottom: "2px solid #ccc", fontSize: "11px", fontWeight: 600, background: "#f4f4f4", position: "sticky", top: 0, zIndex: 10, whiteSpace: "nowrap" };
 const thYellow = { ...th, background: "#fef3c7" };
+const thRed = { ...th, background: "#fee2e2" };
 const td = { padding: "8px 10px", fontSize: "11px", whiteSpace: "nowrap" };
 const tdYellow = { ...td, background: "#fef3c7" };
+const tdRed = { ...td, background: "#fee2e2" };
 const inputStyle = { padding: "6px 10px", borderRadius: 6, border: "1px solid #ccc", fontSize: 12 };
 const btnBlue = { background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, padding: "6px 12px", cursor: "pointer", fontSize: 12 };
 const viewBtn = { background: "#0ea5e9", color: "#fff", border: "none", borderRadius: 4, padding: "4px 10px", cursor: "pointer", fontSize: 10 };
