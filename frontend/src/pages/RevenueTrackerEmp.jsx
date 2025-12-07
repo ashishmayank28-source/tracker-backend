@@ -19,60 +19,43 @@ export default function RevenueTrackerEmp() {
       });
       const data = await res.json();
 
-        // ✅ Normalize all data safely
-        const formatted = data
-          .filter((r) => r.orderStatus === "Won" || r.orderStatus === "Approved" || r.orderStatus === "Rejected")
-          .map((r) => ({
-            _id: r._id || "-",
-            customerId: r.customerId || "-",
-            customerMobile:
-              r.customerMobile ||
-              r.mobile ||
-              r.visits?.[0]?.customerMobile ||
-              "NA",
-            customerName:
-              r.customerName ||
-              r.name ||
-              r.visits?.[0]?.customerName ||
-              "-",
-            customerType:
-              r.customerType ||
-              r.visits?.[0]?.customerType ||
-              "Manual",
-            vertical: r.vertical || r.visits?.[0]?.vertical || "-",
-            distributorCode:
-              r.distributorCode || r.visits?.[0]?.distributorCode || "-",
-            distributorName:
-              r.distributorName || r.visits?.[0]?.distributorName || "-",
-            empCode: 
-              r.empCode || 
-              r.createdBy?.empCode || 
-              r.createdBy || 
-              r.emp_code ||
-              user?.empCode || 
-              "-",
-            empName: r.createdByName || r.createdBy?.name || user?.name || "-",
-            orderValue: r.orderValue || "-",
-            itemName: r.itemName || "-",
-            poNumber: r.poNumber || "-",
-            poFileUrl: r.poFileUrl || "-",
-            date: r.date || r.createdAt || "-",
-            // ✅ Approval status fields
-            approved: r.approved || r.orderStatus === "Approved",
-            approvedBy: r.approvedBy || "-",
-            orderStatus: r.orderStatus || "Won",
-            // ✅ Rejection status fields
-            rejected: r.rejected || r.orderStatus === "Rejected",
-            rejectedBy: r.rejectedBy || "-",
-          }));
+      // ✅ Normalize all data safely
+      const formatted = data
+        .filter((r) => r.orderStatus === "Won" || r.orderStatus === "Approved" || r.orderStatus === "Rejected")
+        .map((r) => ({
+          _id: r._id || "-",
+          customerId: r.customerId || "-",
+          customerMobile: r.customerMobile || r.mobile || r.visits?.[0]?.customerMobile || "NA",
+          customerName: r.customerName || r.name || r.visits?.[0]?.customerName || "-",
+          customerType: r.customerType || r.visits?.[0]?.customerType || "Manual",
+          vertical: r.vertical || r.visits?.[0]?.vertical || "-",
+          distributorCode: r.distributorCode || r.visits?.[0]?.distributorCode || "-",
+          distributorName: r.distributorName || r.visits?.[0]?.distributorName || "-",
+          empCode: r.empCode || r.createdBy?.empCode || r.createdBy || r.emp_code || user?.empCode || "-",
+          empName: r.createdByName || r.createdBy?.name || user?.name || "-",
+          orderValue: r.orderValue || "-",
+          itemName: r.itemName || "-",
+          poNumber: r.poNumber || "-",
+          poFileUrl: r.poFileUrl || "-",
+          date: r.date || r.createdAt || "-",
+          // ✅ Approval status fields
+          approved: r.approved || r.orderStatus === "Approved",
+          approvedBy: r.approvedBy || "-",
+          orderStatus: r.orderStatus || "Won",
+          // ✅ Rejection status fields
+          rejected: r.rejected || r.orderStatus === "Rejected",
+          rejectedBy: r.rejectedBy || "-",
+          // ✅ Submission status
+          isSubmitted: r.isSubmitted || r.submittedToBM || false,
+        }));
 
-        setRevenue(formatted);
-      } catch (err) {
-        console.error("Error fetching revenue:", err);
-      } finally {
-        setLoading(false);
-      }
+      setRevenue(formatted);
+    } catch (err) {
+      console.error("Error fetching revenue:", err);
+    } finally {
+      setLoading(false);
     }
+  }
 
   useEffect(() => {
     if (token) fetchRevenue();
@@ -96,7 +79,7 @@ export default function RevenueTrackerEmp() {
     0
   );
 
-  if (loading) return <p>Loading revenue data...</p>;
+  if (loading) return <p style={{ padding: 20 }}>⏳ Loading revenue data...</p>;
 
   return (
     <div style={{ padding: 20 }}>
@@ -113,138 +96,112 @@ export default function RevenueTrackerEmp() {
       </div>
 
       {/* ✅ Total Value Summary */}
-      <div style={{ 
-        marginBottom: 15, 
-        padding: "12px 20px", 
-        background: "#d1fae5", 
-        borderRadius: 8, 
-        fontWeight: "bold", 
-        fontSize: 16,
-        display: "inline-block"
-      }}>
+      <div style={summaryBox}>
         💰 Total Revenue: ₹{totalOrderValue.toLocaleString("en-IN")} | Records: {filteredRevenue.length}
       </div>
 
       {filteredRevenue.length === 0 ? (
         <p>No Order-Won entries found.</p>
       ) : (
-      <table
-        style={{
-          width: "100%",
-          borderCollapse: "collapse",
-          boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
-        }}
-      >
-        <thead>
-          <tr style={{ background: "#f4f4f4", textAlign: "left" }}>
-            <th style={th}>Customer ID</th>
-            <th style={th}>Customer Mob No.</th>
-            <th style={th}>Customer Name</th>
-            <th style={th}>Customer Type</th>
-            <th style={th}>Vertical</th>
-            <th style={th}>Distributor Code</th>
-            <th style={th}>Distributor Name</th>
-            <th style={th}>Emp Code</th>
-            <th style={th}>Emp Name</th>
-            <th style={th}>Total Value (₹)</th>
-            <th style={th}>Item</th>
-            <th style={th}>PO No.</th>
-            <th style={th}>Uploaded PO</th>
-            <th style={th}>Date</th>
-            <th style={{ ...th, background: "#fef3c7" }}>Approved By</th>
-            <th style={{ ...th, background: "#fee2e2" }}>Rejected By</th>
-          </tr>
-        </thead>
+        <div style={{ overflowX: "auto", border: "1px solid #ccc", borderRadius: 6 }}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={th}>Customer ID</th>
+                <th style={th}>Customer Mob No.</th>
+                <th style={th}>Customer Name</th>
+                <th style={th}>Customer Type</th>
+                <th style={th}>Vertical</th>
+                <th style={th}>Distributor Code</th>
+                <th style={th}>Distributor Name</th>
+                <th style={th}>Emp Code</th>
+                <th style={th}>Emp Name</th>
+                <th style={th}>Total Value (₹)</th>
+                <th style={th}>Item</th>
+                <th style={th}>PO No.</th>
+                <th style={th}>Uploaded PO</th>
+                <th style={th}>Date</th>
+                <th style={thYellow}>Approved</th>
+                <th style={thRed}>Reject</th>
+              </tr>
+            </thead>
 
-        <tbody>
-          {filteredRevenue.map((r, i) => (
-            <tr key={i} style={{ borderBottom: "1px solid #ddd", background: r.approved ? "#f0fdf4" : "white" }}>
-              <td style={td}>{r.customerId}</td>
-              <td style={td}>{r.customerMobile}</td>
-              <td style={td}>{r.customerName}</td>
-              <td style={td}>{r.customerType}</td>
-              <td style={td}>{r.vertical}</td>
-              <td style={td}>{r.distributorCode}</td>
-              <td style={td}>{r.distributorName}</td>
-              <td style={td}>{r.empCode}</td>
-              <td style={td}>{r.empName}</td>
-              <td style={{ ...td, fontWeight: 600, color: "#2563eb" }}>
-                {r.orderValue}
-              </td>
-              <td style={td}>{r.itemName}</td>
-              <td style={td}>{r.poNumber}</td>
-              <td style={td}>
-                {r.poFileUrl && r.poFileUrl !== "-" ? (
-                  <button
-                    onClick={() =>
-                      setSelectedPO(
-                        r.poFileUrl.startsWith("http")
-                          ? r.poFileUrl
-                          : `${API_BASE}${r.poFileUrl}`
-                      )
-                    }
-                    style={viewBtn}
-                  >
-                    🖼️ View
-                  </button>
-                ) : (
-                  "-"
-                )}
-              </td>
-              <td style={td}>
-                {r.date ? new Date(r.date).toLocaleDateString() : "-"}
-              </td>
-              <td style={{ ...td, background: "#fef3c7" }}>
-                {r.approved ? (
-                  <span style={{ color: "#16a34a", fontWeight: 600 }}>
-                    ✅ {r.approvedBy}
-                  </span>
-                ) : (
-                  <span style={{ color: "#f59e0b", fontWeight: 500 }}>
-                    ⏳ Pending
-                  </span>
-                )}
-              </td>
-              <td style={{ ...td, background: "#fee2e2" }}>
-                {r.rejected ? (
-                  <span style={{ color: "#dc2626", fontWeight: 600 }}>
-                    ❌ {r.rejectedBy}
-                  </span>
-                ) : (
-                  <span style={{ color: "#9ca3af" }}>-</span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+            <tbody>
+              {filteredRevenue.map((r, i) => (
+                <tr key={i} style={{ 
+                  borderBottom: "1px solid #ddd", 
+                  background: r.rejected ? "#fee2e2" : r.approved ? "#f0fdf4" : "white" 
+                }}>
+                  <td style={td}>{r.customerId}</td>
+                  <td style={td}>{r.customerMobile}</td>
+                  <td style={td}>{r.customerName}</td>
+                  <td style={td}>{r.customerType}</td>
+                  <td style={td}>{r.vertical}</td>
+                  <td style={td}>{r.distributorCode}</td>
+                  <td style={td}>{r.distributorName}</td>
+                  <td style={td}>{r.empCode}</td>
+                  <td style={td}>{r.empName}</td>
+                  <td style={{ ...td, fontWeight: 600, color: "#2563eb" }}>₹{r.orderValue}</td>
+                  <td style={td}>{r.itemName}</td>
+                  <td style={td}>{r.poNumber}</td>
+                  <td style={td}>
+                    {r.poFileUrl && r.poFileUrl !== "-" ? (
+                      <button
+                        onClick={() =>
+                          setSelectedPO(
+                            r.poFileUrl.startsWith("http")
+                              ? r.poFileUrl
+                              : `${API_BASE}${r.poFileUrl}`
+                          )
+                        }
+                        style={viewBtn}
+                      >
+                        🖼️ View
+                      </button>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                  <td style={td}>{r.date ? new Date(r.date).toLocaleDateString() : "-"}</td>
+                  
+                  {/* ✅ Approved Column */}
+                  <td style={tdYellow}>
+                    {r.approved ? (
+                      <span style={{ color: "#16a34a", fontWeight: 600 }}>
+                        ✅ {r.approvedBy}
+                        {r.isSubmitted && <span style={{ fontSize: 10, display: "block" }}>📤 Submitted</span>}
+                      </span>
+                    ) : (
+                      <span style={{ color: "#f59e0b", fontWeight: 500 }}>⏳ Pending</span>
+                    )}
+                  </td>
+                  
+                  {/* ✅ Reject Column */}
+                  <td style={tdRed}>
+                    {r.rejected ? (
+                      <span style={{ color: "#dc2626", fontWeight: 600 }}>
+                        ❌ {r.rejectedBy}
+                      </span>
+                    ) : (
+                      <span style={{ color: "#9ca3af" }}>-</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
+      {/* PO Preview Modal */}
       {selectedPO && (
         <div style={overlay} onClick={() => setSelectedPO(null)}>
           <div style={popup} onClick={(e) => e.stopPropagation()}>
-            <button style={closeBtn} onClick={() => setSelectedPO(null)}>
-              ✕ Close
-            </button>
+            <button style={closeBtn} onClick={() => setSelectedPO(null)}>✕ Close</button>
             {selectedPO.endsWith(".pdf") ? (
-              <iframe
-                src={selectedPO}
-                width="100%"
-                height="600px"
-                style={{ border: "1px solid #ccc", borderRadius: 8 }}
-                title="PO Preview"
-              />
+              <iframe src={selectedPO} width="100%" height="600px" style={{ border: "1px solid #ccc", borderRadius: 8 }} title="PO Preview" />
             ) : (
-              <img
-                src={selectedPO}
-                alt="PO"
-                style={{
-                  width: "100%",
-                  maxWidth: "900px",
-                  borderRadius: 8,
-                  objectFit: "contain",
-                }}
-              />
+              <img src={selectedPO} alt="PO" style={{ width: "100%", maxWidth: "900px", borderRadius: 8, objectFit: "contain" }} />
             )}
           </div>
         </div>
@@ -256,54 +213,15 @@ export default function RevenueTrackerEmp() {
 /* ---------- Styles ---------- */
 const inputStyle = { padding: "6px 10px", borderRadius: 6, border: "1px solid #ccc" };
 const btnGray = { background: "#6b7280", color: "#fff", border: "none", borderRadius: 4, padding: "6px 12px", cursor: "pointer" };
-const th = {
-  padding: "10px",
-  borderBottom: "2px solid #ccc",
-  fontSize: "13px",
-  fontWeight: "600",
-  whiteSpace: "nowrap",
-};
-const td = {
-  padding: "8px 10px",
-  fontSize: "13px",
-  whiteSpace: "nowrap",
-};
-const viewBtn = {
-  border: "none",
-  background: "none",
-  color: "#2563eb",
-  cursor: "pointer",
-  fontWeight: 600,
-};
-const overlay = {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  width: "100vw",
-  height: "100vh",
-  background: "rgba(0,0,0,0.6)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  zIndex: 9999,
-};
-const popup = {
-  background: "#fff",
-  borderRadius: 10,
-  padding: 16,
-  maxWidth: "90%",
-  maxHeight: "90vh",
-  overflow: "auto",
-  position: "relative",
-};
-const closeBtn = {
-  position: "absolute",
-  top: 10,
-  right: 10,
-  background: "#e11d48",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  padding: "4px 10px",
-  cursor: "pointer",
-};
+const tableStyle = { width: "100%", borderCollapse: "collapse", minWidth: 1400 };
+const th = { padding: "10px", borderBottom: "2px solid #ccc", fontSize: "12px", fontWeight: "600", whiteSpace: "nowrap", background: "#f4f4f4", position: "sticky", top: 0, zIndex: 10 };
+const thYellow = { ...th, background: "#fef3c7" };
+const thRed = { ...th, background: "#fee2e2" };
+const td = { padding: "8px 10px", fontSize: "12px", whiteSpace: "nowrap" };
+const tdYellow = { ...td, background: "#fef3c7" };
+const tdRed = { ...td, background: "#fee2e2" };
+const summaryBox = { marginBottom: 15, padding: "12px 20px", background: "#d1fae5", borderRadius: 8, fontWeight: "bold", fontSize: 15, display: "inline-block" };
+const viewBtn = { border: "none", background: "#0ea5e9", color: "#fff", padding: "4px 10px", borderRadius: 4, cursor: "pointer", fontWeight: 600, fontSize: 11 };
+const overlay = { position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 };
+const popup = { background: "#fff", borderRadius: 10, padding: 16, maxWidth: "90%", maxHeight: "90vh", overflow: "auto", position: "relative" };
+const closeBtn = { position: "absolute", top: 10, right: 10, background: "#e11d48", color: "#fff", border: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer" };

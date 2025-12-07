@@ -69,7 +69,7 @@ export default function RevenueTrackerBranch() {
       if (res.ok && data.success) {
         setRevenue((prev) =>
           prev.map((r) =>
-            r._id === id ? { ...r, approved: true, approvedBy: user.name } : r
+            r._id === id ? { ...r, approved: true, approvedBy: `${user.empCode} - ${user.name}` } : r
           )
         );
         alert("✅ Revenue approved successfully");
@@ -110,36 +110,35 @@ export default function RevenueTrackerBranch() {
     }
   }
 
-  /* 🔹 Add Manual Row */
+  /* 🔹 Add Manual Row (+ Manual button) */
   function addManualRow() {
     const manualId = `MANUAL-${Date.now()}`;
     setRevenue((prev) => [
-      ...prev,
       {
         _id: manualId,
         customerId: manualId,
         customerMobile: "",
-        empCode: "",
-        empName: "",
-        branch: user.branch || "",
-        region: user.region || "",
         customerName: "",
         customerType: "",
         vertical: "",
         distributorCode: "",
         distributorName: "",
-        orderType: "Project",
-        itemName: "",
+        empCode: "",
+        empName: "",
+        branch: user.branch || "",
+        region: user.region || "",
         orderValue: "",
+        itemName: "",
         poNumber: "",
         poFileUrl: "-",
+        date: new Date().toISOString(),
         managerCode: user.empCode,
         managerName: user.name,
         reportedBy: "BM",
         isManual: true,
         saved: false,
-        date: new Date(),
       },
+      ...prev,
     ]);
   }
 
@@ -190,7 +189,7 @@ export default function RevenueTrackerBranch() {
         empName: row.empName,
         branch: row.branch,
         region: row.region,
-        orderType: row.orderType,
+        orderType: row.orderType || "Project",
         orderValue: row.orderValue,
         itemName: row.itemName,
         poNumber: row.poNumber,
@@ -228,7 +227,7 @@ export default function RevenueTrackerBranch() {
   /* 🔹 Submit ALL approved entries to RM/Admin */
   async function submitToRMAdmin() {
     try {
-      const approvedReports = revenue.filter((r) => r.approved || r.approvedBy);
+      const approvedReports = revenue.filter((r) => (r.approved || r.approvedBy) && !r.submittedToRM);
       if (approvedReports.length === 0) {
         return alert("⚠️ No approved entries to submit.");
       }
@@ -255,20 +254,18 @@ export default function RevenueTrackerBranch() {
       Date: new Date(r.date).toLocaleDateString(),
       "Customer ID": r.customerId,
       "Customer Mobile": r.customerMobile,
-      Employee: `${r.empName} (${r.empCode})`,
-      Branch: r.branch,
-      Region: r.region,
-      Customer: r.customerName,
-      Type: r.customerType,
+      "Customer Name": r.customerName,
+      "Customer Type": r.customerType,
       Vertical: r.verticalType || r.vertical,
       "Distributor Code": r.distributorCode,
       "Distributor Name": r.distributorName,
-      "Order Type": r.orderType,
-      Item: r.itemName,
+      "Emp Code": r.empCode,
+      "Emp Name": r.empName,
       "Order Value (₹)": r.orderValue,
+      Item: r.itemName,
       "PO No": r.poNumber,
       "Approved By": r.approvedBy || "-",
-      "Submitted By": r.submittedBy || "-",
+      "Rejected By": r.rejectedBy || "-",
     }));
     const ws = XLSX.utils.json_to_sheet(sheetData);
     const wb = XLSX.utils.book_new();
@@ -282,9 +279,9 @@ export default function RevenueTrackerBranch() {
     0
   );
   const approvedCount = revenue.filter((r) => r.approved || r.approvedBy).length;
-  const pendingCount = revenue.filter((r) => !r.approved && !r.approvedBy).length;
+  const pendingCount = revenue.filter((r) => !r.approved && !r.approvedBy && !r.rejected).length;
 
-  if (loading) return <p>Loading revenue data...</p>;
+  if (loading) return <p style={{ padding: 20 }}>⏳ Loading revenue data...</p>;
 
   return (
     <div style={{ padding: 20 }}>
@@ -292,13 +289,9 @@ export default function RevenueTrackerBranch() {
         💰 Revenue Tracker (Branch Manager View)
       </h2>
 
-      {/* Filters */}
+      {/* Filters + Actions */}
       <div style={filterRow}>
-        <select
-          value={selectedEmp}
-          onChange={(e) => setSelectedEmp(e.target.value)}
-          style={inputStyle}
-        >
+        <select value={selectedEmp} onChange={(e) => setSelectedEmp(e.target.value)} style={inputStyle}>
           <option value="all">All Employees</option>
           {team.map((emp) => (
             <option key={emp.empCode} value={emp.empCode}>
@@ -308,11 +301,11 @@ export default function RevenueTrackerBranch() {
         </select>
         <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={inputStyle} />
         <input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={inputStyle} />
-        <button onClick={loadRevenue} style={btnBlueSmall}>🔍 Filter</button>
-        <button onClick={loadRevenue} style={{ ...btnBlueSmall, background: "#3b82f6" }}>🔄 Refresh</button>
-        <button onClick={exportToExcel} style={btnBlueSmall}>📤 Export Excel</button>
-        <button onClick={addManualRow} style={btnGreenSmall}>➕ Add Manual Sale</button>
-        <button onClick={submitToRMAdmin} style={{ ...btnBlueSmall, background: "#7c3aed" }}>
+        <button onClick={loadRevenue} style={btnBlue}>🔍 Filter</button>
+        <button onClick={loadRevenue} style={{ ...btnBlue, background: "#3b82f6" }}>🔄 Refresh</button>
+        <button onClick={exportToExcel} style={btnBlue}>📤 Export</button>
+        <button onClick={addManualRow} style={btnGreen}>➕ Manual</button>
+        <button onClick={submitToRMAdmin} style={{ ...btnBlue, background: "#7c3aed" }}>
           🚀 Submit to RM/Admin ({approvedCount})
         </button>
       </div>
@@ -330,24 +323,22 @@ export default function RevenueTrackerBranch() {
         <table style={tableStyle}>
           <thead>
             <tr>
-              <th style={th}>Date</th>
-              <th style={th}>Employee</th>
               <th style={th}>Customer ID</th>
-              <th style={th}>Customer Mobile</th>
+              <th style={th}>Customer Mob No.</th>
               <th style={th}>Customer Name</th>
               <th style={th}>Customer Type</th>
               <th style={th}>Vertical</th>
               <th style={th}>Distributor Code</th>
               <th style={th}>Distributor Name</th>
-              <th style={th}>Order Type</th>
+              <th style={th}>Emp Code</th>
+              <th style={th}>Emp Name</th>
+              <th style={th}>Total Value (₹)</th>
               <th style={th}>Item</th>
-              <th style={th}>Value (₹)</th>
               <th style={th}>PO No.</th>
-              <th style={th}>Upload PO</th>
-              <th style={th}>PO File</th>
-              <th style={th}>Reported By</th>
-              <th style={{ ...th, background: "#fef3c7" }}>Approved By</th>
-              <th style={{ ...th, background: "#fee2e2" }}>Rejected</th>
+              <th style={th}>Uploaded PO</th>
+              <th style={th}>Date</th>
+              <th style={thYellow}>Approved</th>
+              <th style={thRed}>Reject</th>
               <th style={th}>Action</th>
             </tr>
           </thead>
@@ -355,48 +346,23 @@ export default function RevenueTrackerBranch() {
           <tbody>
             {revenue.length > 0 ? (
               revenue.map((r) => (
-                <tr key={r._id} style={{ borderBottom: "1px solid #eee" }}>
-                  <td style={td}>{r.date ? new Date(r.date).toLocaleDateString() : "-"}</td>
-
-                  {/* Employee */}
-                  <td style={td}>
-                    {r.isManual && !r.saved ? (
-                      <select
-                        value={r.empCode}
-                        onChange={(e) => {
-                          const emp = team.find((x) => x.empCode === e.target.value);
-                          updateManualRow(r._id, "empCode", e.target.value);
-                          updateManualRow(r._id, "empName", emp?.name || "-");
-                          updateManualRow(r._id, "branch", emp?.branch || user.branch || "-");
-                          updateManualRow(r._id, "region", emp?.region || user.region || "-");
-                        }}
-                        style={inputSmall}
-                      >
-                        <option value="">Select Employee</option>
-                        {team.map((emp) => (
-                          <option key={emp.empCode} value={emp.empCode}>
-                            {emp.name} ({emp.empCode})
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      `${r.empName || "-"} (${r.empCode || "-"})`
-                    )}
-                  </td>
-
+                <tr key={r._id} style={{ 
+                  borderBottom: "1px solid #eee",
+                  background: r.rejected ? "#fee2e2" : r.approved ? "#f0fdf4" : "#fff"
+                }}>
                   <td style={td}>{r.customerId || "-"}</td>
 
                   {/* Customer Mobile */}
                   <td style={td}>
                     {r.isManual && !r.saved ? (
-                      <input type="text" value={r.customerMobile || ""} onChange={(e) => updateManualRow(r._id, "customerMobile", e.target.value)} style={inputSmall} />
+                      <input type="text" value={r.customerMobile || ""} onChange={(e) => updateManualRow(r._id, "customerMobile", e.target.value)} style={inputSmall} placeholder="Mobile" />
                     ) : (r.customerMobile || "-")}
                   </td>
 
                   {/* Customer Name */}
                   <td style={td}>
                     {r.isManual && !r.saved ? (
-                      <input type="text" value={r.customerName || ""} onChange={(e) => updateManualRow(r._id, "customerName", e.target.value)} style={inputSmall} />
+                      <input type="text" value={r.customerName || ""} onChange={(e) => updateManualRow(r._id, "customerName", e.target.value)} style={inputSmall} placeholder="Name" />
                     ) : (r.customerName || "-")}
                   </td>
 
@@ -438,77 +404,85 @@ export default function RevenueTrackerBranch() {
                     ) : (r.distributorName || "-")}
                   </td>
 
-                  {/* Order Type */}
+                  {/* Emp Code */}
                   <td style={td}>
                     {r.isManual && !r.saved ? (
-                      <select value={r.orderType || "Project"} onChange={(e) => updateManualRow(r._id, "orderType", e.target.value)} style={inputSmall}>
-                        <option value="Retail">Retail</option>
-                        <option value="Project">Project</option>
+                      <select
+                        value={r.empCode || ""}
+                        onChange={(e) => {
+                          const emp = team.find((x) => x.empCode === e.target.value);
+                          updateManualRow(r._id, "empCode", e.target.value);
+                          updateManualRow(r._id, "empName", emp?.name || "-");
+                          updateManualRow(r._id, "branch", emp?.branch || user.branch || "-");
+                          updateManualRow(r._id, "region", emp?.region || user.region || "-");
+                        }}
+                        style={inputSmall}
+                      >
+                        <option value="">Select</option>
+                        {team.map((emp) => (
+                          <option key={emp.empCode} value={emp.empCode}>{emp.empCode}</option>
+                        ))}
                       </select>
-                    ) : (r.orderType || "-")}
+                    ) : (r.empCode || "-")}
+                  </td>
+
+                  {/* Emp Name */}
+                  <td style={td}>{r.empName || "-"}</td>
+
+                  {/* Order Value */}
+                  <td style={td}>
+                    {r.isManual && !r.saved ? (
+                      <input type="number" value={r.orderValue || ""} onChange={(e) => updateManualRow(r._id, "orderValue", e.target.value)} style={inputSmall} placeholder="Value" />
+                    ) : (
+                      <span style={{ fontWeight: 600, color: "#2563eb" }}>₹{r.orderValue || "-"}</span>
+                    )}
                   </td>
 
                   {/* Item */}
                   <td style={td}>
                     {r.isManual && !r.saved ? (
-                      <input type="text" value={r.itemName || ""} onChange={(e) => updateManualRow(r._id, "itemName", e.target.value)} style={inputSmall} />
+                      <input type="text" value={r.itemName || ""} onChange={(e) => updateManualRow(r._id, "itemName", e.target.value)} style={inputSmall} placeholder="Item" />
                     ) : (r.itemName || "-")}
                   </td>
 
-                  {/* Value */}
+                  {/* PO No */}
                   <td style={td}>
                     {r.isManual && !r.saved ? (
-                      <input type="number" value={r.orderValue || ""} onChange={(e) => updateManualRow(r._id, "orderValue", e.target.value)} style={inputSmall} />
-                    ) : (r.orderValue || "-")}
-                  </td>
-
-                  {/* PO Number */}
-                  <td style={td}>
-                    {r.isManual && !r.saved ? (
-                      <input type="text" value={r.poNumber || ""} onChange={(e) => updateManualRow(r._id, "poNumber", e.target.value)} style={inputSmall} />
+                      <input type="text" value={r.poNumber || ""} onChange={(e) => updateManualRow(r._id, "poNumber", e.target.value)} style={inputSmall} placeholder="PO No" />
                     ) : (r.poNumber || "-")}
                   </td>
 
-                  {/* Upload PO */}
+                  {/* Uploaded PO */}
                   <td style={td}>
-                    {r.isManual && !r.saved && (
-                      <input type="file" accept="image/*,.pdf" onChange={(e) => uploadPOFile(e, r._id)} style={{ width: "100px", fontSize: 11 }} />
-                    )}
-                  </td>
-
-                  {/* PO File View */}
-                  <td style={td}>
-                    {r.poFileUrl && r.poFileUrl !== "-" && r.poFileUrl.trim() !== "" ? (
-                      <button
-                        onClick={() => {
-                          const fileUrl = r.poFileUrl.startsWith("http") ? r.poFileUrl : `${API_BASE}${r.poFileUrl}`;
-                          setSelectedPO(fileUrl);
-                        }}
-                        style={btnView}
-                      >
+                    {r.isManual && !r.saved ? (
+                      <input type="file" accept="image/*,.pdf" onChange={(e) => uploadPOFile(e, r._id)} style={{ width: "100px", fontSize: 10 }} />
+                    ) : r.poFileUrl && r.poFileUrl !== "-" ? (
+                      <button onClick={() => setSelectedPO(r.poFileUrl.startsWith("http") ? r.poFileUrl : `${API_BASE}${r.poFileUrl}`)} style={viewBtn}>
                         🖼️ View
                       </button>
                     ) : "-"}
                   </td>
 
-                  <td style={td}>{r.reportedBy || "Employee"}</td>
+                  {/* Date */}
+                  <td style={td}>{r.date ? new Date(r.date).toLocaleDateString() : "-"}</td>
 
-                  {/* Approved By */}
-                  <td style={{ ...td, background: "#fef3c7" }}>
+                  {/* ✅ Approved Column */}
+                  <td style={tdYellow}>
                     {r.approved || r.approvedBy ? (
-                      <span style={{ color: "#16a34a", fontWeight: 600 }}>
+                      <span style={{ color: "#16a34a", fontWeight: 600, fontSize: 11 }}>
                         ✅ {r.approvedBy || user.name}
+                        {r.submittedToRM && <span style={{ display: "block", fontSize: 9 }}>📤 Sent to RM</span>}
                       </span>
                     ) : (
                       <span style={{ color: "#9ca3af" }}>-</span>
                     )}
                   </td>
 
-                  {/* Rejected */}
-                  <td style={{ ...td, background: "#fee2e2" }}>
+                  {/* ✅ Reject Column */}
+                  <td style={tdRed}>
                     {r.rejected ? (
                       <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 11 }}>
-                        ❌ {r.rejectedBy || "Rejected"}
+                        ❌ {r.rejectedBy || "BM"}
                       </span>
                     ) : (
                       <span style={{ color: "#9ca3af" }}>-</span>
@@ -518,26 +492,18 @@ export default function RevenueTrackerBranch() {
                   {/* Action */}
                   <td style={td}>
                     {r.isManual && !r.saved ? (
-                      <button onClick={() => saveManualSale(r)} style={btnSave}>
-                        🟢 Save
-                      </button>
+                      <button onClick={() => saveManualSale(r)} style={btnSave}>🟢 Save</button>
                     ) : r.rejected ? (
-                      <span style={{ color: "#dc2626", fontWeight: 600 }}>❌ Rejected</span>
-                    ) : r.approved || r.approvedBy ? (
+                      <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 11 }}>❌ Rejected</span>
+                    ) : (r.approved || r.approvedBy) ? (
                       <div style={{ display: "flex", gap: 4 }}>
                         <span style={{ color: "green", fontWeight: 600, fontSize: 11 }}>✅</span>
-                        <button onClick={() => rejectRevenue(r._id)} style={btnReject}>
-                          Reject
-                        </button>
+                        <button onClick={() => rejectRevenue(r._id)} style={btnReject}>Reject</button>
                       </div>
                     ) : (
                       <div style={{ display: "flex", gap: 4 }}>
-                        <button onClick={() => approveRevenue(r._id)} style={btnApprove}>
-                          ✓
-                        </button>
-                        <button onClick={() => rejectRevenue(r._id)} style={btnReject}>
-                          ✗
-                        </button>
+                        <button onClick={() => approveRevenue(r._id)} style={btnApprove}>✓</button>
+                        <button onClick={() => rejectRevenue(r._id)} style={btnReject}>✗</button>
                       </div>
                     )}
                   </td>
@@ -545,8 +511,8 @@ export default function RevenueTrackerBranch() {
               ))
             ) : (
               <tr>
-                <td colSpan="19" style={{ textAlign: "center", padding: 20 }}>
-                  No revenue data found.
+                <td colSpan="17" style={{ textAlign: "center", padding: 20 }}>
+                  No revenue data found. (Only Manager-submitted entries appear here)
                 </td>
               </tr>
             )}
@@ -572,18 +538,22 @@ export default function RevenueTrackerBranch() {
 }
 
 /* ---------- Styles ---------- */
-const tableStyle = { width: "100%", borderCollapse: "collapse" };
-const th = { padding: "10px", borderBottom: "2px solid #ccc", fontSize: "12px", fontWeight: 600, background: "#f4f4f4", position: "sticky", top: 0, zIndex: 10, whiteSpace: "nowrap" };
-const td = { padding: "8px 10px", fontSize: "12px" };
-const inputStyle = { padding: "6px 10px", borderRadius: 6, border: "1px solid #ccc" };
-const inputSmall = { padding: "4px 6px", border: "1px solid #ccc", borderRadius: 4, width: "100px", fontSize: "11px" };
-const btnBlueSmall = { background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, padding: "6px 12px", cursor: "pointer", fontSize: "13px" };
-const btnGreenSmall = { background: "#16a34a", color: "#fff", border: "none", borderRadius: 4, padding: "6px 12px", cursor: "pointer", fontSize: "13px" };
-const btnView = { background: "#0ea5e9", color: "#fff", border: "none", borderRadius: 4, padding: "4px 10px", cursor: "pointer", fontSize: "11px" };
-const btnSave = { background: "#22c55e", color: "#fff", border: "none", borderRadius: 4, padding: "6px 10px", cursor: "pointer", fontWeight: 600, fontSize: "12px" };
-const btnApprove = { background: "#22c55e", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontWeight: 600, fontSize: "12px" };
-const btnReject = { background: "#ef4444", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontWeight: 600, fontSize: "12px" };
-const filterRow = { display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16, alignItems: "center" };
+const tableStyle = { width: "100%", borderCollapse: "collapse", minWidth: 1600 };
+const th = { padding: "10px", borderBottom: "2px solid #ccc", fontSize: "11px", fontWeight: 600, background: "#f4f4f4", position: "sticky", top: 0, zIndex: 10, whiteSpace: "nowrap" };
+const thYellow = { ...th, background: "#fef3c7" };
+const thRed = { ...th, background: "#fee2e2" };
+const td = { padding: "8px 10px", fontSize: "11px", whiteSpace: "nowrap" };
+const tdYellow = { ...td, background: "#fef3c7" };
+const tdRed = { ...td, background: "#fee2e2" };
+const inputStyle = { padding: "6px 10px", borderRadius: 6, border: "1px solid #ccc", fontSize: 12 };
+const inputSmall = { padding: "4px 6px", border: "1px solid #ccc", borderRadius: 4, width: "80px", fontSize: "10px" };
+const btnBlue = { background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, padding: "6px 12px", cursor: "pointer", fontSize: 12 };
+const btnGreen = { background: "#16a34a", color: "#fff", border: "none", borderRadius: 4, padding: "6px 12px", cursor: "pointer", fontSize: 12 };
+const btnSave = { background: "#22c55e", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontWeight: 600, fontSize: 11 };
+const btnApprove = { background: "#22c55e", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontWeight: 600, fontSize: 11 };
+const btnReject = { background: "#ef4444", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontWeight: 600, fontSize: 11 };
+const viewBtn = { background: "#0ea5e9", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontSize: 10 };
+const filterRow = { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, alignItems: "center" };
 const summaryBox = { marginBottom: 15, padding: "12px 20px", background: "#d1fae5", borderRadius: 8, fontWeight: "bold", fontSize: 14, display: "flex", gap: 20, flexWrap: "wrap" };
 const overlay = { position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 };
 const popup = { background: "#fff", borderRadius: 10, padding: 16, maxWidth: "90%", maxHeight: "90vh", overflow: "auto", position: "relative" };
