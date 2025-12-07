@@ -21,7 +21,7 @@ export default function RevenueTrackerEmp() {
 
         // ✅ Normalize all data safely
         const formatted = data
-          .filter((r) => r.orderStatus === "Won" || r.orderStatus === "Approved")
+          .filter((r) => r.orderStatus === "Won" || r.orderStatus === "Approved" || r.orderStatus === "Rejected")
           .map((r) => ({
             _id: r._id || "-",
             customerId: r.customerId || "-",
@@ -44,7 +44,6 @@ export default function RevenueTrackerEmp() {
               r.distributorCode || r.visits?.[0]?.distributorCode || "-",
             distributorName:
               r.distributorName || r.visits?.[0]?.distributorName || "-",
-            // ✅ Fixed: Check all possible empCode field names
             empCode: 
               r.empCode || 
               r.createdBy?.empCode || 
@@ -58,10 +57,13 @@ export default function RevenueTrackerEmp() {
             poNumber: r.poNumber || "-",
             poFileUrl: r.poFileUrl || "-",
             date: r.date || r.createdAt || "-",
-            // ✅ NEW: Approval status fields
+            // ✅ Approval status fields
             approved: r.approved || r.orderStatus === "Approved",
             approvedBy: r.approvedBy || "-",
             orderStatus: r.orderStatus || "Won",
+            // ✅ Rejection status fields
+            rejected: r.rejected || r.orderStatus === "Rejected",
+            rejectedBy: r.rejectedBy || "-",
           }));
 
         setRevenue(formatted);
@@ -150,6 +152,7 @@ export default function RevenueTrackerEmp() {
             <th style={th}>Uploaded PO</th>
             <th style={th}>Date</th>
             <th style={{ ...th, background: "#fef3c7" }}>Approved By</th>
+            <th style={{ ...th, background: "#fee2e2" }}>Rejected By</th>
           </tr>
         </thead>
 
@@ -200,6 +203,15 @@ export default function RevenueTrackerEmp() {
                   <span style={{ color: "#f59e0b", fontWeight: 500 }}>
                     ⏳ Pending
                   </span>
+                )}
+              </td>
+              <td style={{ ...td, background: "#fee2e2" }}>
+                {r.rejected ? (
+                  <span style={{ color: "#dc2626", fontWeight: 600 }}>
+                    ❌ {r.rejectedBy}
+                  </span>
+                ) : (
+                  <span style={{ color: "#9ca3af" }}>-</span>
                 )}
               </td>
             </tr>

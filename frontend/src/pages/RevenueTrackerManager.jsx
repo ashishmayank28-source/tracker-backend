@@ -301,6 +301,7 @@ export default function RevenueTrackerManager() {
               <th style={th}>Uploaded PO</th>
               <th style={th}>Reported By</th>
               <th style={{ ...th, background: "#fef3c7" }}>Approved By</th>
+              <th style={{ ...th, background: "#fee2e2" }}>Rejected By</th>
               <th style={th}>Action</th>
             </tr>
           </thead>
@@ -474,12 +475,25 @@ export default function RevenueTrackerManager() {
                   )}
                 </td>
 
+                {/* Rejected By Column */}
+                <td style={{ ...td, background: "#fee2e2" }}>
+                  {r.rejected ? (
+                    <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 11 }}>
+                      ❌ {r.rejectedBy || "BM"}
+                    </span>
+                  ) : (
+                    <span style={{ color: "#9ca3af" }}>-</span>
+                  )}
+                </td>
+
                 {/* Action */}
                 <td style={td}>
                   {r.isManual && !r.saved ? (
                     <button onClick={() => saveManualSale({ ...r, reportedBy: "Manager", approved: true, approvedBy: user.name })} style={btnSave}>
                       🟢 Report
                     </button>
+                  ) : r.rejected ? (
+                    <span style={{ color: "#dc2626", fontWeight: 600 }}>❌ Rejected</span>
                   ) : r.approved ? (
                     <span style={{ color: "green", fontWeight: 600 }}>✅ Approved</span>
                   ) : (

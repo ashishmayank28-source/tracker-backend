@@ -3,6 +3,7 @@ import { protect, adminOnly } from "../middleware/authMiddleware.js";
 import {
   getManagerRevenue,
   approveRevenue,
+  rejectRevenue,
   addManualSale,
   submitManagerReport,
   uploadPOForManager,
@@ -10,7 +11,7 @@ import {
   submitBMEntries,
   getRMRevenue,
   getAdminRevenue,
-  getBMRevenue,  // ✅ NEW - BM gets manager submitted
+  getBMRevenue,
 } from "../controllers/revenueController.js";
 
 const router = express.Router();
@@ -27,8 +28,11 @@ router.get("/rm", protect, getRMRevenue);
 // ✅ Admin Revenue route (All BM submitted)
 router.get("/admin", protect, adminOnly, getAdminRevenue);
 
-// ✅ Other routes
+// ✅ Approve & Reject routes
 router.post("/approve/:id", protect, approveRevenue);
+router.post("/reject/:id", protect, rejectRevenue);
+
+// ✅ Other routes
 router.post("/manual", protect, addManualSale);
 router.post("/submit", protect, submitManagerReport);
 router.post("/manager-upload", protect, managerPOUploader, uploadPOForManager);

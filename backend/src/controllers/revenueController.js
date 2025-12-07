@@ -50,6 +50,7 @@ export const uploadPOForManager = async (req, res) => {
 
 /* =============================================================
    🧩 Manager View - Combined Revenue (Customer + Manual)
+   Only shows entries NOT yet submitted to BM
 ============================================================= */
 export const getManagerRevenue = async (req, res) => {
   try {
@@ -73,10 +74,12 @@ export const getManagerRevenue = async (req, res) => {
 
     customers.forEach((c) => {
       (c.visits || []).forEach((v) => {
+        // ✅ Only show Won/Approved entries that are NOT submitted to BM yet
         if (
-          (v.orderStatus === "Won" || v.orderStatus === "Approved") &&
+          (v.orderStatus === "Won" || v.orderStatus === "Approved" || v.orderStatus === "Rejected") &&
           v.reportedBy !== "BM" &&
-          v.reportedBy !== "Branch Manager"
+          v.reportedBy !== "Branch Manager" &&
+          !v.submittedToBM // 🔹 Don't show if already submitted to BM
         ) {
           const emp = employees.find((e) => e.empCode === v.createdBy);
           reports.push({
@@ -103,15 +106,19 @@ export const getManagerRevenue = async (req, res) => {
             date: v.date || c.createdAt,
             approvedBy: v.approvedBy || "-",
             approved: v.approved || v.orderStatus === "Approved",
-            
+            // 🔹 Reject status
+            rejected: v.rejected || v.orderStatus === "Rejected",
+            rejectedBy: v.rejectedBy || "-",
+            rejectedDate: v.rejectedDate || null,
           });
         }
       });
     });
 
-    // 🔹 Add Manual Revenues from Revenue collection
+    // 🔹 Add Manual Revenues from Revenue collection (not submitted to BM)
     const manualRevenues = await Revenue.find({
       managerCode,
+      submittedToBM: { $ne: true }, // 🔹 Don't show if already submitted to BM
       ...(empCode && empCode !== "all" ? { empCode } : {}),
     }).lean();
 
@@ -141,6 +148,8 @@ export const getManagerRevenue = async (req, res) => {
         approved: true,
         approvedBy: rev.approvedBy || "-",
         isSubmitted: rev.isSubmitted || false,
+        rejected: rev.rejected || false,
+        rejectedBy: rev.rejectedBy || "-",
       });
     });
 
@@ -495,6 +504,8 @@ export const getRevenueTrackerManager = async (req, res) => {
 };
 /* =============================================================
    📊 Branch Manager View - Manager Submitted + Direct Reportees
+   Only shows entries submitted by managers OR from direct reportees
+   NOT yet submitted to RM/Admin
 ============================================================= */
 export const getBMRevenue = async (req, res) => {
   try {
@@ -520,36 +531,38 @@ export const getBMRevenue = async (req, res) => {
 
     console.log("🔍 BM Reportees:", reporteeEmpCodes.length, "Managers:", managerCodes.length);
 
-    // 2️⃣ Get ALL submitted Revenue entries from managers in this branch
+    // 2️⃣ Get Revenue entries submitted TO BM (not yet submitted to RM)
     let revenues = await Revenue.find({
-      $or: [
-        { managerCode: { $in: managerCodes }, submittedToBM: true },
-        { managerCode: { $in: managerCodes }, isSubmitted: true },
-        { empCode: { $in: reporteeEmpCodes }, approved: true },
-        { managerCode: bmCode }, // BM's own manual entries
+      $and: [
+        {
+          $or: [
+            { managerCode: { $in: managerCodes }, submittedToBM: true },
+            { managerCode: bmCode }, // BM's own manual entries
+          ],
+        },
+        { submittedToRM: { $ne: true } }, // 🔹 Not yet submitted to RM/Admin
       ],
     }).lean();
 
     console.log("🔍 Revenue collection entries for BM:", revenues.length);
 
-    // 3️⃣ Get approved Customer visits from direct reportees and managers
+    // 3️⃣ Get Customer visits submitted by managers (submittedToBM: true)
     const customers = await Customer.find({
       $or: [
-        { "visits.createdBy": { $in: reporteeEmpCodes } },
-        { "createdBy.empCode": { $in: reporteeEmpCodes } },
+        { "visits.submittedToBM": true, "visits.createdBy": { $in: reporteeEmpCodes } },
+        { "visits.createdBy": bmCode }, // BM's direct entries
       ],
     }).lean();
 
     customers.forEach((c) => {
       (c.visits || []).forEach((v) => {
-        // Include if approved/won and from reportee
-        if ((v.approved || v.orderStatus === "Approved" || v.orderStatus === "Won") &&
-            reporteeEmpCodes.includes(v.createdBy)) {
+        // Include if submitted to BM AND not yet submitted to RM
+        if (v.submittedToBM && !v.submittedToRM && v.orderValue) {
           // Avoid duplicates
           const exists = revenues.some(
-            (r) => r.poNumber === v.poNumber && r.empCode === v.createdBy
+            (r) => r.poNumber === v.poNumber && r.empCode === (v.createdBy || c.createdBy?.empCode)
           );
-          if (!exists && v.orderValue) {
+          if (!exists) {
             const emp = reportees.find((e) => e.empCode === v.createdBy);
             revenues.push({
               _id: v._id,
@@ -558,6 +571,7 @@ export const getBMRevenue = async (req, res) => {
               customerName: c.name || "-",
               customerType: c.customerType || "-",
               verticalType: v.vertical || c.vertical || "-",
+              vertical: v.vertical || c.vertical || "-",
               distributorCode: v.distributorCode || "-",
               distributorName: v.distributorName || "-",
               orderType: v.orderType || "-",
@@ -574,6 +588,8 @@ export const getBMRevenue = async (req, res) => {
               approvedBy: v.approvedBy || "-",
               submittedBy: v.submittedBy || "-",
               isSubmitted: v.isSubmitted || v.submitted || false,
+              rejected: v.rejected || false,
+              rejectedBy: v.rejectedBy || "-",
             });
           }
         }
@@ -607,41 +623,119 @@ export const getBMRevenue = async (req, res) => {
 };
 
 /* =============================================================
+   ❌ Reject Revenue Entry (by BM)
+============================================================= */
+export const rejectRevenue = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const bmName = req.user?.name || "BM";
+    const bmCode = req.user?.empCode;
+    const now = new Date();
+    const rejectedByName = `${bmCode} - ${bmName}`;
+
+    // 1️⃣ Update Customer visit
+    const updatedCustomer = await Customer.findOneAndUpdate(
+      { "visits._id": id },
+      {
+        $set: {
+          "visits.$.rejected": true,
+          "visits.$.rejectedBy": rejectedByName,
+          "visits.$.rejectedDate": now,
+          "visits.$.rejectReason": reason || "Rejected by BM",
+          "visits.$.orderStatus": "Rejected",
+        },
+      },
+      { new: true }
+    );
+
+    // 2️⃣ Update Revenue collection if exists
+    if (updatedCustomer) {
+      const visit = updatedCustomer.visits.find((v) => String(v._id) === id);
+      if (visit) {
+        await Revenue.updateOne(
+          { poNumber: visit.poNumber, empCode: visit.createdBy },
+          {
+            $set: {
+              rejected: true,
+              rejectedBy: rejectedByName,
+              rejectedDate: now,
+              rejectReason: reason || "Rejected by BM",
+              orderStatus: "Rejected",
+            },
+          }
+        );
+      }
+    }
+
+    // 3️⃣ Also try to update by _id in Revenue collection
+    await Revenue.updateOne(
+      { _id: id },
+      {
+        $set: {
+          rejected: true,
+          rejectedBy: rejectedByName,
+          rejectedDate: now,
+          rejectReason: reason || "Rejected by BM",
+          orderStatus: "Rejected",
+        },
+      }
+    );
+
+    res.json({
+      success: true,
+      message: "❌ Entry rejected successfully",
+    });
+  } catch (err) {
+    console.error("Reject Revenue Error:", err);
+    res.status(500).json({ message: "Failed to reject entry" });
+  }
+};
+
+/* =============================================================
  📤 BM: Submit ALL Approved Entries to RM/Admin
 ============================================================= */
 export const submitBMEntries = async (req, res) => {
   try {
     const bm = req.user;
     const { reports } = req.body;
+    const now = new Date();
+    const submittedByName = `${bm.empCode} - ${bm.name}`;
 
-    // 1️⃣ Submit ALL entries from Revenue collection (not just manual)
+    // 1️⃣ Submit ALL non-rejected entries from Revenue collection
     const manualResult = await Revenue.updateMany(
       {
-        managerCode: bm.empCode,
-        isSubmitted: { $ne: true },
+        $or: [
+          { managerCode: bm.empCode },
+          { submittedToBM: true },
+        ],
+        submittedToRM: { $ne: true },
+        rejected: { $ne: true },
       },
       {
         $set: {
           isSubmitted: true,
-          submittedBy: `${bm.empCode} - ${bm.name}`,
-          submittedDate: new Date(),
+          submittedToRM: true,
+          submittedBy: submittedByName,
+          submittedDate: now,
         },
       }
     );
 
-    // 2️⃣ Also mark approved Customer visits as submitted
+    // 2️⃣ Also mark approved Customer visits as submitted to RM
     let visitCount = 0;
     if (reports && Array.isArray(reports)) {
       for (const r of reports) {
-        if (r._id) {
+        if (r._id && !r.rejected) {
           const updated = await Customer.findOneAndUpdate(
             { "visits._id": r._id },
             {
               $set: {
                 "visits.$.submitted": true,
                 "visits.$.isSubmitted": true,
-                "visits.$.submittedBy": `${bm.empCode} - ${bm.name}`,
-                "visits.$.submittedDate": new Date(),
+                "visits.$.submittedToRM": true,
+                "visits.$.submittedBy": submittedByName,
+                "visits.$.submittedDate": now,
               },
             }
           );
@@ -682,19 +776,20 @@ export const getRMRevenue = async (req, res) => {
     const regionEmpCodes = regionUsers.map(u => u.empCode);
     console.log("🔍 Region users count:", regionEmpCodes.length);
 
-    // 1️⃣ Get ALL submitted Revenue entries from this region
+    // 1️⃣ Get Revenue entries submitted TO RM by BM (submittedToRM: true)
     let revenues = await Revenue.find({
       $or: [
         { region: rmRegion },
         { empCode: { $in: regionEmpCodes } },
         { managerCode: { $in: regionEmpCodes } },
       ],
-      isSubmitted: true,
+      submittedToRM: true,  // 🔹 Only show entries submitted by BM
+      rejected: { $ne: true },
     }).lean();
 
-    console.log("🔍 Revenue collection entries:", revenues.length);
+    console.log("🔍 Revenue collection entries for RM:", revenues.length);
 
-    // 2️⃣ Get ALL approved & submitted Customer visits from this region
+    // 2️⃣ Get Customer visits submitted TO RM by BM
     const customers = await Customer.find({
       $or: [
         { "visits.region": rmRegion },
@@ -705,14 +800,13 @@ export const getRMRevenue = async (req, res) => {
 
     customers.forEach((c) => {
       (c.visits || []).forEach((v) => {
-        // Include if approved AND (submitted OR orderStatus is Approved)
-        if ((v.approved || v.orderStatus === "Approved") && 
-            (v.submitted || v.isSubmitted || v.orderStatus === "Approved")) {
-          // Avoid duplicates by checking poNumber + empCode
+        // 🔹 Only include if submitted TO RM by BM
+        if (v.submittedToRM && !v.rejected && v.orderValue) {
+          // Avoid duplicates
           const exists = revenues.some(
             (r) => r.poNumber === v.poNumber && r.empCode === (v.createdBy || c.createdBy?.empCode)
           );
-          if (!exists && v.orderValue) {
+          if (!exists) {
             const emp = regionUsers.find(u => u.empCode === v.createdBy);
             revenues.push({
               _id: v._id,
@@ -778,7 +872,7 @@ export const getRMRevenue = async (req, res) => {
 };
 
 /* =============================================================
-   📊 Admin View - ALL Submitted Revenue
+   📊 Admin View - ALL Revenue Submitted by BM to RM
 ============================================================= */
 export const getAdminRevenue = async (req, res) => {
   try {
@@ -789,24 +883,22 @@ export const getAdminRevenue = async (req, res) => {
     const userMap = {};
     allUsers.forEach(u => { userMap[u.empCode] = u; });
 
-    // 1️⃣ Get ALL submitted Revenue entries
-    let revenues = await Revenue.find({ isSubmitted: true }).lean();
+    // 1️⃣ Get Revenue entries submitted TO RM by BM
+    let revenues = await Revenue.find({ 
+      submittedToRM: true,  // 🔹 Only show entries submitted by BM
+      rejected: { $ne: true },
+    }).lean();
     console.log("🔍 Admin - Revenue collection entries:", revenues.length);
 
-    // 2️⃣ Get ALL approved & submitted Customer visits
+    // 2️⃣ Get Customer visits submitted TO RM by BM
     const customers = await Customer.find({
-      $or: [
-        { "visits.approved": true },
-        { "visits.orderStatus": "Approved" },
-        { "visits.submitted": true },
-        { "visits.isSubmitted": true },
-      ],
+      "visits.submittedToRM": true,
     }).lean();
 
     customers.forEach((c) => {
       (c.visits || []).forEach((v) => {
-        // Include if approved AND has orderValue
-        if ((v.approved || v.orderStatus === "Approved") && v.orderValue) {
+        // 🔹 Only include if submitted TO RM by BM
+        if (v.submittedToRM && !v.rejected && v.orderValue) {
           // Avoid duplicates
           const exists = revenues.some(
             (r) => r.poNumber === v.poNumber && r.empCode === (v.createdBy || c.createdBy?.empCode)

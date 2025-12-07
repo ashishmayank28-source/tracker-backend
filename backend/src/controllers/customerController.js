@@ -187,6 +187,7 @@ export const createVisit = async (req, res) => {
     const newVisit = {
       meetingType: meetingType || "",
       callType: callType || "",
+      vertical: vertical || "",  // ✅ Added vertical field
       discussion: discussion || "",
       opportunityType: opportunityType || "",
       orderStatus: orderStatus || "Open",

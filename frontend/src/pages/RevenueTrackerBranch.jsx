@@ -80,6 +80,36 @@ export default function RevenueTrackerBranch() {
     }
   }
 
+  /* 🔹 Reject Revenue */
+  async function rejectRevenue(id) {
+    const reason = prompt("Enter reason for rejection:");
+    if (!reason) return;
+    
+    try {
+      const res = await fetch(`${API_BASE}/api/revenue/reject/${id}`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ reason }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setRevenue((prev) =>
+          prev.map((r) =>
+            r._id === id ? { ...r, rejected: true, rejectedBy: `${user.empCode} - ${user.name}` } : r
+          )
+        );
+        alert("❌ Entry rejected successfully");
+        loadRevenue();
+      } else alert(data.message || "Failed to reject");
+    } catch (e) {
+      console.error(e);
+      alert("Error rejecting entry");
+    }
+  }
+
   /* 🔹 Add Manual Row */
   function addManualRow() {
     const manualId = `MANUAL-${Date.now()}`;
@@ -317,6 +347,7 @@ export default function RevenueTrackerBranch() {
               <th style={th}>PO File</th>
               <th style={th}>Reported By</th>
               <th style={{ ...th, background: "#fef3c7" }}>Approved By</th>
+              <th style={{ ...th, background: "#fee2e2" }}>Rejected</th>
               <th style={th}>Action</th>
             </tr>
           </thead>
@@ -473,25 +504,48 @@ export default function RevenueTrackerBranch() {
                     )}
                   </td>
 
+                  {/* Rejected */}
+                  <td style={{ ...td, background: "#fee2e2" }}>
+                    {r.rejected ? (
+                      <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 11 }}>
+                        ❌ {r.rejectedBy || "Rejected"}
+                      </span>
+                    ) : (
+                      <span style={{ color: "#9ca3af" }}>-</span>
+                    )}
+                  </td>
+
                   {/* Action */}
                   <td style={td}>
                     {r.isManual && !r.saved ? (
                       <button onClick={() => saveManualSale(r)} style={btnSave}>
                         🟢 Save
                       </button>
+                    ) : r.rejected ? (
+                      <span style={{ color: "#dc2626", fontWeight: 600 }}>❌ Rejected</span>
                     ) : r.approved || r.approvedBy ? (
-                      <span style={{ color: "green", fontWeight: 600 }}>✅ Approved</span>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <span style={{ color: "green", fontWeight: 600, fontSize: 11 }}>✅</span>
+                        <button onClick={() => rejectRevenue(r._id)} style={btnReject}>
+                          Reject
+                        </button>
+                      </div>
                     ) : (
-                      <button onClick={() => approveRevenue(r._id)} style={btnApprove}>
-                        Approve
-                      </button>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <button onClick={() => approveRevenue(r._id)} style={btnApprove}>
+                          ✓
+                        </button>
+                        <button onClick={() => rejectRevenue(r._id)} style={btnReject}>
+                          ✗
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="18" style={{ textAlign: "center", padding: 20 }}>
+                <td colSpan="19" style={{ textAlign: "center", padding: 20 }}>
                   No revenue data found.
                 </td>
               </tr>
@@ -527,7 +581,8 @@ const btnBlueSmall = { background: "#2563eb", color: "#fff", border: "none", bor
 const btnGreenSmall = { background: "#16a34a", color: "#fff", border: "none", borderRadius: 4, padding: "6px 12px", cursor: "pointer", fontSize: "13px" };
 const btnView = { background: "#0ea5e9", color: "#fff", border: "none", borderRadius: 4, padding: "4px 10px", cursor: "pointer", fontSize: "11px" };
 const btnSave = { background: "#22c55e", color: "#fff", border: "none", borderRadius: 4, padding: "6px 10px", cursor: "pointer", fontWeight: 600, fontSize: "12px" };
-const btnApprove = { background: "#facc15", border: "none", borderRadius: 4, padding: "6px 10px", cursor: "pointer", fontWeight: 600, fontSize: "12px" };
+const btnApprove = { background: "#22c55e", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontWeight: 600, fontSize: "12px" };
+const btnReject = { background: "#ef4444", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontWeight: 600, fontSize: "12px" };
 const filterRow = { display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16, alignItems: "center" };
 const summaryBox = { marginBottom: 15, padding: "12px 20px", background: "#d1fae5", borderRadius: 8, fontWeight: "bold", fontSize: 14, display: "flex", gap: 20, flexWrap: "wrap" };
 const overlay = { position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 };
