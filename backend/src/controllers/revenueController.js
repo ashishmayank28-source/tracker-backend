@@ -207,7 +207,7 @@ export const approveRevenue = async (req, res) => {
     // 🔹 Step 3: Get employee info for Revenue entry
     const employee = await User.findOne({ empCode: visit.createdBy });
 
-    // 🔹 Step 4: Save/Update Revenue record
+    // 🔹 Step 4: Save/Update Revenue record (NOT yet submitted to BM)
     const revenueData = {
       empCode: visit.createdBy,
       empName: employee?.name || "-",
@@ -232,6 +232,8 @@ export const approveRevenue = async (req, res) => {
       approvedBy: approvedByName,
       approvedDate: now,
       isManual: false,
+      submittedToBM: false, // ✅ Not yet submitted to BM
+      submittedToRM: false, // ✅ Not yet submitted to RM
       date: visit.date || now,
     };
 
@@ -285,6 +287,8 @@ export const addManualSale = async (req, res) => {
     const manualId = `MANUAL-${Date.now()}`;
 
     // 🔹 Save into Revenue collection directly
+    // If BM creates, it's already at BM level (submittedToBM: true)
+    // If Manager creates, it needs to be submitted to BM first
     const revenueEntry = new Revenue({
       empCode,
       empName: emp?.name || "-",
@@ -309,6 +313,8 @@ export const addManualSale = async (req, res) => {
       approvedBy: `${manager.empCode} - ${manager.name}`,
       isManual: true,
       isSubmitted: false,
+      submittedToBM: isBM, // ✅ If BM creates, it's already at BM level
+      submittedToRM: false, // ✅ Not yet submitted to RM
       date: new Date(),
     });
 
@@ -503,9 +509,8 @@ export const getRevenueTrackerManager = async (req, res) => {
   }
 };
 /* =============================================================
-   📊 Branch Manager View - Manager Submitted + Direct Reportees
-   Only shows entries submitted by managers OR from direct reportees
-   NOT yet submitted to RM/Admin
+   📊 Branch Manager View - ONLY entries submitted by Manager
+   OR BM's own manual entries. NOT employee direct submissions.
 ============================================================= */
 export const getBMRevenue = async (req, res) => {
   try {
@@ -525,39 +530,28 @@ export const getBMRevenue = async (req, res) => {
     }).lean();
 
     const reporteeEmpCodes = reportees.map((r) => r.empCode);
-    const managerCodes = reportees
-      .filter((r) => r.role === "Manager")
-      .map((r) => r.empCode);
 
-    console.log("🔍 BM Reportees:", reporteeEmpCodes.length, "Managers:", managerCodes.length);
+    console.log("🔍 BM Reportees:", reporteeEmpCodes.length);
 
-    // 2️⃣ Get Revenue entries submitted TO BM (not yet submitted to RM)
+    // 2️⃣ Get Revenue entries: ONLY those with submittedToBM:true
+    // This includes: Manager submitted entries AND BM's own manual entries (since BM entries have submittedToBM:true)
     let revenues = await Revenue.find({
-      $and: [
-        {
-          $or: [
-            { managerCode: { $in: managerCodes }, submittedToBM: true },
-            { managerCode: bmCode }, // BM's own manual entries
-          ],
-        },
-        { submittedToRM: { $ne: true } }, // 🔹 Not yet submitted to RM/Admin
-      ],
+      submittedToBM: true, // ✅ STRICT: Only entries submitted to BM level
+      submittedToRM: { $ne: true }, // Not yet submitted to RM
+      rejected: { $ne: true }, // Not rejected
     }).lean();
 
     console.log("🔍 Revenue collection entries for BM:", revenues.length);
 
-    // 3️⃣ Get Customer visits submitted by managers (submittedToBM: true)
+    // 3️⃣ Get Customer visits ONLY with submittedToBM: true
     const customers = await Customer.find({
-      $or: [
-        { "visits.submittedToBM": true, "visits.createdBy": { $in: reporteeEmpCodes } },
-        { "visits.createdBy": bmCode }, // BM's direct entries
-      ],
+      "visits.submittedToBM": true,
     }).lean();
 
     customers.forEach((c) => {
       (c.visits || []).forEach((v) => {
-        // Include if submitted to BM AND not yet submitted to RM
-        if (v.submittedToBM && !v.submittedToRM && v.orderValue) {
+        // ✅ STRICT: Only show if submittedToBM is true AND not yet to RM
+        if (v.submittedToBM === true && !v.submittedToRM && !v.rejected && v.orderValue) {
           // Avoid duplicates
           const exists = revenues.some(
             (r) => r.poNumber === v.poNumber && r.empCode === (v.createdBy || c.createdBy?.empCode)
