@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "postinstall": "cd ../frontend && npm ci && npm run build",
+    "postinstall": "cd ../frontend && npm install && npm run build",
     "seed:excel": "node src/utils/excelSeed.js data/users.xlsx",
     "upsert:test-user": "node src/scripts/upsertTestUser.js"
   },
