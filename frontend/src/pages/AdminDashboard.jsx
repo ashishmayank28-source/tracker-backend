@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "../auth.jsx";
 import UsersTile from "./admin/UsersTile.jsx";
 import UserDetailsTile from "./admin/UserDetailsTile.jsx";
+import UserProfileManager from "./admin/UserProfileManager.jsx";
 import AssetsTile from "./admin/AssetsTile.jsx";
 import ReportDump from "./admin/ReportDump.jsx";
 import ReportViewer from "../components/ReportsViewer.jsx";
@@ -36,6 +37,7 @@ export default function AdminDashboard() {
         >
           <Tile label="👥 Users" onClick={() => setActiveTile("users")} color="#3b82f6" />
           <Tile label="📋 User Details" onClick={() => setActiveTile("user-details")} color="#8b5cf6" />
+          <Tile label="✏️ User Profiles" onClick={() => setActiveTile("user-profiles")} color="#f97316" />
           <Tile label="📅 Attendance" onClick={() => setActiveTile("attendance")} color="#10b981" />
           <Tile label="⭐ Performance" onClick={() => setActiveTile("performance")} color="#f59e0b" />
           <Tile label="📝 Daily Tracker" onClick={() => setActiveTile("daily")} color="#06b6d4" />
@@ -59,6 +61,13 @@ export default function AdminDashboard() {
       {activeTile === "user-details" && (
         <TileWrapper title="📋 User Details" onBack={() => setActiveTile("dashboard")}>
           <UserDetailsTile />
+        </TileWrapper>
+      )}
+
+      {/* User Profile Manager */}
+      {activeTile === "user-profiles" && (
+        <TileWrapper title="✏️ User Profile Manager" onBack={() => setActiveTile("dashboard")}>
+          <UserProfileManager />
         </TileWrapper>
       )}
 

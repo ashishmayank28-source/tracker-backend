@@ -22,6 +22,7 @@ import SampleBoardAllocationRegional from "./pages/SampleBoardsAllocationRegiona
 import VendorLogin from "./pages/VendorLogin.jsx";
 import VendorDashboard from "./pages/VendorDashboard.jsx";
 import Profile from "./pages/Profile.jsx";
+import UserProfileManager from "./pages/admin/UserProfileManager.jsx";
 
 /* ---------- Guards ---------- */
 function RequireAdmin({ children }) {
@@ -177,6 +178,14 @@ export default function App() {
             element={
               <RequireAdmin>
                 <AdminDashboard />
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="/admin/user-profiles"
+            element={
+              <RequireAdmin>
+                <UserProfileManager />
               </RequireAdmin>
             }
           />
