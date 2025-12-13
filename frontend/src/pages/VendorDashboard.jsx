@@ -176,11 +176,11 @@ export default function VendorDashboard() {
           <thead>
             <tr style={{ background: "#f1f3f5", textAlign: "left" }}>
               <th style={{ padding: "10px", border: "1px solid #ddd" }}>Root ID</th>
-              <th style={{ padding: "10px", border: "1px solid #ddd" }}>RM ID</th>
               <th style={{ padding: "10px", border: "1px solid #ddd" }}>BM ID</th>
               <th style={{ padding: "10px", border: "1px solid #ddd" }}>Date</th>
               <th style={{ padding: "10px", border: "1px solid #ddd" }}>Item</th>
               <th style={{ padding: "10px", border: "1px solid #ddd" }}>Employee</th>
+              <th style={{ padding: "10px", border: "1px solid #ddd", background: "#e8f5e9" }}>📍 Courier Address</th>
               <th style={{ padding: "10px", border: "1px solid #ddd" }}>Qty</th>
               <th style={{ padding: "10px", border: "1px solid #ddd" }}>Purpose</th>
               <th style={{ padding: "10px", border: "1px solid #ddd" }}>Assigned By</th>
@@ -198,12 +198,15 @@ export default function VendorDashboard() {
                 .map((emp, j) => (
                   <tr key={`${i}-${j}`} style={{ borderBottom: "1px solid #eee" }}>
                     <td style={{ padding: "8px", border: "1px solid #ddd" }}>{a.rootId}</td>
-                    <td style={{ padding: "8px", border: "1px solid #ddd" }}>{a.rmId || "-"}</td>
                     <td style={{ padding: "8px", border: "1px solid #ddd" }}>{a.bmId || "-"}</td>
                     <td style={{ padding: "8px", border: "1px solid #ddd" }}>{a.date}</td>
                     <td style={{ padding: "8px", border: "1px solid #ddd" }}>{a.item}</td>
                     <td style={{ padding: "8px", border: "1px solid #ddd" }}>
                       {emp.name} ({emp.empCode})
+                    </td>
+                    {/* ✅ Courier Address from Employee Profile */}
+                    <td style={{ padding: "8px", border: "1px solid #ddd", background: "#f1f8e9", fontSize: 12 }}>
+                      {emp.courierAddress || "-"}
                     </td>
                     <td style={{ padding: "8px", border: "1px solid #ddd" }}>{emp.qty}</td>
                     <td

@@ -1,4 +1,5 @@
 import Assignment from "../models/assignmentModel.js";
+import User from "../models/userModel.js";
 
 /* ---------- Admin Assignment ---------- */
 export const createAdminAssignment = async (req, res) => {
@@ -323,46 +324,44 @@ export const getEmployeeStock = async (req, res) => {
 };
 
 /* ---------- TO VENDOR ---------- */
+// ✅ FIXED: Only mark the SPECIFIC entry as sent (not all related)
 export const submitToVendor = async (req, res) => {
   try {
-    const { rootId } = req.params;
+    const { rootId } = req.params; // This can be bmId or rootId
     if (!rootId) {
-      return res.status(400).json({ success: false, message: "Root ID missing" });
+      return res.status(400).json({ success: false, message: "ID missing" });
     }
 
-    // 🔍 Find all related assignments (Admin / RM / BM / Manager) with same rootId
-    const relatedAssignments = await Assignment.find({
-      $or: [{ rootId }, { rmId: rootId }, { bmId: rootId }],
-    });
+    // 🔍 Find the SPECIFIC assignment - Priority: bmId > rootId
+    let assignment = await Assignment.findOne({ bmId: rootId });
+    let query = { bmId: rootId };
 
-    if (!relatedAssignments.length) {
+    // If not found by bmId, try rootId
+    if (!assignment) {
+      assignment = await Assignment.findOne({ rootId: rootId });
+      query = { rootId: rootId };
+    }
+
+    if (!assignment) {
       return res.status(404).json({ success: false, message: "Assignment not found" });
     }
 
-    // ✅ Check if ANY has project/marketing purpose
-    const projectAssignment = relatedAssignments.find((a) =>
-      (a.purpose || "").toLowerCase().includes("project") ||
-      (a.purpose || "").toLowerCase().includes("marketing")
-    );
-
-    if (!projectAssignment) {
+    // ✅ Check if this specific assignment has project/marketing purpose
+    const purpose = (assignment.purpose || "").toLowerCase();
+    if (!purpose.includes("project") && !purpose.includes("marketing")) {
       return res.status(400).json({
         success: false,
         message: "Only Project/Marketing assignments can be sent to vendor",
       });
     }
 
-    // ✅ Mark all related as sent to vendor
-    await Assignment.updateMany(
-      {
-        $or: [
-          { rootId },
-          { rmId: rootId },
-          { bmId: rootId },
-        ],
-      },
+    // ✅ Mark ONLY this specific entry as sent to vendor (use _id for precision)
+    await Assignment.updateOne(
+      { _id: assignment._id },
       { $set: { toVendor: true, dispatchedAt: new Date() } }
     );
+
+    console.log(`✅ Sent to Vendor: ${assignment.bmId || assignment.rootId} (ID: ${assignment._id})`);
 
     res.json({
       success: true,
@@ -378,46 +377,40 @@ export const submitToVendor = async (req, res) => {
   }
 };
 /* ---------- LR UPDATE ---------- */
-// Now accepts assignmentId which can be bmId, rmId, or rootId
-// Priority: bmId > rmId > rootId (most specific first)
+// ✅ FIXED: Use _id for precision - Priority: bmId > rootId
 export const updateLRNo = async (req, res) => {
   try {
-    const { rootId } = req.params; // This can be bmId, rmId, or rootId
+    const { rootId } = req.params; // This can be bmId or rootId
     const { lrNo } = req.body;
-    const assignmentId = rootId; // Rename for clarity
+    const assignmentId = rootId;
+
+    if (!lrNo || !lrNo.trim()) {
+      return res.status(400).json({ success: false, message: "LR No is required" });
+    }
 
     // 1️⃣ Try to find by BM ID first (most specific)
     let assignment = await Assignment.findOne({ bmId: assignmentId });
-    let query = { bmId: assignmentId };
 
-    // 2️⃣ If not found by bmId, try rmId
-    if (!assignment) {
-      assignment = await Assignment.findOne({ rmId: assignmentId });
-      query = { rmId: assignmentId };
-    }
-
-    // 3️⃣ If still not found, try rootId
+    // 2️⃣ If not found by bmId, try rootId
     if (!assignment) {
       assignment = await Assignment.findOne({ rootId: assignmentId });
-      query = { rootId: assignmentId };
     }
 
     if (!assignment) {
       return res.status(404).json({ success: false, message: "Assignment not found" });
     }
 
-    // 4️⃣ Update LR No ONLY for the specific matching record
-    // If we found by bmId, only update that specific bmId
-    const result = await Assignment.updateMany(
-      query,
+    // 3️⃣ Update LR No ONLY for this SPECIFIC record using _id
+    await Assignment.updateOne(
+      { _id: assignment._id },
       { $set: { lrNo, lrUpdatedAt: new Date().toLocaleString() } }
     );
 
-    console.log(`🔹 LR Update: ${assignmentId} → ${lrNo} (${result.modifiedCount} records)`);
+    console.log(`🔹 LR Update: ${assignment.bmId || assignment.rootId} → ${lrNo} (ID: ${assignment._id})`);
 
     res.json({
       success: true,
-      message: `LR No updated for ${result.modifiedCount} record(s)`,
+      message: `✅ LR No "${lrNo}" updated successfully`,
     });
   } catch (err) {
     console.error("LR update error:", err);
@@ -426,14 +419,45 @@ export const updateLRNo = async (req, res) => {
 };
 
 /* 🔹 Vendor list - only Project/Marketing + sent to vendor */
+// ✅ UPDATED: Include courier address from User profile
 export const getVendorList = async (req, res) => {
   try {
     const list = await Assignment.find({
-      purpose: /project/i,
+      purpose: { $regex: /project|marketing/i },
       toVendor: true,
-    }).sort({ date: -1 });
+    }).sort({ date: -1 }).lean();
 
-    res.json(list);
+    // ✅ Fetch courier addresses for all employees
+    const empCodes = [];
+    list.forEach(a => {
+      (a.employees || []).forEach(emp => {
+        if (emp.empCode && !empCodes.includes(emp.empCode)) {
+          empCodes.push(emp.empCode);
+        }
+      });
+    });
+
+    // Fetch user details with courier address
+    const users = await User.find({ empCode: { $in: empCodes } }).lean();
+    const userMap = {};
+    users.forEach(u => {
+      userMap[u.empCode] = {
+        courierAddress: u.courierAddress || u.address || "-",
+        phone: u.phone || u.mobile || "-",
+      };
+    });
+
+    // ✅ Add courier address to each employee in the list
+    const enrichedList = list.map(a => ({
+      ...a,
+      employees: (a.employees || []).map(emp => ({
+        ...emp,
+        courierAddress: userMap[emp.empCode]?.courierAddress || "-",
+        phone: userMap[emp.empCode]?.phone || "-",
+      })),
+    }));
+
+    res.json(enrichedList);
   } catch (err) {
     console.error("Vendor list error:", err);
     res.status(500).json({ message: "Server error fetching vendor list" });
