@@ -4,6 +4,7 @@ import ReportsViewer from "../components/ReportsViewer.jsx";
 import SampleBoardsAllocationManager from "./SampleBoardsAllocationManager.jsx";
 import RevenueTrackerManager from "./RevenueTrackerManager.jsx";
 import RetailerDatabaseTeam from "./RetailerDatabaseTeam.jsx";
+import TravelRequests from "./TravelRequests.jsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
@@ -52,7 +53,8 @@ export default function ManagerDashboard() {
           <Tile label="👥 My Team" onClick={() => setActiveTile("team")} />
           <Tile label="📦 Sample Boards" onClick={() => setActiveTile("sample")} />
           <Tile label="💰 Revenue Tracker" onClick={() => setActiveTile("revenue")} />
-          <Tile label="🏬 Retailer DB" onClick={() => setActiveTile("retailer")} /> 
+          <Tile label="🏬 Retailer DB" onClick={() => setActiveTile("retailer")} />
+          <Tile label="✈️ Travel Requests" onClick={() => setActiveTile("travel")} /> 
         </div>
       )}
 
@@ -116,6 +118,13 @@ export default function ManagerDashboard() {
         <TileWrapper onBack={() => setActiveTile("dashboard")}>
           <h3>🏬 Retailer Database (Team)</h3>
           <RetailerDatabaseTeam />
+        </TileWrapper>
+      )}
+
+      {/* ✈️ Travel Requests */}
+      {activeTile === "travel" && (
+        <TileWrapper onBack={() => setActiveTile("dashboard")}>
+          <TravelRequests />
         </TileWrapper>
       )}
     </div>

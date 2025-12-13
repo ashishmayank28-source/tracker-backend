@@ -123,7 +123,8 @@ export default function AdminRevenueTracker() {
               <th style={th}>PO No.</th>
               <th style={th}>Uploaded PO</th>
               <th style={th}>Date</th>
-              <th style={thYellow}>Approved</th>
+              <th style={thBlue}>Reported by</th>
+              <th style={thYellow}>Approved by BM</th>
               <th style={thRed}>Reject</th>
             </tr>
           </thead>
@@ -162,11 +163,22 @@ export default function AdminRevenueTracker() {
                     )}
                   </td>
                   <td style={td}>{r.date ? new Date(r.date).toLocaleDateString() : "-"}</td>
+                  
+                  {/* ✅ Reported by Column */}
+                  <td style={tdBlue}>
+                    <span style={{ color: "#1e40af", fontWeight: 600, fontSize: 11 }}>
+                      {r.reportedBy || r.empCode || "-"}
+                    </span>
+                  </td>
+                  
                   <td style={tdYellow}>
-                    {r.approvedBy ? (
-                      <span style={{ color: "#16a34a", fontWeight: 600 }}>✅ {r.approvedBy}</span>
+                    {r.approvedByBM || (r.approvedBy && r.approvedBy !== "-") ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        <span style={{ color: "#16a34a", fontWeight: 700, fontSize: 12 }}>✅ Approved</span>
+                        <span style={{ color: "#166534", fontSize: 10 }}>by {r.approvedByBM || r.approvedBy}</span>
+                      </div>
                     ) : (
-                      <span style={{ color: "#9ca3af" }}>-</span>
+                      <span style={{ color: "#f59e0b", fontWeight: 600 }}>⏳ Pending BM</span>
                     )}
                   </td>
                   <td style={tdRed}>
@@ -209,9 +221,11 @@ export default function AdminRevenueTracker() {
 /* ---------- Styles ---------- */
 const tableStyle = { width: "100%", borderCollapse: "collapse", minWidth: 1500 };
 const th = { padding: "10px", borderBottom: "2px solid #ccc", fontSize: "11px", fontWeight: 600, background: "#f4f4f4", position: "sticky", top: 0, zIndex: 10, whiteSpace: "nowrap" };
+const thBlue = { ...th, background: "#dbeafe" };
 const thYellow = { ...th, background: "#fef3c7" };
 const thRed = { ...th, background: "#fee2e2" };
 const td = { padding: "8px 10px", fontSize: "11px", whiteSpace: "nowrap" };
+const tdBlue = { ...td, background: "#dbeafe" };
 const tdYellow = { ...td, background: "#fef3c7" };
 const tdRed = { ...td, background: "#fee2e2" };
 const inputStyle = { padding: "6px 10px", borderRadius: 6, border: "1px solid #ccc", fontSize: 12 };

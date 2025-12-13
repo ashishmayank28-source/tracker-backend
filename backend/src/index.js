@@ -22,6 +22,7 @@ import uploadRoutes from "./routes/uploadRoutes.js";
 import revenueRoutes from "./routes/revenueRoutes.js";
 import holidayRoutes from "./routes/holidayRoutes.js";
 import retailerRoutes from "./routes/retailerRoutes.js";
+import tourApprovalRoutes from "./routes/tourApprovalRoutes.js";
 
 
 async function start() {
@@ -61,6 +62,7 @@ async function start() {
   app.use("/api/revenue", revenueRoutes);
   app.use("/api/holidays", holidayRoutes);
   app.use("/api/retailers", retailerRoutes);
+  app.use("/api/tour", tourApprovalRoutes);
   app.use("/uploads", express.static("uploads"));
 
   // Serve frontend static files if built (Vite build outputs to frontend/dist)

@@ -9,6 +9,7 @@ export default function RevenueTrackerBranch() {
   const [revenue, setRevenue] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedPO, setSelectedPO] = useState(null);
+  const [selectedRejectReason, setSelectedRejectReason] = useState(null); // For viewing rejection reason
   const [team, setTeam] = useState([]);
   const [selectedEmp, setSelectedEmp] = useState("all");
   const [from, setFrom] = useState("");
@@ -58,7 +59,7 @@ export default function RevenueTrackerBranch() {
     loadRevenue();
   }, [selectedEmp]);
 
-  /* 🔹 Approve Revenue (for direct reportees) */
+  /* 🔹 Approve Revenue (BM Only) */
   async function approveRevenue(id) {
     try {
       const res = await fetch(`${API_BASE}/api/revenue/approve/${id}`, {
@@ -67,12 +68,13 @@ export default function RevenueTrackerBranch() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        const approvedByBMName = `${user.empCode} - ${user.name}`;
         setRevenue((prev) =>
           prev.map((r) =>
-            r._id === id ? { ...r, approved: true, approvedBy: `${user.empCode} - ${user.name}` } : r
+            r._id === id ? { ...r, approved: true, approvedBy: approvedByBMName, approvedByBM: approvedByBMName } : r
           )
         );
-        alert("✅ Revenue approved successfully");
+        alert("✅ Revenue approved by BM successfully");
       } else alert(data.message || "Failed to approve");
     } catch (e) {
       console.error(e);
@@ -224,30 +226,6 @@ export default function RevenueTrackerBranch() {
     }
   }
 
-  /* 🔹 Submit ALL approved entries to RM/Admin */
-  async function submitToRMAdmin() {
-    try {
-      const approvedReports = revenue.filter((r) => (r.approved || r.approvedBy) && !r.submittedToRM);
-      if (approvedReports.length === 0) {
-        return alert("⚠️ No approved entries to submit.");
-      }
-      const res = await fetch(`${API_BASE}/api/revenue/submit-bm`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ reports: approvedReports }),
-      });
-      const data = await res.json();
-      alert(data.message || `✅ ${approvedReports.length} entries submitted to RM/Admin`);
-      loadRevenue();
-    } catch (err) {
-      console.error("Submit Error:", err);
-      alert("❌ Failed to submit entries");
-    }
-  }
-
   /* 🔹 Export to Excel */
   function exportToExcel() {
     const sheetData = revenue.map((r) => ({
@@ -278,8 +256,8 @@ export default function RevenueTrackerBranch() {
     (sum, r) => sum + (Number(r.orderValue) || 0),
     0
   );
-  const approvedCount = revenue.filter((r) => r.approved || r.approvedBy).length;
-  const pendingCount = revenue.filter((r) => !r.approved && !r.approvedBy && !r.rejected).length;
+  const approvedByBMCount = revenue.filter((r) => r.approvedByBM || (r.approved && r.approvedBy && r.approvedBy !== "-")).length;
+  const pendingCount = revenue.filter((r) => !r.approvedByBM && !(r.approved && r.approvedBy && r.approvedBy !== "-") && !r.rejected).length;
 
   if (loading) return <p style={{ padding: 20 }}>⏳ Loading revenue data...</p>;
 
@@ -305,17 +283,14 @@ export default function RevenueTrackerBranch() {
         <button onClick={loadRevenue} style={{ ...btnBlue, background: "#3b82f6" }}>🔄 Refresh</button>
         <button onClick={exportToExcel} style={btnBlue}>📤 Export</button>
         <button onClick={addManualRow} style={btnGreen}>➕ Manual</button>
-        <button onClick={submitToRMAdmin} style={{ ...btnBlue, background: "#7c3aed" }}>
-          🚀 Submit to RM/Admin ({approvedCount})
-        </button>
       </div>
 
       {/* ✅ Summary */}
       <div style={summaryBox}>
         <span>💰 Total: ₹{totalOrderValue.toLocaleString("en-IN")}</span>
         <span>📊 Records: {revenue.length}</span>
-        <span style={{ color: "#16a34a" }}>✅ Approved: {approvedCount}</span>
-        <span style={{ color: "#f59e0b" }}>⏳ Pending: {pendingCount}</span>
+        <span style={{ color: "#16a34a" }}>✅ Approved by BM: {approvedByBMCount}</span>
+        <span style={{ color: "#f59e0b" }}>⏳ Pending Approval: {pendingCount}</span>
       </div>
 
       {/* Table */}
@@ -337,7 +312,8 @@ export default function RevenueTrackerBranch() {
               <th style={th}>PO No.</th>
               <th style={th}>Uploaded PO</th>
               <th style={th}>Date</th>
-              <th style={thYellow}>Approved</th>
+              <th style={thBlue}>Reported by</th>
+              <th style={thYellow}>Approved by BM</th>
               <th style={thRed}>Reject</th>
               <th style={th}>Action</th>
             </tr>
@@ -466,43 +442,57 @@ export default function RevenueTrackerBranch() {
                   {/* Date */}
                   <td style={td}>{r.date ? new Date(r.date).toLocaleDateString() : "-"}</td>
 
-                  {/* ✅ Approved Column */}
+                  {/* ✅ Reported by Column */}
+                  <td style={tdBlue}>
+                    <span style={{ color: "#1e40af", fontWeight: 600, fontSize: 11 }}>
+                      {r.reportedBy || r.empCode || "-"}
+                    </span>
+                  </td>
+
+                  {/* ✅ Approved by BM Column */}
                   <td style={tdYellow}>
-                    {r.approved || r.approvedBy ? (
-                      <span style={{ color: "#16a34a", fontWeight: 600, fontSize: 11 }}>
-                        ✅ {r.approvedBy || user.name}
-                        {r.submittedToRM && <span style={{ display: "block", fontSize: 9 }}>📤 Sent to RM</span>}
-                      </span>
+                    {r.approvedByBM || (r.approved && r.approvedBy && r.approvedBy !== "-") ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        <span style={{ color: "#16a34a", fontWeight: 700, fontSize: 12 }}>✅ Approved</span>
+                        <span style={{ color: "#166534", fontSize: 10 }}>by {r.approvedByBM || r.approvedBy}</span>
+                      </div>
                     ) : (
-                      <span style={{ color: "#9ca3af" }}>-</span>
+                      <span style={{ color: "#f59e0b", fontWeight: 600, fontSize: 11 }}>⏳ Pending</span>
                     )}
                   </td>
 
-                  {/* ✅ Reject Column */}
+                  {/* ✅ Reject Column with View Reason */}
                   <td style={tdRed}>
                     {r.rejected ? (
-                      <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 11 }}>
-                        ❌ {r.rejectedBy || "BM"}
-                      </span>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 11 }}>
+                          ❌ {r.rejectedBy || "BM"}
+                        </span>
+                        <button 
+                          onClick={() => setSelectedRejectReason({ by: r.rejectedBy, reason: r.rejectReason })}
+                          style={viewReasonBtn}
+                        >
+                          👁️ View Reason
+                        </button>
+                      </div>
                     ) : (
                       <span style={{ color: "#9ca3af" }}>-</span>
                     )}
                   </td>
 
-                  {/* Action */}
+                  {/* Action - BM can Approve/Reject */}
                   <td style={td}>
                     {r.isManual && !r.saved ? (
                       <button onClick={() => saveManualSale(r)} style={btnSave}>🟢 Save</button>
                     ) : r.rejected ? (
                       <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 11 }}>❌ Rejected</span>
-                    ) : (r.approved || r.approvedBy) ? (
+                    ) : (r.approvedByBM || (r.approved && r.approvedBy && r.approvedBy !== "-")) ? (
                       <div style={{ display: "flex", gap: 4 }}>
-                        <span style={{ color: "green", fontWeight: 600, fontSize: 11 }}>✅</span>
-                        <button onClick={() => rejectRevenue(r._id)} style={btnReject}>Reject</button>
+                        <span style={{ color: "green", fontWeight: 600, fontSize: 11 }}>✅ Approved</span>
                       </div>
                     ) : (
                       <div style={{ display: "flex", gap: 4 }}>
-                        <button onClick={() => approveRevenue(r._id)} style={btnApprove}>✓</button>
+                        <button onClick={() => approveRevenue(r._id)} style={btnApprove}>✓ Approve</button>
                         <button onClick={() => rejectRevenue(r._id)} style={btnReject}>✗</button>
                       </div>
                     )}
@@ -512,7 +502,7 @@ export default function RevenueTrackerBranch() {
             ) : (
               <tr>
                 <td colSpan="17" style={{ textAlign: "center", padding: 20 }}>
-                  No revenue data found. (Only Manager-submitted entries appear here)
+                  No revenue data found. All Order Won entries from branch employees will appear here.
                 </td>
               </tr>
             )}
@@ -533,6 +523,20 @@ export default function RevenueTrackerBranch() {
           </div>
         </div>
       )}
+
+      {/* Rejection Reason Modal */}
+      {selectedRejectReason && (
+        <div style={overlay} onClick={() => setSelectedRejectReason(null)}>
+          <div style={reasonPopup} onClick={(e) => e.stopPropagation()}>
+            <button style={closeBtn} onClick={() => setSelectedRejectReason(null)}>✕</button>
+            <h3 style={{ color: "#dc2626", marginBottom: 12 }}>❌ Rejection Details</h3>
+            <p style={{ marginBottom: 8 }}><strong>Rejected By:</strong> {selectedRejectReason.by}</p>
+            <p style={{ background: "#fee2e2", padding: 12, borderRadius: 8, border: "1px solid #fca5a5" }}>
+              <strong>Reason:</strong> {selectedRejectReason.reason || "No reason provided"}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -540,9 +544,11 @@ export default function RevenueTrackerBranch() {
 /* ---------- Styles ---------- */
 const tableStyle = { width: "100%", borderCollapse: "collapse", minWidth: 1600 };
 const th = { padding: "10px", borderBottom: "2px solid #ccc", fontSize: "11px", fontWeight: 600, background: "#f4f4f4", position: "sticky", top: 0, zIndex: 10, whiteSpace: "nowrap" };
+const thBlue = { ...th, background: "#dbeafe" };
 const thYellow = { ...th, background: "#fef3c7" };
 const thRed = { ...th, background: "#fee2e2" };
 const td = { padding: "8px 10px", fontSize: "11px", whiteSpace: "nowrap" };
+const tdBlue = { ...td, background: "#dbeafe" };
 const tdYellow = { ...td, background: "#fef3c7" };
 const tdRed = { ...td, background: "#fee2e2" };
 const inputStyle = { padding: "6px 10px", borderRadius: 6, border: "1px solid #ccc", fontSize: 12 };
@@ -553,8 +559,10 @@ const btnSave = { background: "#22c55e", color: "#fff", border: "none", borderRa
 const btnApprove = { background: "#22c55e", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontWeight: 600, fontSize: 11 };
 const btnReject = { background: "#ef4444", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontWeight: 600, fontSize: 11 };
 const viewBtn = { background: "#0ea5e9", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontSize: 10 };
+const viewReasonBtn = { border: "none", background: "#ef4444", color: "#fff", padding: "3px 8px", borderRadius: 4, cursor: "pointer", fontWeight: 600, fontSize: 10 };
 const filterRow = { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, alignItems: "center" };
 const summaryBox = { marginBottom: 15, padding: "12px 20px", background: "#d1fae5", borderRadius: 8, fontWeight: "bold", fontSize: 14, display: "flex", gap: 20, flexWrap: "wrap" };
 const overlay = { position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 };
 const popup = { background: "#fff", borderRadius: 10, padding: 16, maxWidth: "90%", maxHeight: "90vh", overflow: "auto", position: "relative" };
+const reasonPopup = { background: "#fff", borderRadius: 10, padding: 24, minWidth: 350, maxWidth: 500, position: "relative" };
 const closeBtn = { position: "absolute", top: 10, right: 10, background: "#e11d48", color: "#fff", border: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: "bold" };

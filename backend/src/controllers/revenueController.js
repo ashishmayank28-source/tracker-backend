@@ -50,7 +50,8 @@ export const uploadPOForManager = async (req, res) => {
 
 /* =============================================================
    🧩 Manager View - Combined Revenue (Customer + Manual)
-   Only shows entries NOT yet submitted to BM
+   ✅ NOW: Shows ALL Order Won entries immediately (no submission required)
+   ✅ Approved by BM shows for all entries
 ============================================================= */
 export const getManagerRevenue = async (req, res) => {
   try {
@@ -74,14 +75,16 @@ export const getManagerRevenue = async (req, res) => {
 
     customers.forEach((c) => {
       (c.visits || []).forEach((v) => {
-        // ✅ Only show Won/Approved entries that are NOT submitted to BM yet
+        // ✅ Show ALL Won/Approved/Rejected entries immediately
         if (
           (v.orderStatus === "Won" || v.orderStatus === "Approved" || v.orderStatus === "Rejected") &&
           v.reportedBy !== "BM" &&
-          v.reportedBy !== "Branch Manager" &&
-          !v.submittedToBM // 🔹 Don't show if already submitted to BM
+          v.reportedBy !== "Branch Manager"
         ) {
           const emp = employees.find((e) => e.empCode === v.createdBy);
+          // ✅ Determine who reported this entry
+          const reporterName = v.reportedBy || (emp ? `${emp.empCode} - ${emp.name}` : v.createdBy || "-");
+          
           reports.push({
             _id: v._id,
             customerId: c.customerId || "-",
@@ -104,8 +107,12 @@ export const getManagerRevenue = async (req, res) => {
             managerName: req.user?.name || "-",
             meetingType: v.meetingType,
             date: v.date || c.createdAt,
-            approvedBy: v.approvedBy || "-",
+            // ✅ Reported by (who created/reported the entry)
+            reportedBy: reporterName,
+            // ✅ BM Approval status (read-only for manager)
+            approvedByBM: v.approvedByBM || null,
             approved: v.approved || v.orderStatus === "Approved",
+            approvedBy: v.approvedBy || "-",
             // 🔹 Reject status
             rejected: v.rejected || v.orderStatus === "Rejected",
             rejectedBy: v.rejectedBy || "-",
@@ -115,42 +122,49 @@ export const getManagerRevenue = async (req, res) => {
       });
     });
 
-    // 🔹 Add Manual Revenues from Revenue collection (not submitted to BM)
+    // 🔹 Add Manual Revenues from Revenue collection
     const manualRevenues = await Revenue.find({
       managerCode,
-      submittedToBM: { $ne: true }, // 🔹 Don't show if already submitted to BM
       ...(empCode && empCode !== "all" ? { empCode } : {}),
     }).lean();
 
     manualRevenues.forEach((rev) => {
-      reports.push({
-        _id: rev._id,
-        customerId: rev.customerId || `MANUAL-${rev._id}`,
-        customerMobile: rev.customerMobile || "NA",
-        customerName: rev.customerName || "-",
-        customerType: rev.customerType || "-",
-        vertical: rev.verticalType || "-",
-        distributorCode: rev.distributorCode || "-",
-        distributorName: rev.distributorName || "-",
-        orderType: rev.orderType || "-",
-        itemName: rev.itemName || "-",
-        poNumber: rev.poNumber || "-",
-        poFileUrl: rev.poFileUrl || "-",
-        orderValue: rev.orderValue || 0,
-        empCode: rev.empCode,
-        empName: employees.find((e) => e.empCode === rev.empCode)?.name || "-",
-        managerCode: rev.managerCode,
-        managerName: rev.managerName,
-        branch: rev.branch || "-",
-        region: rev.region || "-",
-        meetingType: "Manager Added",
-        date: rev.date,
-        approved: true,
-        approvedBy: rev.approvedBy || "-",
-        isSubmitted: rev.isSubmitted || false,
-        rejected: rev.rejected || false,
-        rejectedBy: rev.rejectedBy || "-",
-      });
+      // Avoid duplicates
+      const exists = reports.some(r => r.poNumber === rev.poNumber && r.empCode === rev.empCode);
+      if (!exists) {
+        reports.push({
+          _id: rev._id,
+          customerId: rev.customerId || `MANUAL-${rev._id}`,
+          customerMobile: rev.customerMobile || "NA",
+          customerName: rev.customerName || "-",
+          customerType: rev.customerType || "-",
+          vertical: rev.verticalType || "-",
+          distributorCode: rev.distributorCode || "-",
+          distributorName: rev.distributorName || "-",
+          orderType: rev.orderType || "-",
+          itemName: rev.itemName || "-",
+          poNumber: rev.poNumber || "-",
+          poFileUrl: rev.poFileUrl || "-",
+          orderValue: rev.orderValue || 0,
+          empCode: rev.empCode,
+          empName: employees.find((e) => e.empCode === rev.empCode)?.name || "-",
+          managerCode: rev.managerCode,
+          managerName: rev.managerName,
+          branch: rev.branch || "-",
+          region: rev.region || "-",
+          meetingType: "Manager Added",
+          date: rev.date,
+          // ✅ Reported by (who created the entry)
+          reportedBy: rev.reportedBy || `${rev.managerCode} - ${rev.managerName}`,
+          // ✅ BM Approval status
+          approvedByBM: rev.approvedByBM || null,
+          approved: rev.approved || false,
+          approvedBy: rev.approvedBy || "-",
+          isSubmitted: rev.isSubmitted || false,
+          rejected: rev.rejected || false,
+          rejectedBy: rev.rejectedBy || "-",
+        });
+      }
     });
 
     if (from && to) {
@@ -170,32 +184,68 @@ export const getManagerRevenue = async (req, res) => {
   }
 };
 /* =============================================================
-   ✅ Approve Revenue Entry
+   ✅ Approve Revenue Entry - BM ONLY
+   ✅ Only Branch Manager can approve entries
+   ✅ "Approved by BM Name" shows on ALL dashboards
 ============================================================= */
 export const approveRevenue = async (req, res) => {
   try {
     const { id } = req.params;
-    const managerName = req.user?.name || "Manager";
-    const managerCode = req.user?.empCode;
+    const userRole = req.user?.role;
+    const bmName = req.user?.name || "BM";
+    const bmCode = req.user?.empCode;
     const now = new Date();
 
+    // ✅ STRICT: Only BM can approve (check all possible role names)
+    const isBM = userRole === "BM" || userRole === "BranchManager" || userRole === "Branch Manager";
+    if (!isBM) {
+      return res.status(403).json({ 
+        success: false,
+        message: "❌ Only Branch Manager can approve revenue entries" 
+      });
+    }
+
     // 🔹 Step 1: Update the visit directly and permanently inside Customer
-    const approvedByName = `${managerCode} - ${managerName}`;
+    const approvedByBMName = `${bmCode} - ${bmName}`;
     const updatedCustomer = await Customer.findOneAndUpdate(
       { "visits._id": id },
       {
         $set: {
           "visits.$.approved": true,
-          "visits.$.approvedBy": approvedByName,
+          "visits.$.approvedBy": approvedByBMName,
+          "visits.$.approvedByBM": approvedByBMName, // ✅ New field for BM approval
           "visits.$.approvedDate": now,
-          "visits.$.orderStatus": "Approved", // permanent fix flag
+          "visits.$.orderStatus": "Approved",
         },
       },
       { new: true }
     );
 
     if (!updatedCustomer) {
-      return res.status(404).json({ message: "Visit not found" });
+      // Try to update Revenue collection directly (for manual entries)
+      const updatedRevenue = await Revenue.findByIdAndUpdate(
+        id,
+        {
+          $set: {
+            approved: true,
+            approvedBy: approvedByBMName,
+            approvedByBM: approvedByBMName,
+            approvedDate: now,
+            orderStatus: "Approved",
+          },
+        },
+        { new: true }
+      );
+
+      if (updatedRevenue) {
+        return res.json({
+          success: true,
+          message: `✅ Revenue approved by BM: ${bmName}`,
+          approvedBy: approvedByBMName,
+        });
+      }
+
+      return res.status(404).json({ message: "Entry not found" });
     }
 
     // 🔹 Step 2: Fetch the approved visit data
@@ -207,14 +257,14 @@ export const approveRevenue = async (req, res) => {
     // 🔹 Step 3: Get employee info for Revenue entry
     const employee = await User.findOne({ empCode: visit.createdBy });
 
-    // 🔹 Step 4: Save/Update Revenue record (NOT yet submitted to BM)
+    // 🔹 Step 4: Save/Update Revenue record with BM approval
     const revenueData = {
       empCode: visit.createdBy,
       empName: employee?.name || "-",
       branch: employee?.branch || "-",
       region: employee?.region || "-",
-      managerCode,
-      managerName,
+      managerCode: bmCode,
+      managerName: bmName,
       customerId: updatedCustomer.customerId,
       customerName: updatedCustomer.name || "Unknown",
       customerMobile: updatedCustomer.customerMobile || "NA",
@@ -229,11 +279,10 @@ export const approveRevenue = async (req, res) => {
       orderValue: Number(visit.orderValue) || 0,
       orderStatus: "Approved",
       approved: true,
-      approvedBy: approvedByName,
+      approvedBy: approvedByBMName,
+      approvedByBM: approvedByBMName, // ✅ New field for BM approval
       approvedDate: now,
       isManual: false,
-      submittedToBM: false, // ✅ Not yet submitted to BM
-      submittedToRM: false, // ✅ Not yet submitted to RM
       date: visit.date || now,
     };
 
@@ -248,7 +297,8 @@ export const approveRevenue = async (req, res) => {
 
     res.json({
       success: true,
-      message: "✅ Revenue permanently approved and fixed in database",
+      message: `✅ Revenue approved by BM: ${bmName}`,
+      approvedBy: approvedByBMName,
     });
   } catch (err) {
     console.error("Approve Revenue Error:", err);
@@ -281,7 +331,7 @@ export const addManualSale = async (req, res) => {
 
     // 🔹 Find employee to auto-fill details
     const emp = await User.findOne({ empCode });
-    const isBM = manager.role === "BM" || manager.role === "Branch Manager";
+    const isBM = manager.role === "BM" || manager.role === "BranchManager" || manager.role === "Branch Manager";
 
     // 🔹 Generate manualId (missing earlier)
     const manualId = `MANUAL-${Date.now()}`;
@@ -289,6 +339,8 @@ export const addManualSale = async (req, res) => {
     // 🔹 Save into Revenue collection directly
     // If BM creates, it's already at BM level (submittedToBM: true)
     // If Manager creates, it needs to be submitted to BM first
+    const reportedByName = `${manager.empCode} - ${manager.name}`;
+    
     const revenueEntry = new Revenue({
       empCode,
       empName: emp?.name || "-",
@@ -308,9 +360,12 @@ export const addManualSale = async (req, res) => {
       itemName,
       poNumber,
       poFileUrl: poFileUrl || "-",
-      reportedBy: isBM ? "BM" : "Manager",
-      approved: true,
-      approvedBy: `${manager.empCode} - ${manager.name}`,
+      // ✅ Reported by = Who created the entry (Manager/BM name)
+      reportedBy: reportedByName,
+      // ✅ Only BM can approve - Manager manual entries need BM approval
+      approved: false,
+      approvedBy: null,
+      approvedByBM: null,
       isManual: true,
       isSubmitted: false,
       submittedToBM: isBM, // ✅ If BM creates, it's already at BM level
@@ -509,8 +564,9 @@ export const getRevenueTrackerManager = async (req, res) => {
   }
 };
 /* =============================================================
-   📊 Branch Manager View - ONLY entries submitted by Manager
-   OR BM's own manual entries. NOT employee direct submissions.
+   📊 Branch Manager View - ALL Order Won entries from branch
+   ✅ NOW: Shows ALL entries immediately (no submission required)
+   ✅ BM can approve entries - "Approved by BM" shows on all dashboards
 ============================================================= */
 export const getBMRevenue = async (req, res) => {
   try {
@@ -520,8 +576,8 @@ export const getBMRevenue = async (req, res) => {
 
     console.log("🔍 BM Revenue - Code:", bmCode, "Branch:", bmBranch);
 
-    // 1️⃣ Find all managers and employees who report to this BM
-    const reportees = await User.find({
+    // 1️⃣ Find all managers and employees in this branch
+    const branchUsers = await User.find({
       $or: [
         { "reportTo.empCode": bmCode },
         { managerEmpCode: bmCode },
@@ -529,68 +585,118 @@ export const getBMRevenue = async (req, res) => {
       ],
     }).lean();
 
-    const reporteeEmpCodes = reportees.map((r) => r.empCode);
+    const branchEmpCodes = branchUsers.map((r) => r.empCode);
+    branchEmpCodes.push(bmCode); // Include BM's own code
 
-    console.log("🔍 BM Reportees:", reporteeEmpCodes.length);
+    console.log("🔍 BM Branch Users:", branchEmpCodes.length);
 
-    // 2️⃣ Get Revenue entries: ONLY those with submittedToBM:true
-    // This includes: Manager submitted entries AND BM's own manual entries (since BM entries have submittedToBM:true)
-    let revenues = await Revenue.find({
-      submittedToBM: true, // ✅ STRICT: Only entries submitted to BM level
-      submittedToRM: { $ne: true }, // Not yet submitted to RM
-      rejected: { $ne: true }, // Not rejected
-    }).lean();
+    let revenues = [];
 
-    console.log("🔍 Revenue collection entries for BM:", revenues.length);
-
-    // 3️⃣ Get Customer visits ONLY with submittedToBM: true
+    // 2️⃣ Get ALL Customer visits with Order Won/Approved from branch employees
     const customers = await Customer.find({
-      "visits.submittedToBM": true,
+      $or: [
+        { "visits.createdBy": { $in: branchEmpCodes } },
+        { "createdBy.empCode": { $in: branchEmpCodes } },
+      ],
     }).lean();
 
     customers.forEach((c) => {
       (c.visits || []).forEach((v) => {
-        // ✅ STRICT: Only show if submittedToBM is true AND not yet to RM
-        if (v.submittedToBM === true && !v.submittedToRM && !v.rejected && v.orderValue) {
-          // Avoid duplicates
-          const exists = revenues.some(
-            (r) => r.poNumber === v.poNumber && r.empCode === (v.createdBy || c.createdBy?.empCode)
-          );
-          if (!exists) {
-            const emp = reportees.find((e) => e.empCode === v.createdBy);
-            revenues.push({
-              _id: v._id,
-              customerId: c.customerId,
-              customerMobile: c.customerMobile || "NA",
-              customerName: c.name || "-",
-              customerType: c.customerType || "-",
-              verticalType: v.vertical || c.vertical || "-",
-              vertical: v.vertical || c.vertical || "-",
-              distributorCode: v.distributorCode || "-",
-              distributorName: v.distributorName || "-",
-              orderType: v.orderType || "-",
-              itemName: v.itemName || "-",
-              poNumber: v.poNumber || "-",
-              poFileUrl: v.poFileUrl || "-",
-              orderValue: v.orderValue || 0,
-              empCode: v.createdBy || c.createdBy?.empCode || "-",
-              empName: emp?.name || c.createdBy?.name || "-",
-              branch: v.branch || emp?.branch || bmBranch || "-",
-              region: v.region || emp?.region || "-",
-              date: v.date || c.createdAt,
-              approved: v.approved || v.orderStatus === "Approved",
-              approvedBy: v.approvedBy || "-",
-              submittedBy: v.submittedBy || "-",
-              isSubmitted: v.isSubmitted || v.submitted || false,
-              rejected: v.rejected || false,
-              rejectedBy: v.rejectedBy || "-",
-            });
-          }
+        // ✅ Show ALL Won/Approved/Rejected entries immediately (including rejected)
+        if (
+          (v.orderStatus === "Won" || v.orderStatus === "Approved" || v.orderStatus === "Rejected") &&
+          v.orderValue
+        ) {
+          const emp = branchUsers.find((e) => e.empCode === v.createdBy);
+          // ✅ Determine who reported this entry
+          const reporterName = v.reportedBy || (emp ? `${emp.empCode} - ${emp.name}` : v.createdBy || "-");
+          
+          revenues.push({
+            _id: v._id,
+            customerId: c.customerId,
+            customerMobile: c.customerMobile || "NA",
+            customerName: c.name || "-",
+            customerType: c.customerType || "-",
+            verticalType: v.vertical || c.vertical || "-",
+            vertical: v.vertical || c.vertical || "-",
+            distributorCode: v.distributorCode || "-",
+            distributorName: v.distributorName || "-",
+            orderType: v.orderType || "-",
+            itemName: v.itemName || "-",
+            poNumber: v.poNumber || "-",
+            poFileUrl: v.poFileUrl || "-",
+            orderValue: v.orderValue || 0,
+            empCode: v.createdBy || c.createdBy?.empCode || "-",
+            empName: emp?.name || c.createdBy?.name || "-",
+            branch: v.branch || emp?.branch || bmBranch || "-",
+            region: v.region || emp?.region || "-",
+            date: v.date || c.createdAt,
+            // ✅ Reported by (who created the entry)
+            reportedBy: reporterName,
+            // ✅ BM Approval status
+            approved: v.approved || v.orderStatus === "Approved",
+            approvedBy: v.approvedBy || "-",
+            approvedByBM: v.approvedByBM || null,
+            // ✅ Rejection status with reason
+            rejected: v.rejected || v.orderStatus === "Rejected",
+            rejectedBy: v.rejectedBy || "-",
+            rejectReason: v.rejectReason || "-",
+          });
         }
       });
     });
 
-    console.log("🔍 Total revenues for BM after merge:", revenues.length);
+    // 3️⃣ Get Revenue collection entries (manual + approved + rejected)
+    const revenueEntries = await Revenue.find({
+      $or: [
+        { empCode: { $in: branchEmpCodes } },
+        { managerCode: { $in: branchEmpCodes } },
+        { branch: bmBranch },
+      ],
+    }).lean();
+
+    revenueEntries.forEach((rev) => {
+      // Avoid duplicates
+      const exists = revenues.some(
+        (r) => r.poNumber === rev.poNumber && r.empCode === rev.empCode
+      );
+      if (!exists) {
+        const emp = branchUsers.find((e) => e.empCode === rev.empCode);
+        revenues.push({
+          _id: rev._id,
+          customerId: rev.customerId || `MANUAL-${rev._id}`,
+          customerMobile: rev.customerMobile || "NA",
+          customerName: rev.customerName || "-",
+          customerType: rev.customerType || "-",
+          verticalType: rev.verticalType || "-",
+          vertical: rev.verticalType || "-",
+          distributorCode: rev.distributorCode || "-",
+          distributorName: rev.distributorName || "-",
+          orderType: rev.orderType || "-",
+          itemName: rev.itemName || "-",
+          poNumber: rev.poNumber || "-",
+          poFileUrl: rev.poFileUrl || "-",
+          orderValue: rev.orderValue || 0,
+          empCode: rev.empCode || "-",
+          empName: emp?.name || rev.empName || "-",
+          branch: rev.branch || emp?.branch || bmBranch || "-",
+          region: rev.region || emp?.region || "-",
+          date: rev.date,
+          // ✅ Reported by (who created the entry)
+          reportedBy: rev.reportedBy || `${rev.managerCode} - ${rev.managerName}`,
+          // ✅ BM Approval status
+          approved: rev.approved || false,
+          approvedBy: rev.approvedBy || "-",
+          approvedByBM: rev.approvedByBM || null,
+          // ✅ Rejection status with reason
+          rejected: rev.rejected || false,
+          rejectedBy: rev.rejectedBy || "-",
+          rejectReason: rev.rejectReason || "-",
+        });
+      }
+    });
+
+    console.log("🔍 Total revenues for BM:", revenues.length);
 
     // Filter by empCode if provided
     if (empCode && empCode !== "all") {
@@ -749,7 +855,9 @@ export const submitBMEntries = async (req, res) => {
 };
 
 /* =============================================================
-   📊 Regional Manager View - ALL Submitted Revenue from Region
+   📊 Regional Manager View - ALL Order Won entries from Region
+   ✅ NOW: Shows ALL entries immediately (no submission required)
+   ✅ Shows "Approved by BM" for approved entries
 ============================================================= */
 export const getRMRevenue = async (req, res) => {
   try {
@@ -768,22 +876,12 @@ export const getRMRevenue = async (req, res) => {
     }).lean();
     
     const regionEmpCodes = regionUsers.map(u => u.empCode);
+    regionEmpCodes.push(rmCode); // Include RM's own code
     console.log("🔍 Region users count:", regionEmpCodes.length);
 
-    // 1️⃣ Get Revenue entries submitted TO RM by BM (submittedToRM: true)
-    let revenues = await Revenue.find({
-      $or: [
-        { region: rmRegion },
-        { empCode: { $in: regionEmpCodes } },
-        { managerCode: { $in: regionEmpCodes } },
-      ],
-      submittedToRM: true,  // 🔹 Only show entries submitted by BM
-      rejected: { $ne: true },
-    }).lean();
+    let revenues = [];
 
-    console.log("🔍 Revenue collection entries for RM:", revenues.length);
-
-    // 2️⃣ Get Customer visits submitted TO RM by BM
+    // 1️⃣ Get ALL Customer visits with Order Won/Approved from region employees
     const customers = await Customer.find({
       $or: [
         { "visits.region": rmRegion },
@@ -794,42 +892,97 @@ export const getRMRevenue = async (req, res) => {
 
     customers.forEach((c) => {
       (c.visits || []).forEach((v) => {
-        // 🔹 Only include if submitted TO RM by BM
-        if (v.submittedToRM && !v.rejected && v.orderValue) {
-          // Avoid duplicates
-          const exists = revenues.some(
-            (r) => r.poNumber === v.poNumber && r.empCode === (v.createdBy || c.createdBy?.empCode)
-          );
-          if (!exists) {
-            const emp = regionUsers.find(u => u.empCode === v.createdBy);
-            revenues.push({
-              _id: v._id,
-              customerId: c.customerId,
-              customerMobile: c.customerMobile || "NA",
-              customerName: c.name || "-",
-              customerType: c.customerType || "-",
-              verticalType: v.vertical || c.vertical || "-",
-              distributorCode: v.distributorCode || "-",
-              distributorName: v.distributorName || "-",
-              orderType: v.orderType || "-",
-              itemName: v.itemName || "-",
-              poNumber: v.poNumber || "-",
-              poFileUrl: v.poFileUrl || "-",
-              orderValue: v.orderValue || 0,
-              empCode: v.createdBy || c.createdBy?.empCode || "-",
-              empName: emp?.name || c.createdBy?.name || "-",
-              branch: v.branch || emp?.branch || "-",
-              region: v.region || emp?.region || rmRegion || "-",
-              date: v.date || c.createdAt,
-              approvedBy: v.approvedBy || "-",
-              submittedBy: v.submittedBy || "-",
-            });
-          }
+        // ✅ Show ALL Won/Approved entries immediately
+        if (
+          (v.orderStatus === "Won" || v.orderStatus === "Approved") &&
+          !v.rejected &&
+          v.orderValue
+        ) {
+          const emp = regionUsers.find(u => u.empCode === v.createdBy);
+          // ✅ Determine who reported this entry
+          const reporterName = v.reportedBy || (emp ? `${emp.empCode} - ${emp.name}` : v.createdBy || "-");
+          
+          revenues.push({
+            _id: v._id,
+            customerId: c.customerId,
+            customerMobile: c.customerMobile || "NA",
+            customerName: c.name || "-",
+            customerType: c.customerType || "-",
+            verticalType: v.vertical || c.vertical || "-",
+            distributorCode: v.distributorCode || "-",
+            distributorName: v.distributorName || "-",
+            orderType: v.orderType || "-",
+            itemName: v.itemName || "-",
+            poNumber: v.poNumber || "-",
+            poFileUrl: v.poFileUrl || "-",
+            orderValue: v.orderValue || 0,
+            empCode: v.createdBy || c.createdBy?.empCode || "-",
+            empName: emp?.name || c.createdBy?.name || "-",
+            branch: v.branch || emp?.branch || "-",
+            region: v.region || emp?.region || rmRegion || "-",
+            date: v.date || c.createdAt,
+            // ✅ Reported by (who created the entry)
+            reportedBy: reporterName,
+            // ✅ BM Approval status
+            approved: v.approved || v.orderStatus === "Approved",
+            approvedBy: v.approvedBy || "-",
+            approvedByBM: v.approvedByBM || null,
+            rejected: v.rejected || false,
+            rejectedBy: v.rejectedBy || "-",
+          });
         }
       });
     });
 
-    console.log("🔍 Total revenues after merge:", revenues.length);
+    // 2️⃣ Get Revenue collection entries
+    const revenueEntries = await Revenue.find({
+      $or: [
+        { region: rmRegion },
+        { empCode: { $in: regionEmpCodes } },
+        { managerCode: { $in: regionEmpCodes } },
+      ],
+      rejected: { $ne: true },
+    }).lean();
+
+    revenueEntries.forEach((rev) => {
+      // Avoid duplicates
+      const exists = revenues.some(
+        (r) => r.poNumber === rev.poNumber && r.empCode === rev.empCode
+      );
+      if (!exists) {
+        const emp = regionUsers.find(u => u.empCode === rev.empCode);
+        revenues.push({
+          _id: rev._id,
+          customerId: rev.customerId || `MANUAL-${rev._id}`,
+          customerMobile: rev.customerMobile || "NA",
+          customerName: rev.customerName || "-",
+          customerType: rev.customerType || "-",
+          verticalType: rev.verticalType || "-",
+          distributorCode: rev.distributorCode || "-",
+          distributorName: rev.distributorName || "-",
+          orderType: rev.orderType || "-",
+          itemName: rev.itemName || "-",
+          poNumber: rev.poNumber || "-",
+          poFileUrl: rev.poFileUrl || "-",
+          orderValue: rev.orderValue || 0,
+          empCode: rev.empCode || "-",
+          empName: emp?.name || rev.empName || "-",
+          branch: rev.branch || emp?.branch || "-",
+          region: rev.region || emp?.region || rmRegion || "-",
+          date: rev.date,
+          // ✅ Reported by (who created the entry)
+          reportedBy: rev.reportedBy || `${rev.managerCode} - ${rev.managerName}`,
+          // ✅ BM Approval status
+          approved: rev.approved || false,
+          approvedBy: rev.approvedBy || "-",
+          approvedByBM: rev.approvedByBM || null,
+          rejected: rev.rejected || false,
+          rejectedBy: rev.rejectedBy || "-",
+        });
+      }
+    });
+
+    console.log("🔍 Total revenues for RM:", revenues.length);
 
     // Date filtering
     if (from && to) {
@@ -866,7 +1019,9 @@ export const getRMRevenue = async (req, res) => {
 };
 
 /* =============================================================
-   📊 Admin View - ALL Revenue Submitted by BM to RM
+   📊 Admin View - ALL Order Won entries
+   ✅ NOW: Shows ALL entries immediately (no submission required)
+   ✅ Shows "Approved by BM" for approved entries
 ============================================================= */
 export const getAdminRevenue = async (req, res) => {
   try {
@@ -877,56 +1032,101 @@ export const getAdminRevenue = async (req, res) => {
     const userMap = {};
     allUsers.forEach(u => { userMap[u.empCode] = u; });
 
-    // 1️⃣ Get Revenue entries submitted TO RM by BM
-    let revenues = await Revenue.find({ 
-      submittedToRM: true,  // 🔹 Only show entries submitted by BM
-      rejected: { $ne: true },
-    }).lean();
-    console.log("🔍 Admin - Revenue collection entries:", revenues.length);
+    let revenues = [];
 
-    // 2️⃣ Get Customer visits submitted TO RM by BM
+    // 1️⃣ Get ALL Customer visits with Order Won/Approved
     const customers = await Customer.find({
-      "visits.submittedToRM": true,
+      "visits.orderStatus": { $in: ["Won", "Approved"] },
     }).lean();
 
     customers.forEach((c) => {
       (c.visits || []).forEach((v) => {
-        // 🔹 Only include if submitted TO RM by BM
-        if (v.submittedToRM && !v.rejected && v.orderValue) {
-          // Avoid duplicates
-          const exists = revenues.some(
-            (r) => r.poNumber === v.poNumber && r.empCode === (v.createdBy || c.createdBy?.empCode)
-          );
-          if (!exists) {
-            const emp = userMap[v.createdBy] || userMap[c.createdBy?.empCode];
-            revenues.push({
-              _id: v._id,
-              customerId: c.customerId,
-              customerMobile: c.customerMobile || "NA",
-              customerName: c.name || "-",
-              customerType: c.customerType || "-",
-              verticalType: v.vertical || c.vertical || "-",
-              distributorCode: v.distributorCode || "-",
-              distributorName: v.distributorName || "-",
-              orderType: v.orderType || "-",
-              itemName: v.itemName || "-",
-              poNumber: v.poNumber || "-",
-              poFileUrl: v.poFileUrl || "-",
-              orderValue: v.orderValue || 0,
-              empCode: v.createdBy || c.createdBy?.empCode || "-",
-              empName: emp?.name || c.createdBy?.name || "-",
-              branch: v.branch || emp?.branch || "-",
-              region: v.region || emp?.region || "-",
-              date: v.date || c.createdAt,
-              approvedBy: v.approvedBy || "-",
-              submittedBy: v.submittedBy || "-",
-            });
-          }
+        // ✅ Show ALL Won/Approved entries immediately
+        if (
+          (v.orderStatus === "Won" || v.orderStatus === "Approved") &&
+          !v.rejected &&
+          v.orderValue
+        ) {
+          const emp = userMap[v.createdBy] || userMap[c.createdBy?.empCode];
+          // ✅ Determine who reported this entry
+          const reporterName = v.reportedBy || (emp ? `${emp.empCode} - ${emp.name}` : v.createdBy || "-");
+          
+          revenues.push({
+            _id: v._id,
+            customerId: c.customerId,
+            customerMobile: c.customerMobile || "NA",
+            customerName: c.name || "-",
+            customerType: c.customerType || "-",
+            verticalType: v.vertical || c.vertical || "-",
+            distributorCode: v.distributorCode || "-",
+            distributorName: v.distributorName || "-",
+            orderType: v.orderType || "-",
+            itemName: v.itemName || "-",
+            poNumber: v.poNumber || "-",
+            poFileUrl: v.poFileUrl || "-",
+            orderValue: v.orderValue || 0,
+            empCode: v.createdBy || c.createdBy?.empCode || "-",
+            empName: emp?.name || c.createdBy?.name || "-",
+            branch: v.branch || emp?.branch || "-",
+            region: v.region || emp?.region || "-",
+            date: v.date || c.createdAt,
+            // ✅ Reported by (who created the entry)
+            reportedBy: reporterName,
+            // ✅ BM Approval status
+            approved: v.approved || v.orderStatus === "Approved",
+            approvedBy: v.approvedBy || "-",
+            approvedByBM: v.approvedByBM || null,
+            rejected: v.rejected || false,
+            rejectedBy: v.rejectedBy || "-",
+          });
         }
       });
     });
 
-    console.log("🔍 Admin - Total revenues after merge:", revenues.length);
+    // 2️⃣ Get Revenue collection entries
+    const revenueEntries = await Revenue.find({
+      rejected: { $ne: true },
+    }).lean();
+
+    revenueEntries.forEach((rev) => {
+      // Avoid duplicates
+      const exists = revenues.some(
+        (r) => r.poNumber === rev.poNumber && r.empCode === rev.empCode
+      );
+      if (!exists) {
+        const emp = userMap[rev.empCode];
+        revenues.push({
+          _id: rev._id,
+          customerId: rev.customerId || `MANUAL-${rev._id}`,
+          customerMobile: rev.customerMobile || "NA",
+          customerName: rev.customerName || "-",
+          customerType: rev.customerType || "-",
+          verticalType: rev.verticalType || "-",
+          distributorCode: rev.distributorCode || "-",
+          distributorName: rev.distributorName || "-",
+          orderType: rev.orderType || "-",
+          itemName: rev.itemName || "-",
+          poNumber: rev.poNumber || "-",
+          poFileUrl: rev.poFileUrl || "-",
+          orderValue: rev.orderValue || 0,
+          empCode: rev.empCode || "-",
+          empName: emp?.name || rev.empName || "-",
+          branch: rev.branch || emp?.branch || "-",
+          region: rev.region || emp?.region || "-",
+          date: rev.date,
+          // ✅ Reported by (who created the entry)
+          reportedBy: rev.reportedBy || `${rev.managerCode} - ${rev.managerName}`,
+          // ✅ BM Approval status
+          approved: rev.approved || false,
+          approvedBy: rev.approvedBy || "-",
+          approvedByBM: rev.approvedByBM || null,
+          rejected: rev.rejected || false,
+          rejectedBy: rev.rejectedBy || "-",
+        });
+      }
+    });
+
+    console.log("🔍 Admin - Total revenues:", revenues.length);
 
     // Date filtering
     if (from && to) {

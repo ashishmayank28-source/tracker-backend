@@ -2,13 +2,14 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../auth.jsx";
 import NewVisitForm from "./NewVisitForm.jsx";
+import TourApprovalForm from "./TourApprovalForm.jsx";
 import imageCompression from "browser-image-compression";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
 export default function MyReports() {
   const { user, token } = useAuth();
-  const [tab, setTab] = useState("new"); // new | revisit | submitted
+  const [tab, setTab] = useState("new"); // new | revisit | submitted | tour
   const [historyCustomer, setHistoryCustomer] = useState(null); // for inline history
 
   return (
@@ -42,6 +43,15 @@ export default function MyReports() {
         >
           📑 Submitted Reports
         </button>
+        <button
+          onClick={() => {
+            setTab("tour");
+            setHistoryCustomer(null);
+          }}
+          style={tabBtnStyle(tab === "tour")}
+        >
+          ✈️ Tour Approval
+        </button>
       </div>
 
       {/* Content */}
@@ -53,6 +63,10 @@ export default function MyReports() {
 
       {tab === "submitted" && !historyCustomer && (
         <SubmittedReports token={token} setHistoryCustomer={setHistoryCustomer} />
+      )}
+
+      {tab === "tour" && (
+        <TourApprovalForm token={token} user={user} />
       )}
 
       {historyCustomer && (

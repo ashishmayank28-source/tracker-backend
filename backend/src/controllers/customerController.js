@@ -452,15 +452,76 @@ export const myReports = async (req, res) => {
           itemName: v.itemName || "-",
           poNumber: v.poNumber || "-",
           poFileUrl: v.poFileUrl || "-",
-          // ✅ NEW: Approval fields
+          // ✅ Reported by (who created the entry)
+          reportedBy: v.reportedBy || v.createdBy || "-",
+          // ✅ Approval fields
           approved: v.approved || v.orderStatus === "Approved",
           approvedBy: v.approvedBy || "-",
+          approvedByBM: v.approvedByBM || null,
           approvedDate: v.approvedDate || null,
+          // ✅ Rejection fields
+          rejected: v.rejected || v.orderStatus === "Rejected",
+          rejectedBy: v.rejectedBy || "-",
+          rejectReason: v.rejectReason || "-",
         });
       });
     });
 
     console.log("📊 Flattened reports count:", rows.length);
+
+    // ✅ Also fetch manual entries from Revenue collection for this employee
+    const Revenue = (await import("../models/revenueModel.js")).default;
+    const manualRevenues = await Revenue.find({ empCode }).lean();
+    
+    manualRevenues.forEach((rev) => {
+      // Avoid duplicates - check if poNumber already exists
+      const exists = rows.some(r => r.poNumber === rev.poNumber);
+      if (!exists && rev.orderValue) {
+        rows.push({
+          _id: rev._id,
+          customerId: rev.customerId || `MANUAL-${rev._id}`,
+          name: rev.customerName || "Manual Entry",
+          customerMobile: rev.customerMobile || "NA",
+          company: "-",
+          designation: "-",
+          customerType: rev.customerType || "Manual",
+          discussion: "-",
+          opportunityType: "-",
+          orderStatus: rev.orderStatus || "Won",
+          orderValue: rev.orderValue || 0,
+          orderLossReason: "-",
+          nextMeetingDate: null,
+          expectedOrderDate: null,
+          attendees: "-",
+          purpose: "Manual Entry by Manager",
+          date: rev.date || rev.createdAt,
+          empCode: rev.empCode,
+          vertical: rev.verticalType || "-",
+          meetingType: "Manager Added",
+          callType: "-",
+          reason: "-",
+          distributorName: rev.distributorName || "-",
+          distributorCode: rev.distributorCode || "-",
+          orderType: rev.orderType || "-",
+          itemName: rev.itemName || "-",
+          poNumber: rev.poNumber || "-",
+          poFileUrl: rev.poFileUrl || "-",
+          // ✅ Reported by (Manager who created the entry)
+          reportedBy: rev.reportedBy || `${rev.managerCode} - ${rev.managerName}`,
+          // ✅ Approval fields
+          approved: rev.approved || false,
+          approvedBy: rev.approvedBy || "-",
+          approvedByBM: rev.approvedByBM || null,
+          approvedDate: rev.approvedDate || null,
+          // ✅ Rejection fields
+          rejected: rev.rejected || false,
+          rejectedBy: rev.rejectedBy || "-",
+          rejectReason: rev.rejectReason || "-",
+        });
+      }
+    });
+
+    console.log("📊 After adding manual entries:", rows.length);
 
     if (from && to) {
       const fromDate = new Date(from);

@@ -8,6 +8,7 @@ export default function RevenueTrackerEmp() {
   const [revenue, setRevenue] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedPO, setSelectedPO] = useState(null);
+  const [selectedRejectReason, setSelectedRejectReason] = useState(null); // For viewing rejection reason
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
 
@@ -41,10 +42,14 @@ export default function RevenueTrackerEmp() {
           // ✅ Approval status fields
           approved: r.approved || r.orderStatus === "Approved",
           approvedBy: r.approvedBy || "-",
+          approvedByBM: r.approvedByBM || null,
           orderStatus: r.orderStatus || "Won",
+          // ✅ Reported by
+          reportedBy: r.reportedBy || "-",
           // ✅ Rejection status fields
           rejected: r.rejected || r.orderStatus === "Rejected",
           rejectedBy: r.rejectedBy || "-",
+          rejectReason: r.rejectReason || "-",
           // ✅ Submission status
           isSubmitted: r.isSubmitted || r.submittedToBM || false,
         }));
@@ -121,7 +126,8 @@ export default function RevenueTrackerEmp() {
                 <th style={th}>PO No.</th>
                 <th style={th}>Uploaded PO</th>
                 <th style={th}>Date</th>
-                <th style={thYellow}>Approved</th>
+                <th style={thBlue}>Reported by</th>
+                <th style={thYellow}>Approved by BM</th>
                 <th style={thRed}>Reject</th>
               </tr>
             </thead>
@@ -164,24 +170,39 @@ export default function RevenueTrackerEmp() {
                   </td>
                   <td style={td}>{r.date ? new Date(r.date).toLocaleDateString() : "-"}</td>
                   
-                  {/* ✅ Approved Column */}
+                  {/* ✅ Reported by Column */}
+                  <td style={tdBlue}>
+                    <span style={{ color: "#1e40af", fontWeight: 600, fontSize: 11 }}>
+                      {r.reportedBy || r.empCode || "-"}
+                    </span>
+                  </td>
+                  
+                  {/* ✅ Approved by BM Column */}
                   <td style={tdYellow}>
-                    {r.approved ? (
-                      <span style={{ color: "#16a34a", fontWeight: 600 }}>
-                        ✅ {r.approvedBy}
-                        {r.isSubmitted && <span style={{ fontSize: 10, display: "block" }}>📤 Submitted</span>}
-                      </span>
+                    {r.approvedByBM || (r.approved && r.approvedBy && r.approvedBy !== "-") ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        <span style={{ color: "#16a34a", fontWeight: 700, fontSize: 12 }}>✅ Approved</span>
+                        <span style={{ color: "#166534", fontSize: 10 }}>by {r.approvedByBM || r.approvedBy}</span>
+                      </div>
                     ) : (
-                      <span style={{ color: "#f59e0b", fontWeight: 500 }}>⏳ Pending</span>
+                      <span style={{ color: "#f59e0b", fontWeight: 600 }}>⏳ Pending BM</span>
                     )}
                   </td>
                   
-                  {/* ✅ Reject Column */}
+                  {/* ✅ Reject Column with View Reason */}
                   <td style={tdRed}>
                     {r.rejected ? (
-                      <span style={{ color: "#dc2626", fontWeight: 600 }}>
-                        ❌ {r.rejectedBy}
-                      </span>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 11 }}>
+                          ❌ {r.rejectedBy}
+                        </span>
+                        <button 
+                          onClick={() => setSelectedRejectReason({ by: r.rejectedBy, reason: r.rejectReason })}
+                          style={viewReasonBtn}
+                        >
+                          👁️ View Reason
+                        </button>
+                      </div>
                     ) : (
                       <span style={{ color: "#9ca3af" }}>-</span>
                     )}
@@ -206,6 +227,20 @@ export default function RevenueTrackerEmp() {
           </div>
         </div>
       )}
+
+      {/* Rejection Reason Modal */}
+      {selectedRejectReason && (
+        <div style={overlay} onClick={() => setSelectedRejectReason(null)}>
+          <div style={reasonPopup} onClick={(e) => e.stopPropagation()}>
+            <button style={closeBtn} onClick={() => setSelectedRejectReason(null)}>✕</button>
+            <h3 style={{ color: "#dc2626", marginBottom: 12 }}>❌ Rejection Details</h3>
+            <p style={{ marginBottom: 8 }}><strong>Rejected By:</strong> {selectedRejectReason.by}</p>
+            <p style={{ background: "#fee2e2", padding: 12, borderRadius: 8, border: "1px solid #fca5a5" }}>
+              <strong>Reason:</strong> {selectedRejectReason.reason || "No reason provided"}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -215,13 +250,17 @@ const inputStyle = { padding: "6px 10px", borderRadius: 6, border: "1px solid #c
 const btnGray = { background: "#6b7280", color: "#fff", border: "none", borderRadius: 4, padding: "6px 12px", cursor: "pointer" };
 const tableStyle = { width: "100%", borderCollapse: "collapse", minWidth: 1400 };
 const th = { padding: "10px", borderBottom: "2px solid #ccc", fontSize: "12px", fontWeight: "600", whiteSpace: "nowrap", background: "#f4f4f4", position: "sticky", top: 0, zIndex: 10 };
+const thBlue = { ...th, background: "#dbeafe" };
 const thYellow = { ...th, background: "#fef3c7" };
 const thRed = { ...th, background: "#fee2e2" };
 const td = { padding: "8px 10px", fontSize: "12px", whiteSpace: "nowrap" };
+const tdBlue = { ...td, background: "#dbeafe" };
 const tdYellow = { ...td, background: "#fef3c7" };
 const tdRed = { ...td, background: "#fee2e2" };
 const summaryBox = { marginBottom: 15, padding: "12px 20px", background: "#d1fae5", borderRadius: 8, fontWeight: "bold", fontSize: 15, display: "inline-block" };
 const viewBtn = { border: "none", background: "#0ea5e9", color: "#fff", padding: "4px 10px", borderRadius: 4, cursor: "pointer", fontWeight: 600, fontSize: 11 };
+const viewReasonBtn = { border: "none", background: "#ef4444", color: "#fff", padding: "3px 8px", borderRadius: 4, cursor: "pointer", fontWeight: 600, fontSize: 10 };
 const overlay = { position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 };
 const popup = { background: "#fff", borderRadius: 10, padding: 16, maxWidth: "90%", maxHeight: "90vh", overflow: "auto", position: "relative" };
+const reasonPopup = { background: "#fff", borderRadius: 10, padding: 24, minWidth: 350, maxWidth: 500, position: "relative" };
 const closeBtn = { position: "absolute", top: 10, right: 10, background: "#e11d48", color: "#fff", border: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer" };

@@ -56,27 +56,7 @@ export default function RevenueTrackerManager() {
     loadRevenue();
   }, [selectedEmp]);
 
-  /* 🔹 Approve Revenue */
-  async function approveRevenue(id) {
-    try {
-      const res = await fetch(`${API_BASE}/api/revenue/approve/${id}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setRevenue((prev) =>
-          prev.map((r) =>
-            r._id === id ? { ...r, approved: true, approvedBy: `${user.empCode} - ${user.name}` } : r
-          )
-        );
-        alert("✅ Revenue approved successfully");
-      } else alert(data.message || "Failed to approve");
-    } catch (e) {
-      console.error(e);
-      alert("Error approving revenue");
-    }
-  }
+  /* 🔹 Note: Approve function removed - Only BM can approve now */
 
   /* 🔹 Add Manual Row (+ Manual button) */
   function addManualRow() {
@@ -185,38 +165,15 @@ export default function RevenueTrackerManager() {
     }
   }
 
-  /* 🔹 Submit All Approved Reports to BM */
-  async function submitAll() {
-    try {
-      const approvedData = revenue.filter((r) => r.approved && !r.isSubmitted && !r.submittedToBM);
-      if (approvedData.length === 0) {
-        return alert("⚠️ No approved reports to submit. Please approve reports first.");
-      }
-      const res = await fetch(`${API_BASE}/api/revenue/submit`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ reports: approvedData }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        alert(`✅ ${approvedData.length} approved reports submitted to BM!`);
-        loadRevenue();
-      } else alert(data.message || "Failed to submit reports");
-    } catch (e) {
-      console.error("Submit error:", e);
-    }
-  }
+  /* 🔹 Note: Submit to BM removed - Data now visible to all immediately */
 
   /* 🔹 Calculate Total Value */
   const totalOrderValue = revenue.reduce(
     (sum, r) => sum + (Number(r.orderValue) || 0),
     0
   );
-  const approvedCount = revenue.filter((r) => r.approved).length;
-  const pendingCount = revenue.filter((r) => !r.approved && !r.rejected).length;
+  const approvedByBMCount = revenue.filter((r) => r.approvedByBM || r.approvedBy !== "-").length;
+  const pendingBMCount = revenue.filter((r) => !r.approvedByBM && r.approvedBy === "-" && !r.rejected).length;
 
   /* 🔹 Export Excel */
   function exportToExcel() {
@@ -250,15 +207,14 @@ export default function RevenueTrackerManager() {
         <button onClick={loadRevenue} style={{ ...btnBlue, background: "#3b82f6" }}>🔄 Refresh</button>
         <button onClick={exportToExcel} style={btnBlue}>📤 Export</button>
         <button onClick={addManualRow} style={btnGreen}>➕ Manual</button>
-        <button onClick={submitAll} style={{ ...btnBlue, background: "#7c3aed" }}>📨 Submit to BM ({approvedCount})</button>
       </div>
 
       {/* ✅ Summary */}
       <div style={summaryBox}>
         <span>💰 Total: ₹{totalOrderValue.toLocaleString("en-IN")}</span>
         <span>📊 Records: {revenue.length}</span>
-        <span style={{ color: "#16a34a" }}>✅ Approved: {approvedCount}</span>
-        <span style={{ color: "#f59e0b" }}>⏳ Pending: {pendingCount}</span>
+        <span style={{ color: "#16a34a" }}>✅ BM Approved: {approvedByBMCount}</span>
+        <span style={{ color: "#f59e0b" }}>⏳ Pending BM: {pendingBMCount}</span>
       </div>
 
       {/* Table */}
@@ -280,9 +236,10 @@ export default function RevenueTrackerManager() {
               <th style={th}>PO No.</th>
               <th style={th}>Uploaded PO</th>
               <th style={th}>Date</th>
-              <th style={thYellow}>Approved</th>
+              <th style={thBlue}>Reported by</th>
+              <th style={thYellow}>Approved by BM</th>
               <th style={thRed}>Reject</th>
-              <th style={th}>Action</th>
+              <th style={th}>Status</th>
             </tr>
           </thead>
 
@@ -408,15 +365,22 @@ export default function RevenueTrackerManager() {
                 {/* Date */}
                 <td style={td}>{r.date ? new Date(r.date).toLocaleDateString() : "-"}</td>
 
-                {/* ✅ Approved Column */}
+                {/* ✅ Reported by Column */}
+                <td style={tdBlue}>
+                  <span style={{ color: "#1e40af", fontWeight: 600, fontSize: 11 }}>
+                    {r.reportedBy || r.empCode || "-"}
+                  </span>
+                </td>
+
+                {/* ✅ Approved by BM Column (Read-only for Manager) */}
                 <td style={tdYellow}>
-                  {r.approved ? (
-                    <span style={{ color: "#16a34a", fontWeight: 600, fontSize: 11 }}>
-                      ✅ {r.approvedBy || user.name}
-                      {r.submittedToBM && <span style={{ display: "block", fontSize: 9 }}>📤 Sent to BM</span>}
-                    </span>
+                  {r.approvedByBM || (r.approvedBy && r.approvedBy !== "-") ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      <span style={{ color: "#16a34a", fontWeight: 700, fontSize: 12 }}>✅ Approved</span>
+                      <span style={{ color: "#166534", fontSize: 10 }}>by {r.approvedByBM || r.approvedBy}</span>
+                    </div>
                   ) : (
-                    <span style={{ color: "#9ca3af" }}>-</span>
+                    <span style={{ color: "#f59e0b", fontWeight: 600, fontSize: 11 }}>⏳ Pending BM</span>
                   )}
                 </td>
 
@@ -431,16 +395,16 @@ export default function RevenueTrackerManager() {
                   )}
                 </td>
 
-                {/* Action */}
+                {/* Action - Only Save for Manual entries (No Approve button - BM only) */}
                 <td style={td}>
                   {r.isManual && !r.saved ? (
                     <button onClick={() => saveManualSale(r)} style={btnSave}>🟢 Save</button>
                   ) : r.rejected ? (
                     <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 11 }}>❌ Rejected</span>
-                  ) : r.approved ? (
-                    <span style={{ color: "green", fontWeight: 600, fontSize: 11 }}>✅</span>
+                  ) : (r.approvedByBM || r.approvedBy !== "-") ? (
+                    <span style={{ color: "green", fontWeight: 600, fontSize: 11 }}>✅ Approved</span>
                   ) : (
-                    <button onClick={() => approveRevenue(r._id)} style={btnApprove}>Approve</button>
+                    <span style={{ color: "#9ca3af", fontSize: 11 }}>⏳ Awaiting BM</span>
                   )}
                 </td>
               </tr>
@@ -469,9 +433,11 @@ export default function RevenueTrackerManager() {
 /* ---------- Styles ---------- */
 const tableStyle = { width: "100%", borderCollapse: "collapse", minWidth: 1600 };
 const th = { padding: "10px", borderBottom: "2px solid #ccc", fontSize: "11px", fontWeight: 600, background: "#f4f4f4", position: "sticky", top: 0, zIndex: 10, whiteSpace: "nowrap" };
+const thBlue = { ...th, background: "#dbeafe" };
 const thYellow = { ...th, background: "#fef3c7" };
 const thRed = { ...th, background: "#fee2e2" };
 const td = { padding: "8px 10px", fontSize: "11px", whiteSpace: "nowrap" };
+const tdBlue = { ...td, background: "#dbeafe" };
 const tdYellow = { ...td, background: "#fef3c7" };
 const tdRed = { ...td, background: "#fee2e2" };
 const inputStyle = { padding: "6px 10px", borderRadius: 6, border: "1px solid #ccc", fontSize: 12 };
@@ -479,7 +445,6 @@ const inputSmall = { padding: "4px 6px", border: "1px solid #ccc", borderRadius:
 const btnBlue = { background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, padding: "6px 12px", cursor: "pointer", fontSize: 12 };
 const btnGreen = { background: "#16a34a", color: "#fff", border: "none", borderRadius: 4, padding: "6px 12px", cursor: "pointer", fontSize: 12 };
 const btnSave = { background: "#22c55e", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontWeight: 600, fontSize: 11 };
-const btnApprove = { background: "#facc15", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontWeight: 600, fontSize: 11 };
 const viewBtn = { background: "#0ea5e9", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontSize: 10 };
 const filterRow = { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, alignItems: "center" };
 const summaryBox = { marginBottom: 15, padding: "12px 20px", background: "#d1fae5", borderRadius: 8, fontWeight: "bold", fontSize: 14, display: "flex", gap: 20, flexWrap: "wrap" };

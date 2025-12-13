@@ -12,6 +12,7 @@ import AdminRevenueTracker from "./AdminRevenueTracker.jsx";
 import AdminAttendance from "./admin/AdminAttendance.jsx";
 import PerformanceReview from "./admin/PerformanceReview.jsx";
 import RetailerDatabaseTeam from "./RetailerDatabaseTeam.jsx";
+import TravelRequests from "./TravelRequests.jsx";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -47,6 +48,7 @@ export default function AdminDashboard() {
           <Tile label="🗂 Dump Management" onClick={() => setActiveTile("dump")} color="#ef4444" />
           <Tile label="📊 Assignment Ledger" onClick={() => setActiveTile("ledger")} color="#14b8a6" />
           <Tile label="📋 Assignment Table" onClick={() => setActiveTile("assignment-table")} color="#a855f7" />
+          <Tile label="✈️ Travel Requests" onClick={() => setActiveTile("travel")} color="#0ea5e9" />
         </div>
       )}
 
@@ -131,6 +133,13 @@ export default function AdminDashboard() {
       {activeTile === "assignment-table" && (
         <TileWrapper title="📋 Assignment Table" onBack={() => setActiveTile("dashboard")}>
           <AssignmentTable />
+        </TileWrapper>
+      )}
+
+      {/* ✈️ Travel Requests */}
+      {activeTile === "travel" && (
+        <TileWrapper title="✈️ Travel Requests" onBack={() => setActiveTile("dashboard")}>
+          <TravelRequests isAdmin={true} />
         </TileWrapper>
       )}
     </div>

@@ -4,7 +4,8 @@ import ReportsViewer from "../components/ReportsViewer.jsx";
 import SampleBoardsAllocationBranch from "./SampleBoardsAllocationBranch.jsx";
 import RevenueTrackerBranch from "./RevenueTrackerBranch.jsx";
 import PerformanceReviewBranch from "./PerformanceReviewBranch.jsx";
-import RetailerDatabaseTeam from "./RetailerDatabaseTeam.jsx"; 
+import RetailerDatabaseTeam from "./RetailerDatabaseTeam.jsx";
+import TravelRequests from "./TravelRequests.jsx"; 
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
@@ -54,6 +55,7 @@ export default function BranchManagerDashboard() {
           <Tile label="📦 Sample Boards" onClick={() => setActiveTile("sample")} />
           <Tile label="🏬 Retailer DB" onClick={() => setActiveTile("retailer")} />
           <Tile label="⭐ Performance Review" onClick={() => setActiveTile("performance")} />
+          <Tile label="✈️ Travel Requests" onClick={() => setActiveTile("travel")} />
         </div>
       )}
 
@@ -127,6 +129,13 @@ export default function BranchManagerDashboard() {
       {activeTile === "performance" && (
         <TileWrapper onBack={() => setActiveTile("dashboard")}>
           <PerformanceReviewBranch />
+        </TileWrapper>
+      )}
+
+      {/* ✈️ Travel Requests */}
+      {activeTile === "travel" && (
+        <TileWrapper onBack={() => setActiveTile("dashboard")}>
+          <TravelRequests />
         </TileWrapper>
       )}
     </div>
