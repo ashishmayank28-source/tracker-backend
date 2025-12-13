@@ -339,16 +339,20 @@ export default function SampleBoardsAllocationAdmin() {
         ➕ Add Row
       </button>
 
-      {/* 🔹 Assign To - Region-wise Hierarchy */}
+      {/* 🔹 Assign To - Region-wise Hierarchy (RM removed - Admin → BM → Manager → Emp) */}
       <div style={{ marginTop: 30 }}>
         <b>Assign To:</b>
+        <p style={{ fontSize: 12, color: "#666", margin: "5px 0" }}>
+          ℹ️ Flow: Admin → BM → Manager → Employee
+        </p>
         {(() => {
-          // Group employees by region, then by role
+          // Group employees by region, then by role (excluding RM)
           const grouped = employees.reduce((acc, emp) => {
             const region = emp.region || "Unknown Region";
-            if (!acc[region]) acc[region] = { RM: [], BM: [], Manager: [], Employee: [] };
+            if (!acc[region]) acc[region] = { BM: [], Manager: [], Employee: [] };
             const role = emp.role || "Employee";
-            if (role.includes("Regional")) acc[region].RM.push(emp);
+            // ❌ Skip Regional Managers - RM layer removed
+            if (role.includes("Regional")) return acc;
             else if (role.includes("Branch")) acc[region].BM.push(emp);
             else if (role === "Manager") acc[region].Manager.push(emp);
             else acc[region].Employee.push(emp);
@@ -358,21 +362,6 @@ export default function SampleBoardsAllocationAdmin() {
           return Object.entries(grouped).map(([region, roles]) => (
             <div key={region} style={{ marginTop: 15, border: "1px solid #ddd", borderRadius: 8, padding: 10 }}>
               <h4 style={{ margin: "0 0 10px 0", color: "#1976d2" }}>🌍 {region}</h4>
-              
-              {/* Regional Managers */}
-              {roles.RM.length > 0 && (
-                <div style={{ marginBottom: 8 }}>
-                  <b style={{ color: "#9c27b0" }}>Regional Managers:</b>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
-                    {roles.RM.map((emp) => (
-                      <label key={emp.empCode} style={{ border: "1px solid #9c27b0", borderRadius: 4, padding: "3px 6px", fontSize: 12, background: selectedEmps.find(e => e.empCode === emp.empCode) ? "#e1bee7" : "white" }}>
-                        <input type="checkbox" checked={!!selectedEmps.find((e) => e.empCode === emp.empCode)} onChange={() => toggleEmployee(emp)} />{" "}
-                        {emp.name} ({emp.empCode})
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* Branch Managers */}
               {roles.BM.length > 0 && (
@@ -477,14 +466,13 @@ export default function SampleBoardsAllocationAdmin() {
             <label>
               <b>Purpose:</b>{" "}
               {(() => {
-                // Auto-detect purpose based on selected employee roles
-                const hasRM = selectedEmps.some(e => (e.role || "").includes("Regional"));
+                // Auto-detect purpose based on selected employee roles (RM removed)
                 const hasBM = selectedEmps.some(e => (e.role || "").includes("Branch"));
-                const hasOnlyRMorBM = selectedEmps.every(e => (e.role || "").includes("Regional") || (e.role || "").includes("Branch"));
+                const hasOnlyBM = selectedEmps.every(e => (e.role || "").includes("Branch"));
                 
-                // If only RM/BM selected → Team Bifurcation
+                // If only BM selected → Team Bifurcation
                 // If Emp/Manager selected → Project/Marketing
-                const autoPurpose = hasOnlyRMorBM && (hasRM || hasBM) ? "Team Bifurcation" : "Project/Marketing";
+                const autoPurpose = hasOnlyBM && hasBM ? "Team Bifurcation" : "Project/Marketing";
                 
                 // Auto-set purpose if not manually changed
                 if (!purpose && autoPurpose) {
@@ -494,7 +482,7 @@ export default function SampleBoardsAllocationAdmin() {
                 return (
                   <select value={purpose} onChange={(e) => setPurpose(e.target.value)}>
                     <option value="">-- Select Purpose --</option>
-                    <option value="Team Bifurcation">Team Bifurcation (for RM/BM)</option>
+                    <option value="Team Bifurcation">Team Bifurcation (for BM)</option>
                     <option value="Project/Marketing">Project/Marketing (for Emp/Manager)</option>
                   </select>
                 );
@@ -502,7 +490,7 @@ export default function SampleBoardsAllocationAdmin() {
             </label>
             <span style={{ marginLeft: 10, fontSize: 12, color: "#666" }}>
               {purpose === "Project/Marketing" && "✅ Will have 'Submit to Vendor' option"}
-              {purpose === "Team Bifurcation" && "ℹ️ For further team distribution"}
+              {purpose === "Team Bifurcation" && "ℹ️ BM will further distribute to Manager/Emp"}
             </span>
           </div>
 
@@ -526,10 +514,9 @@ export default function SampleBoardsAllocationAdmin() {
   <div style={{ marginTop: 30 }}>
     <h3>📑 Assignment History</h3>
 
-    {/* Filters */}
+    {/* Filters - RM ID removed */}
     <div style={{ marginBottom: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
       <input type="text" placeholder="Filter by Root ID" onChange={(e) => setFilters((p) => ({ ...p, rootId: e.target.value }))} />
-      <input type="text" placeholder="Filter by RM ID" onChange={(e) => setFilters((p) => ({ ...p, rmId: e.target.value }))} />
       <input type="text" placeholder="Filter by BM ID" onChange={(e) => setFilters((p) => ({ ...p, bmId: e.target.value }))} />
       <input type="text" placeholder="Filter by Emp Code" onChange={(e) => setFilters((p) => ({ ...p, empCode: e.target.value }))} />
       <input type="text" placeholder="Filter by Emp Name" onChange={(e) => setFilters((p) => ({ ...p, empName: e.target.value }))} />
@@ -539,11 +526,11 @@ export default function SampleBoardsAllocationAdmin() {
 
     {/* Scrollable Table Container */}
     <div style={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-    <table border="1" cellPadding="6" style={{ minWidth: "1200px", borderCollapse: "collapse" }}>
+    {/* RM ID column removed from table */}
+    <table border="1" cellPadding="6" style={{ minWidth: "1100px", borderCollapse: "collapse" }}>
       <thead>
         <tr>
           <th>Root ID</th>
-          <th>RM ID</th>
           <th>BM ID</th>
           <th>Date</th>
           <th>Emp Code</th>
@@ -569,7 +556,6 @@ export default function SampleBoardsAllocationAdmin() {
         }}
       >
         <td>{a.rootId}</td>
-        <td>{a.rmId || "-"}</td>
         <td>{a.bmId || "-"}</td>
         <td>{a.date}</td>
         <td>{emp.empCode}</td>

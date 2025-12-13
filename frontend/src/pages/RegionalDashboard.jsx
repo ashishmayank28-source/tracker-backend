@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../auth.jsx";
 import ReportsViewer from "../components/ReportsViewer.jsx";
-import SampleBoardsAllocationRegional from "./SampleBoardsAllocationRegional.jsx";
+// ❌ Sample Boards removed from RM - now Admin → BM → Manager → Emp
+// import SampleBoardsAllocationRegional from "./SampleBoardsAllocationRegional.jsx";
 import RegionalRevenueTracker from "./RegionalRevenueTracker.jsx";
 import PerformanceReviewRegional from "./PerformanceReviewRegional.jsx";
 import RetailerDatabaseTeam from "./RetailerDatabaseTeam.jsx";
@@ -53,7 +54,7 @@ export default function RegionalDashboard() {
           >
             <Tile label="📅 Daily Tracker" onClick={() => setActiveTile("daily")} />
             <Tile label="💰 Revenue" onClick={() => setActiveTile("revenue")} />
-            <Tile label="📦 Sample Boards" onClick={() => setActiveTile("assets")} />
+            {/* ❌ Sample Boards removed - now Admin → BM → Manager → Emp */}
             <Tile label="🏬 Retailer DB" onClick={() => setActiveTile("retailer")} />
             <Tile label="⭐ Performance Review" onClick={() => setActiveTile("performance")} />
           </div>
@@ -77,12 +78,7 @@ export default function RegionalDashboard() {
         </TileWrapper>
       )}
 
-      {/* Assets - Sample Boards */}
-      {activeTile === "assets" && (
-        <TileWrapper onBack={() => setActiveTile("dashboard")}>
-          <SampleBoardsAllocationRegional />
-        </TileWrapper>
-      )}
+      {/* ❌ Sample Boards removed from RM - now Admin → BM → Manager → Emp */}
 
 
       {/* ✅ Revenue Tracker */}
