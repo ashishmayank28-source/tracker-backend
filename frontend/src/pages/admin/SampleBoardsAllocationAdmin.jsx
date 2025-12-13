@@ -526,8 +526,8 @@ export default function SampleBoardsAllocationAdmin() {
 
     {/* Scrollable Table Container */}
     <div style={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-    {/* RM ID column removed from table */}
-    <table border="1" cellPadding="6" style={{ minWidth: "1100px", borderCollapse: "collapse" }}>
+    {/* RM ID column & duplicate LR column removed */}
+    <table border="1" cellPadding="6" style={{ minWidth: "1000px", borderCollapse: "collapse" }}>
       <thead>
         <tr>
           <th>Root ID</th>
@@ -541,8 +541,7 @@ export default function SampleBoardsAllocationAdmin() {
           <th>Assigned By</th>
           <th>Role</th>
           <th>To Dispatch</th>
-          <th>Received from Vendor LR No.</th>
-          <th>To update LR details</th>
+          <th>LR No. (Update)</th>
           <th>POD to Emp</th>
         </tr>
       </thead>
@@ -594,36 +593,40 @@ export default function SampleBoardsAllocationAdmin() {
           )}
         </td>
 
-        {/* ✅ LR Details */}
-        <td>{a.lrNo || ""}</td>
-        <td>{a.lrNo || "-"}</td>
-              <td>
-                <div style={{ display: "flex", gap: "6px" }}>
-                  <input
-                    type="text"
-                    placeholder="Enter LR No"
-                    style={{ width: "80px" }}
-                    id={`lr-${a.rootId}`}
-                  />
-                  <button
-                    onClick={() => {
-                      const val = document.getElementById(`lr-${a.rootId}`).value;
-                      if (!val.trim()) return alert("Please enter LR No. first");
-                      handleLRUpdate(a.rootId, val);
-                    }}
-                    style={{
-                      background: "#4caf50",
-                      color: "white",
-                      border: "none",
-                      borderRadius: 4,
-                      padding: "4px 8px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Update
-                  </button>
-                </div>
-              </td>
+        {/* ✅ LR No. - Combined display & update */}
+        <td>
+          {a.lrNo ? (
+            <span style={{ color: "green", fontWeight: "bold" }}>{a.lrNo}</span>
+          ) : (
+            <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+              <input
+                type="text"
+                placeholder="LR No"
+                style={{ width: "70px", padding: "4px", fontSize: 12 }}
+                id={`lr-${a.bmId || a.rootId}`}
+              />
+              <button
+                onClick={() => {
+                  const updateId = a.bmId || a.rootId;
+                  const val = document.getElementById(`lr-${updateId}`).value;
+                  if (!val.trim()) return alert("Please enter LR No. first");
+                  handleLRUpdate(updateId, val);
+                }}
+                style={{
+                  background: "#4caf50",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 4,
+                  padding: "3px 6px",
+                  cursor: "pointer",
+                  fontSize: 11,
+                }}
+              >
+                Save
+              </button>
+            </div>
+          )}
+        </td>
               {/* ✅ POD Update Button */}
               <td>
                 {a.lrNo ? (
