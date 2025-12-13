@@ -130,9 +130,9 @@ export default function TravelRequests({ isAdmin = false }) {
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600 }}>
+    <div style={{ padding: "12px 16px" }}>
+      <div style={headerStyle}>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
           ✈️ Travel Requests
         </h2>
         <button onClick={loadRequests} style={refreshBtn}>
@@ -140,32 +140,32 @@ export default function TravelRequests({ isAdmin = false }) {
         </button>
       </div>
 
-      {/* Stats Cards */}
-      <div style={statsGrid}>
-        <div style={statCard("#f0f9ff", "#0284c7")}>
-          <span style={{ fontSize: 24, fontWeight: 700 }}>{stats.total}</span>
-          <span>Total</span>
+      {/* Stats Cards - Responsive */}
+      <div style={statsGridResponsive}>
+        <div style={statCardSmall("#f0f9ff", "#0284c7")}>
+          <span style={{ fontSize: 20, fontWeight: 700 }}>{stats.total}</span>
+          <span style={{ fontSize: 11 }}>Total</span>
         </div>
-        <div style={statCard("#fef3c7", "#d97706")}>
-          <span style={{ fontSize: 24, fontWeight: 700 }}>{stats.pending}</span>
-          <span>Pending</span>
+        <div style={statCardSmall("#fef3c7", "#d97706")}>
+          <span style={{ fontSize: 20, fontWeight: 700 }}>{stats.pending}</span>
+          <span style={{ fontSize: 11 }}>Pending</span>
         </div>
-        <div style={statCard("#dcfce7", "#16a34a")}>
-          <span style={{ fontSize: 24, fontWeight: 700 }}>{stats.approved}</span>
-          <span>Approved</span>
+        <div style={statCardSmall("#dcfce7", "#16a34a")}>
+          <span style={{ fontSize: 20, fontWeight: 700 }}>{stats.approved}</span>
+          <span style={{ fontSize: 11 }}>Approved</span>
         </div>
-        <div style={statCard("#fee2e2", "#dc2626")}>
-          <span style={{ fontSize: 24, fontWeight: 700 }}>{stats.rejected}</span>
-          <span>Rejected</span>
+        <div style={statCardSmall("#fee2e2", "#dc2626")}>
+          <span style={{ fontSize: 20, fontWeight: 700 }}>{stats.rejected}</span>
+          <span style={{ fontSize: 11 }}>Rejected</span>
         </div>
-        <div style={statCard("#dbeafe", "#2563eb")}>
-          <span style={{ fontSize: 24, fontWeight: 700 }}>{stats.completed}</span>
-          <span>Completed</span>
+        <div style={statCardSmall("#dbeafe", "#2563eb")}>
+          <span style={{ fontSize: 20, fontWeight: 700 }}>{stats.completed}</span>
+          <span style={{ fontSize: 11 }}>Completed</span>
         </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+      {/* Filter Tabs - Scrollable on Mobile */}
+      <div style={filterContainer}>
         {["all", "pending", "approved", "rejected", "completed"].map((f) => (
           <button
             key={f}
@@ -198,7 +198,7 @@ export default function TravelRequests({ isAdmin = false }) {
           <p>No travel requests found</p>
         </div>
       ) : (
-        <div style={{ overflowX: "auto" }}>
+        <div style={tableWrapper}>
           <table style={tableStyle}>
             <thead>
               <tr style={{ background: "#f9fafb" }}>
@@ -315,50 +315,85 @@ export default function TravelRequests({ isAdmin = false }) {
 }
 
 // Styles
+
+// ✅ Responsive header
+const headerStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: 16,
+  flexWrap: "wrap",
+  gap: 10,
+};
+
 const refreshBtn = {
-  padding: "8px 16px",
+  padding: "8px 14px",
   background: "#f3f4f6",
   border: "1px solid #d1d5db",
   borderRadius: 8,
   cursor: "pointer",
-  fontSize: 14,
+  fontSize: 13,
 };
 
-const statsGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(5, 1fr)",
-  gap: 12,
+// ✅ Responsive Stats Grid - Scrollable on Mobile
+const statsGridResponsive = {
+  display: "flex",
+  gap: 10,
   marginBottom: 20,
+  overflowX: "auto",
+  paddingBottom: 8,
+  WebkitOverflowScrolling: "touch", // Smooth scrolling on iOS
 };
 
-const statCard = (bg, color) => ({
+// ✅ Smaller stat cards for mobile
+const statCardSmall = (bg, color) => ({
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
-  padding: 16,
+  padding: "12px 16px",
   background: bg,
   borderRadius: 10,
   color: color,
+  minWidth: 70,
+  flexShrink: 0, // Prevent shrinking on mobile
 });
 
+// ✅ Filter container - Scrollable
+const filterContainer = {
+  display: "flex",
+  gap: 8,
+  marginBottom: 16,
+  overflowX: "auto",
+  paddingBottom: 8,
+  WebkitOverflowScrolling: "touch",
+};
+
 const filterBtn = (active) => ({
-  padding: "8px 16px",
+  padding: "8px 14px",
   border: "none",
   borderRadius: 8,
   background: active ? "#2563eb" : "#f3f4f6",
   color: active ? "#fff" : "#374151",
   cursor: "pointer",
   fontWeight: 500,
-  fontSize: 13,
+  fontSize: 12,
+  whiteSpace: "nowrap", // Prevent text wrapping
+  flexShrink: 0,
 });
+
+// ✅ Table wrapper for horizontal scroll on mobile
+const tableWrapper = {
+  overflowX: "auto",
+  WebkitOverflowScrolling: "touch",
+  borderRadius: 8,
+  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+};
 
 const tableStyle = {
   width: "100%",
+  minWidth: 800, // Ensure table has minimum width for proper display
   borderCollapse: "collapse",
   background: "#fff",
-  borderRadius: 8,
-  overflow: "hidden",
-  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
 };
 
 const th = {
