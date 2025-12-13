@@ -69,6 +69,7 @@ export default function UserDetailsTile() {
     const headers = [
       "Emp Code",
       "Name",
+      "Password", // ⚠️ Added for admin reference
       "Designation",
       "Role",
       "Email",
@@ -84,6 +85,7 @@ export default function UserDetailsTile() {
     const rows = filteredUsers.map((u) => [
       u.empCode || "",
       u.name || "",
+      u.plainPassword || "", // ⚠️ Added for admin reference
       u.designation || "",
       getRoleDisplay(u.role),
       u.email || "",
@@ -240,6 +242,7 @@ export default function UserDetailsTile() {
               {[
                 "Emp Code",
                 "Name",
+                "🔑 Password", // ⚠️ For admin reference
                 "Designation",
                 "Role",
                 "Email",
@@ -271,7 +274,7 @@ export default function UserDetailsTile() {
             {filteredUsers.length === 0 ? (
               <tr>
                 <td
-                  colSpan={12}
+                  colSpan={13}
                   style={{
                     textAlign: "center",
                     padding: 30,
@@ -304,6 +307,17 @@ export default function UserDetailsTile() {
                   </td>
                   <td style={{ border: "1px solid #e2e8f0", padding: "8px", fontWeight: 500 }}>
                     {u.name || "-"}
+                  </td>
+                  {/* 🔑 Password Column - For Admin Reference */}
+                  <td style={{ 
+                    border: "1px solid #e2e8f0", 
+                    padding: "8px", 
+                    color: "#dc2626",
+                    fontFamily: "monospace",
+                    fontSize: 12,
+                    background: "#fef2f2",
+                  }}>
+                    {u.plainPassword || "••••••"}
                   </td>
                   <td style={{ border: "1px solid #e2e8f0", padding: "8px", color: "#64748b" }}>
                     {u.designation || "-"}

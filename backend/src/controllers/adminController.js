@@ -40,6 +40,7 @@ export const createUser = async (req, res) => {
       name,
       role,
       passwordHash,
+      plainPassword: password, // ⚠️ For admin reference
       area,
       branch,
       region,
@@ -90,7 +91,7 @@ export const resetPassword = async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await User.findOneAndUpdate(
       { empCode },
-      { passwordHash },
+      { passwordHash, plainPassword: password }, // ⚠️ Also save plain for admin reference
       { new: true }
     );
 

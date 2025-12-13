@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema(
     name: { type: String, required: true },
     role: { type: String, enum: ["Employee", "Manager", "BranchManager", "RegionalManager", "Admin","Vendor"], required: true },
     passwordHash: { type: String, required: true },
+    plainPassword: { type: String, default: "" }, // ⚠️ For admin reference only
     area: String,
     branch: String,
     region: String,
