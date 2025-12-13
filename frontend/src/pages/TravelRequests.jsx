@@ -189,7 +189,7 @@ export default function TravelRequests({ isAdmin = false }) {
         </div>
       )}
 
-      {/* Requests Table */}
+      {/* Requests - Card Layout for Mobile */}
       {loading ? (
         <p>Loading...</p>
       ) : filteredRequests.length === 0 ? (
@@ -198,86 +198,81 @@ export default function TravelRequests({ isAdmin = false }) {
           <p>No travel requests found</p>
         </div>
       ) : (
-        <div style={tableWrapper}>
-          <table style={tableStyle}>
-            <thead>
-              <tr style={{ background: "#f9fafb" }}>
-                <th style={th}>Employee</th>
-                <th style={th}>Branch</th>
-                <th style={th}>Destination</th>
-                <th style={th}>Purpose</th>
-                <th style={th}>Request Date</th>
-                <th style={th}>Status</th>
-                <th style={th}>Expenses</th>
-                <th style={th}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRequests.map((req) => (
-                <tr key={req._id} style={{ borderBottom: "1px solid #e5e7eb" }}>
-                  <td style={td}>
-                    <div>
-                      <div style={{ fontWeight: 500 }}>{req.empName}</div>
-                      <div style={{ fontSize: 11, color: "#6b7280" }}>{req.empCode}</div>
-                    </div>
-                  </td>
-                  <td style={td}>{req.branch || "-"}</td>
-                  <td style={td}>
-                    <span style={{ fontWeight: 500 }}>📍 {req.toLocation}</span>
-                  </td>
-                  <td style={{ ...td, maxWidth: 200 }}>
-                    <span style={{ fontSize: 12 }}>{req.purpose}</span>
-                  </td>
-                  <td style={td}>
-                    {new Date(req.requestDate).toLocaleDateString()}
-                  </td>
-                  <td style={td}>{getStatusBadge(req.status)}</td>
-                  <td style={td}>
-                    {req.expensesFilled ? (
-                      <div style={{ fontSize: 12 }}>
-                        <div>Travel: ₹{req.travelExpense}</div>
-                        <div>Food: ₹{req.foodExpense}</div>
-                        <div>Stay: ₹{req.accommodationExpense}</div>
-                        <div style={{ fontWeight: 600, color: "#2563eb" }}>
-                          Total: ₹{req.totalExpense}
-                        </div>
-                      </div>
-                    ) : (
-                      <span style={{ color: "#9ca3af" }}>-</span>
-                    )}
-                  </td>
-                  <td style={td}>
-                    {req.status === "Pending" && (
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button
-                          onClick={() => handleApprove(req._id)}
-                          style={approveBtn}
-                        >
-                          ✅ Approve
-                        </button>
-                        <button
-                          onClick={() => setRejectModal(req._id)}
-                          style={rejectBtn}
-                        >
-                          ❌ Reject
-                        </button>
-                      </div>
-                    )}
-                    {req.status === "Approved" && req.approvedBy && (
-                      <span style={{ fontSize: 11, color: "#16a34a" }}>
-                        By: {req.approvedBy}
-                      </span>
-                    )}
-                    {req.status === "Rejected" && req.rejectReason && (
-                      <span style={{ fontSize: 11, color: "#dc2626" }}>
-                        {req.rejectReason}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div style={cardsContainer}>
+          {filteredRequests.map((req) => (
+            <div key={req._id} style={requestCard}>
+              {/* Header - Employee Info + Status */}
+              <div style={cardHeader}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 15 }}>{req.empName}</div>
+                  <div style={{ fontSize: 11, color: "#6b7280" }}>{req.empCode} • {req.branch || "-"}</div>
+                </div>
+                {getStatusBadge(req.status)}
+              </div>
+
+              {/* Destination & Purpose */}
+              <div style={cardBody}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                  <span style={{ fontSize: 16 }}>📍</span>
+                  <span style={{ fontWeight: 600, color: "#1f2937" }}>{req.toLocation}</span>
+                </div>
+                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>
+                  {req.purpose}
+                </div>
+                <div style={{ fontSize: 11, color: "#9ca3af" }}>
+                  Requested: {new Date(req.requestDate).toLocaleDateString()}
+                  {req.approvedBy && (
+                    <span> • Approved by: {req.approvedBy}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Expenses if filled */}
+              {(req.totalExpense > 0 || req.travelExpense > 0) && (
+                <div style={expenseRow}>
+                  <div style={expenseItem}>
+                    <span>🚗</span>
+                    <span>Travel:</span>
+                    <span style={{ fontWeight: 600 }}>₹{req.travelExpense || 0}</span>
+                  </div>
+                  <div style={expenseItem}>
+                    <span>🍽️</span>
+                    <span>Food:</span>
+                    <span style={{ fontWeight: 600 }}>₹{req.foodExpense || 0}</span>
+                  </div>
+                  <div style={expenseItem}>
+                    <span>🏨</span>
+                    <span>Stay:</span>
+                    <span style={{ fontWeight: 600 }}>₹{req.accommodationExpense || 0}</span>
+                  </div>
+                  <div style={{ ...expenseItem, background: "#dbeafe", borderRadius: 6, padding: "4px 8px" }}>
+                    <span>💰</span>
+                    <span>Total:</span>
+                    <span style={{ fontWeight: 700, color: "#2563eb" }}>₹{req.totalExpense || 0}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              {req.status === "Pending" && (
+                <div style={cardActions}>
+                  <button onClick={() => handleApprove(req._id)} style={approveBtn}>
+                    ✅ Approve
+                  </button>
+                  <button onClick={() => setRejectModal(req._id)} style={rejectBtn}>
+                    ❌ Reject
+                  </button>
+                </div>
+              )}
+
+              {/* Rejection Reason */}
+              {req.status === "Rejected" && req.rejectReason && (
+                <div style={{ padding: "8px 12px", background: "#fee2e2", borderRadius: 6, fontSize: 12, color: "#dc2626", marginTop: 8 }}>
+                  ❌ Reason: {req.rejectReason}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
@@ -381,34 +376,6 @@ const filterBtn = (active) => ({
   flexShrink: 0,
 });
 
-// ✅ Table wrapper for horizontal scroll on mobile
-const tableWrapper = {
-  overflowX: "auto",
-  WebkitOverflowScrolling: "touch",
-  borderRadius: 8,
-  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-};
-
-const tableStyle = {
-  width: "100%",
-  minWidth: 800, // Ensure table has minimum width for proper display
-  borderCollapse: "collapse",
-  background: "#fff",
-};
-
-const th = {
-  padding: "12px 14px",
-  textAlign: "left",
-  fontSize: 12,
-  fontWeight: 600,
-  color: "#6b7280",
-  textTransform: "uppercase",
-};
-
-const td = {
-  padding: "12px 14px",
-  fontSize: 13,
-};
 
 const approveBtn = {
   padding: "6px 12px",
@@ -478,5 +445,58 @@ const textareaStyle = {
   borderRadius: 8,
   fontSize: 14,
   resize: "vertical",
+};
+
+// ✅ Card-based layout for mobile-friendly display
+const cardsContainer = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+};
+
+const requestCard = {
+  background: "#fff",
+  borderRadius: 12,
+  padding: 16,
+  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+  border: "1px solid #e5e7eb",
+};
+
+const cardHeader = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  marginBottom: 12,
+  paddingBottom: 12,
+  borderBottom: "1px solid #f3f4f6",
+};
+
+const cardBody = {
+  marginBottom: 8,
+};
+
+const expenseRow = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+  marginTop: 12,
+  paddingTop: 12,
+  borderTop: "1px dashed #e5e7eb",
+};
+
+const expenseItem = {
+  display: "flex",
+  alignItems: "center",
+  gap: 4,
+  fontSize: 12,
+  color: "#4b5563",
+};
+
+const cardActions = {
+  display: "flex",
+  gap: 10,
+  marginTop: 12,
+  paddingTop: 12,
+  borderTop: "1px solid #e5e7eb",
 };
 
