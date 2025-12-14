@@ -102,14 +102,19 @@ export default function SubmittedReports({ empCode: propEmpCode }) {
     loadReports(); // Load all without filter
   }
 
+  // Table Styles - Color coded as per image
   const th = {
     border: "1px solid #ddd",
-    padding: "6px",
+    padding: "8px 6px",
     background: "#f5f5f5",
     fontWeight: "600",
-    fontSize: "13px",
+    fontSize: "12px",
+    whiteSpace: "nowrap",
   };
-  const td = { border: "1px solid #ddd", padding: "6px", fontSize: "13px" };
+  const thYellow = { ...th, background: "#fef08a", color: "#854d0e" }; // Yellow for Employee Info
+  const thOrange = { ...th, background: "#fed7aa", color: "#9a3412" }; // Orange for Meeting Info
+  const thGreen = { ...th, background: "#bbf7d0", color: "#166534" };  // Green for Customer/Opportunity
+  const td = { border: "1px solid #e5e7eb", padding: "6px", fontSize: "12px" };
 
   return (
     <div style={{ padding: 20 }}>
@@ -166,68 +171,58 @@ export default function SubmittedReports({ empCode: propEmpCode }) {
       ) : reports.length === 0 ? (
         <p>No reports found</p>
       ) : (
-        <div style={{ maxHeight: "70vh", overflowY: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead style={{ position: "sticky", top: 0, background: "#fff" }}>
+        <div style={{ overflowX: "auto", maxHeight: "75vh" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1800 }}>
+          <thead style={{ position: "sticky", top: 0 }}>
             <tr>
-              {[
-                "Customer ID",
-                "Emp Code",
-                "Name",
-                "Mobile",
-                "Company",
-                "Designation",
-                "Customer Type",
-                "Discussion",
-                "Opportunity Type",
-                "Order Status",
-                "Order Value",
-                "Loss Reason",
-                "Next Meeting",
-                "Expected Order",
-                "Attendees",
-                "Purpose",
-                "Date",
-                "History",
-              ].map((h) => (
-                <th key={h} style={th}>
-                  {h}
-                </th>
-              ))}
+              {/* Yellow Columns - Employee Info */}
+              <th style={thYellow}>Customer ID</th>
+              <th style={thYellow}>Employee Name & (Emp Code)</th>
+              <th style={thYellow}>Location</th>
+              <th style={thYellow}>Manager Name</th>
+              <th style={thYellow}>Branch</th>
+              <th style={thYellow}>Region</th>
+              {/* Orange Columns - Meeting Info */}
+              <th style={thOrange}>Submission Date</th>
+              <th style={thOrange}>Meeting Type</th>
+              <th style={thOrange}>Internal Meeting Attendees</th>
+              {/* Green Columns - Customer & Opportunity */}
+              <th style={thGreen}>Customer Type</th>
+              <th style={thGreen}>Customer Name</th>
+              <th style={thGreen}>Customer Mob No.</th>
+              <th style={thGreen}>Discussion</th>
+              <th style={thGreen}>Opportunity Type</th>
+              <th style={thGreen}>Opportunity Name</th>
+              <th style={thGreen}>Order Status</th>
+              <th style={thGreen}>Next Meeting Date</th>
+              <th style={thGreen}>Expected Date of Order</th>
+              <th style={th}>History</th>
             </tr>
           </thead>
           <tbody>
             {reports.map((r, i) => (
-              <tr key={i}>
+              <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#f9fafb" }}>
+                {/* Yellow - Employee Info */}
                 <td style={td}>{r.customerId || "-"}</td>
-                <td style={td}>{r.empCode || "-"}</td>
-                <td style={td}>{r.name || "-"}</td>
-                <td style={td}>{r.mobile || "-"}</td>
-                <td style={td}>{r.company || "-"}</td>
-                <td style={td}>{r.designation || "-"}</td>
+                <td style={td}>{r.empName || r.createdBy?.name || "-"} ({r.empCode || "-"})</td>
+                <td style={td}>{r.location || r.area || "-"}</td>
+                <td style={td}>{r.managerName || "-"}</td>
+                <td style={td}>{r.branch || "-"}</td>
+                <td style={td}>{r.region || "-"}</td>
+                {/* Orange - Meeting Info */}
+                <td style={td}>{r.date ? new Date(r.date).toLocaleDateString() : "-"}</td>
+                <td style={td}>{r.meetingType || "-"}</td>
+                <td style={td}>{r.attendees || r.internalAttendees || "-"}</td>
+                {/* Green - Customer & Opportunity */}
                 <td style={td}>{r.customerType || "-"}</td>
-                <td style={td}>{r.discussion || "-"}</td>
+                <td style={td}>{r.name || r.customerName || "-"}</td>
+                <td style={td}>{r.mobile || r.customerMobile || "-"}</td>
+                <td style={{ ...td, maxWidth: 200, wordBreak: "break-word" }}>{r.discussion || "-"}</td>
                 <td style={td}>{r.opportunityType || "-"}</td>
+                <td style={td}>{r.opportunityName || r.company || "-"}</td>
                 <td style={td}>{r.orderStatus || "-"}</td>
-                <td style={td}>{r.orderValue || "-"}</td>
-                <td style={td}>{r.orderLossReason || "-"}</td>
-                <td style={td}>
-                  {r.nextMeetingDate
-                    ? new Date(r.nextMeetingDate).toLocaleDateString()
-                    : "-"}
-                </td>
-                <td style={td}>
-                  {r.expectedOrderDate
-                    ? new Date(r.expectedOrderDate).toLocaleDateString()
-                    : "-"}
-                </td>
-                <td style={td}>{r.attendees || "-"}</td>
-                <td style={td}>{r.purpose || "-"}</td>
-                <td style={td}>
-                  {r.date
-                    ? new Date(r.date).toLocaleString()
-                    : "-"}
-                </td>
+                <td style={td}>{r.nextMeetingDate ? new Date(r.nextMeetingDate).toLocaleDateString() : "-"}</td>
+                <td style={td}>{r.expectedOrderDate ? new Date(r.expectedOrderDate).toLocaleDateString() : "-"}</td>
                 <td style={td}>
                   <button
                     onClick={() => {
@@ -238,12 +233,13 @@ export default function SubmittedReports({ empCode: propEmpCode }) {
                       }
                     }}
                     style={{
-                      background: "green",
+                      background: "#22c55e",
                       color: "#fff",
                       padding: "4px 10px",
                       borderRadius: 4,
                       border: "none",
                       cursor: "pointer",
+                      fontSize: 12,
                     }}
                   >
                     View

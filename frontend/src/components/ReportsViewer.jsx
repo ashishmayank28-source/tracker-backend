@@ -26,6 +26,14 @@ export default function ReportsViewer() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
+  // Table Styles - Color coded as per format
+  const thBase = { border: "1px solid #ddd", padding: "8px 6px", fontWeight: "600", fontSize: "11px", whiteSpace: "nowrap" };
+  const thYellow = { ...thBase, background: "#fef08a", color: "#854d0e" };
+  const thOrange = { ...thBase, background: "#fed7aa", color: "#9a3412" };
+  const thGreen = { ...thBase, background: "#bbf7d0", color: "#166534" };
+  const tdStyle = { border: "1px solid #e5e7eb", padding: "6px", fontSize: "11px" };
+  const filterInput = { width: "100%", fontSize: "10px", padding: "3px", border: "1px solid #ddd", borderRadius: 3 };
+
   /* ---------- Load submitted reports ---------- */
   async function loadReports(filterFrom, filterTo) {
     try {
@@ -312,82 +320,106 @@ export default function ReportsViewer() {
         </button>
       </div>
 
-      {/* Reports Table */}
+      {/* Reports Table - New Format */}
       {view === "reports" && (
         <>
           {loading ? (
             <p>Loading reports...</p>
           ) : (
+            <div style={{ overflowX: "auto", maxHeight: "70vh" }}>
             <table
               border="1"
               cellPadding="6"
               style={{
                 borderCollapse: "collapse",
                 width: "100%",
-                fontSize: "14px",
+                fontSize: "12px",
+                minWidth: 1800,
               }}
             >
-              <thead style={{ background: "#f5f5f5" }}>
+              <thead style={{ position: "sticky", top: 0 }}>
                 <tr>
-                  {[
-                    "customerId",
-                    "empCode",
-                    "name",
-                    "company",
-                    "customerType",
-                    "discussion",
-                    "opportunityType",
-                    "orderStatus",
-                    "orderValue",
-                    "nextMeeting",
-                    "date",
-                  ].map((col) => (
-                    <th key={col}>
-                      {col}
-                      <br />
-                      <input
-                        style={{
-                          width: "100%",
-                          fontSize: "12px",
-                          marginTop: 4,
-                          padding: "2px 4px",
-                        }}
-                        placeholder="Filter..."
-                        value={filters[col] || ""}
-                        onChange={(e) =>
-                          setFilters({ ...filters, [col]: e.target.value })
-                        }
-                      />
-                    </th>
-                  ))}
+                  {/* Yellow Columns - Employee Info */}
+                  <th style={thYellow}>Customer ID</th>
+                  <th style={thYellow}>Employee Name & (Emp Code)</th>
+                  <th style={thYellow}>Location</th>
+                  <th style={thYellow}>Manager Name</th>
+                  <th style={thYellow}>Branch</th>
+                  <th style={thYellow}>Region</th>
+                  {/* Orange Columns - Meeting Info */}
+                  <th style={thOrange}>Submission Date</th>
+                  <th style={thOrange}>Meeting Type</th>
+                  <th style={thOrange}>Internal Meeting Attendees</th>
+                  {/* Green Columns - Customer & Opportunity */}
+                  <th style={thGreen}>Customer Type</th>
+                  <th style={thGreen}>Customer Name</th>
+                  <th style={thGreen}>Customer Mob No.</th>
+                  <th style={thGreen}>Discussion</th>
+                  <th style={thGreen}>Opportunity Type</th>
+                  <th style={thGreen}>Opportunity Name</th>
+                  <th style={thGreen}>Order Status</th>
+                  <th style={thGreen}>Next Meeting Date</th>
+                  <th style={thGreen}>Expected Date of Order</th>
+                </tr>
+                {/* Filter Row */}
+                <tr style={{ background: "#f9fafb" }}>
+                  <th><input style={filterInput} placeholder="Filter..." value={filters.customerId || ""} onChange={(e) => setFilters({...filters, customerId: e.target.value})} /></th>
+                  <th><input style={filterInput} placeholder="Filter..." value={filters.empCode || ""} onChange={(e) => setFilters({...filters, empCode: e.target.value})} /></th>
+                  <th><input style={filterInput} placeholder="Filter..." value={filters.location || ""} onChange={(e) => setFilters({...filters, location: e.target.value})} /></th>
+                  <th><input style={filterInput} placeholder="Filter..." value={filters.managerName || ""} onChange={(e) => setFilters({...filters, managerName: e.target.value})} /></th>
+                  <th><input style={filterInput} placeholder="Filter..." value={filters.branch || ""} onChange={(e) => setFilters({...filters, branch: e.target.value})} /></th>
+                  <th><input style={filterInput} placeholder="Filter..." value={filters.region || ""} onChange={(e) => setFilters({...filters, region: e.target.value})} /></th>
+                  <th><input style={filterInput} placeholder="Filter..." value={filters.date || ""} onChange={(e) => setFilters({...filters, date: e.target.value})} /></th>
+                  <th><input style={filterInput} placeholder="Filter..." value={filters.meetingType || ""} onChange={(e) => setFilters({...filters, meetingType: e.target.value})} /></th>
+                  <th><input style={filterInput} placeholder="Filter..." value={filters.attendees || ""} onChange={(e) => setFilters({...filters, attendees: e.target.value})} /></th>
+                  <th><input style={filterInput} placeholder="Filter..." value={filters.customerType || ""} onChange={(e) => setFilters({...filters, customerType: e.target.value})} /></th>
+                  <th><input style={filterInput} placeholder="Filter..." value={filters.name || ""} onChange={(e) => setFilters({...filters, name: e.target.value})} /></th>
+                  <th><input style={filterInput} placeholder="Filter..." value={filters.mobile || ""} onChange={(e) => setFilters({...filters, mobile: e.target.value})} /></th>
+                  <th><input style={filterInput} placeholder="Filter..." value={filters.discussion || ""} onChange={(e) => setFilters({...filters, discussion: e.target.value})} /></th>
+                  <th><input style={filterInput} placeholder="Filter..." value={filters.opportunityType || ""} onChange={(e) => setFilters({...filters, opportunityType: e.target.value})} /></th>
+                  <th><input style={filterInput} placeholder="Filter..." value={filters.company || ""} onChange={(e) => setFilters({...filters, company: e.target.value})} /></th>
+                  <th><input style={filterInput} placeholder="Filter..." value={filters.orderStatus || ""} onChange={(e) => setFilters({...filters, orderStatus: e.target.value})} /></th>
+                  <th><input style={filterInput} placeholder="Filter..." value={filters.nextMeeting || ""} onChange={(e) => setFilters({...filters, nextMeeting: e.target.value})} /></th>
+                  <th><input style={filterInput} placeholder="Filter..." value={filters.expectedOrderDate || ""} onChange={(e) => setFilters({...filters, expectedOrderDate: e.target.value})} /></th>
                 </tr>
               </thead>
               <tbody>
                 {filteredReports.length > 0 ? (
                   filteredReports.map((r, idx) => (
-                    <tr key={idx}>
-                      <td>{r.customerId}</td>
-                      <td>{r.empCode}</td>
-                      <td>{r.name}</td>
-                      <td>{r.company}</td>
-                      <td>{r.customerType}</td>
-                      <td>{r.discussion}</td>
-                      <td>{r.opportunityType}</td>
-                      <td>{r.orderStatus}</td>
-                      <td>{r.orderValue}</td>
-                      <td>{r.nextMeeting}</td>
-                      <td>{new Date(r.date).toLocaleDateString()}</td>
+                    <tr key={idx} style={{ background: idx % 2 === 0 ? "#fff" : "#f9fafb" }}>
+                      {/* Yellow - Employee Info */}
+                      <td style={tdStyle}>{r.customerId || "-"}</td>
+                      <td style={tdStyle}>{r.empName || r.createdBy?.name || "-"} ({r.empCode || "-"})</td>
+                      <td style={tdStyle}>{r.location || r.area || "-"}</td>
+                      <td style={tdStyle}>{r.managerName || "-"}</td>
+                      <td style={tdStyle}>{r.branch || "-"}</td>
+                      <td style={tdStyle}>{r.region || "-"}</td>
+                      {/* Orange - Meeting Info */}
+                      <td style={tdStyle}>{r.date ? new Date(r.date).toLocaleDateString() : "-"}</td>
+                      <td style={tdStyle}>{r.meetingType || "-"}</td>
+                      <td style={tdStyle}>{r.attendees || r.internalAttendees || "-"}</td>
+                      {/* Green - Customer & Opportunity */}
+                      <td style={tdStyle}>{r.customerType || "-"}</td>
+                      <td style={tdStyle}>{r.name || r.customerName || "-"}</td>
+                      <td style={tdStyle}>{r.mobile || r.customerMobile || "-"}</td>
+                      <td style={{ ...tdStyle, maxWidth: 200, wordBreak: "break-word" }}>{r.discussion || "-"}</td>
+                      <td style={tdStyle}>{r.opportunityType || "-"}</td>
+                      <td style={tdStyle}>{r.company || r.opportunityName || "-"}</td>
+                      <td style={tdStyle}>{r.orderStatus || "-"}</td>
+                      <td style={tdStyle}>{r.nextMeeting ? new Date(r.nextMeeting).toLocaleDateString() : "-"}</td>
+                      <td style={tdStyle}>{r.expectedOrderDate ? new Date(r.expectedOrderDate).toLocaleDateString() : "-"}</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="11" style={{ textAlign: "center" }}>
+                    <td colSpan="18" style={{ textAlign: "center", padding: 20 }}>
                       No reports found
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
+            </div>
           )}
         </>
       )}
@@ -521,37 +553,49 @@ export default function ReportsViewer() {
               <p><strong>Vertical:</strong> {customerHistory.vertical || "NA"}</p>
             </div>
 
-            {/* Visits History */}
+            {/* Visits History - Same Format */}
             <h4 style={{ marginBottom: 10 }}>📝 Visit History ({(customerHistory.visits || []).length} visits)</h4>
             {customerHistory.visits && customerHistory.visits.length > 0 ? (
-              <table border="1" cellPadding="8" style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-                <thead style={{ background: "#e5e7eb" }}>
+              <div style={{ overflowX: "auto" }}>
+              <table border="1" cellPadding="6" style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px", minWidth: 1200 }}>
+                <thead>
                   <tr>
-                    <th>Date</th>
-                    <th>Meeting Type</th>
-                    <th>Discussion</th>
-                    <th>Opportunity</th>
-                    <th>Order Status</th>
-                    <th>Order Value</th>
-                    <th>Next Meeting</th>
-                    <th>Emp Code</th>
+                    <th style={thYellow}>Employee Name & (Emp Code)</th>
+                    <th style={thYellow}>Location</th>
+                    <th style={thYellow}>Branch</th>
+                    <th style={thYellow}>Region</th>
+                    <th style={thOrange}>Submission Date</th>
+                    <th style={thOrange}>Meeting Type</th>
+                    <th style={thOrange}>Internal Attendees</th>
+                    <th style={thGreen}>Customer Type</th>
+                    <th style={thGreen}>Discussion</th>
+                    <th style={thGreen}>Opportunity Type</th>
+                    <th style={thGreen}>Order Status</th>
+                    <th style={thGreen}>Next Meeting Date</th>
+                    <th style={thGreen}>Expected Order Date</th>
                   </tr>
                 </thead>
                 <tbody>
                   {customerHistory.visits.map((v, i) => (
-                    <tr key={i}>
-                      <td>{v.date ? new Date(v.date).toLocaleDateString() : "-"}</td>
-                      <td>{v.meetingType || "-"}</td>
-                      <td style={{ maxWidth: 200, wordBreak: "break-word" }}>{v.discussion || "-"}</td>
-                      <td>{v.opportunityType || "-"}</td>
-                      <td>{v.orderStatus || "-"}</td>
-                      <td>{v.orderValue || 0}</td>
-                      <td>{v.nextMeetingDate ? new Date(v.nextMeetingDate).toLocaleDateString() : "-"}</td>
-                      <td>{v.empCode || "-"}</td>
+                    <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#f9fafb" }}>
+                      <td style={tdStyle}>{v.empName || "-"} ({v.empCode || "-"})</td>
+                      <td style={tdStyle}>{v.location || v.area || "-"}</td>
+                      <td style={tdStyle}>{v.branch || "-"}</td>
+                      <td style={tdStyle}>{v.region || "-"}</td>
+                      <td style={tdStyle}>{v.date ? new Date(v.date).toLocaleDateString() : "-"}</td>
+                      <td style={tdStyle}>{v.meetingType || "-"}</td>
+                      <td style={tdStyle}>{v.attendees || "-"}</td>
+                      <td style={tdStyle}>{v.customerType || customerHistory.customerType || "-"}</td>
+                      <td style={{ ...tdStyle, maxWidth: 200, wordBreak: "break-word" }}>{v.discussion || "-"}</td>
+                      <td style={tdStyle}>{v.opportunityType || "-"}</td>
+                      <td style={tdStyle}>{v.orderStatus || "-"}</td>
+                      <td style={tdStyle}>{v.nextMeetingDate ? new Date(v.nextMeetingDate).toLocaleDateString() : "-"}</td>
+                      <td style={tdStyle}>{v.expectedOrderDate ? new Date(v.expectedOrderDate).toLocaleDateString() : "-"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              </div>
             ) : (
               <p>No visits recorded for this customer.</p>
             )}
