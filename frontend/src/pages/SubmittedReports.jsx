@@ -149,6 +149,19 @@ export default function SubmittedReports({ empCode: propEmpCode }) {
         >
           🔍 Filter
         </button>
+        <button
+          onClick={() => loadReports(from, to)}
+          style={{
+            background: "#22c55e",
+            color: "#fff",
+            padding: "6px 14px",
+            border: "none",
+            borderRadius: 6,
+            cursor: "pointer",
+          }}
+        >
+          🔄 Refresh
+        </button>
         {(from || to) && (
           <button
             onClick={clearFilter}
@@ -164,6 +177,18 @@ export default function SubmittedReports({ empCode: propEmpCode }) {
             ✕ Clear
           </button>
         )}
+        {/* Total Calls Count */}
+        <span style={{
+          marginLeft: "auto",
+          padding: "6px 14px",
+          background: "#e0f2fe",
+          borderRadius: "6px",
+          fontWeight: "600",
+          color: "#0369a1",
+          fontSize: "14px",
+        }}>
+          Total Calls: {reports.length}
+        </span>
       </div>
 
       {loading ? (

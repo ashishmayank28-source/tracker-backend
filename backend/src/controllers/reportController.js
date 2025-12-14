@@ -423,20 +423,58 @@ export const getSubmittedReports = async (req, res) => {
           nextMeeting: v.nextMeetingDate || "-",
           nextMeetingDate: v.nextMeetingDate || "-",
           expectedOrderDate: v.expectedOrderDate || "-",
-          attendees: v.attendees || "-",
+          attendees: v.attendees || v.internalAttendees || "-",
+          internalAttendees: v.attendees || v.internalAttendees || "-",
           purpose: v.purpose || "-",
           date: v.date || c.createdAt,
           reportedBy: v.reportedBy || "-",
+          // ✅ Placeholder for user details - will be enriched below
+          _tempEmpCode: visitEmpCode,
         });
       });
     });
 
-    console.log("🔍 Final reports count:", reports.length);
+    // ✅ Fetch all employee details in one query for enrichment
+    const allEmpCodes = [...new Set(reports.map(r => r.empCode).filter(e => e && e !== "-"))];
+    const users = await User.find({ empCode: { $in: allEmpCodes } }).lean();
+    const userMap = {};
+    users.forEach(u => {
+      userMap[u.empCode] = {
+        empName: u.name || "-",
+        location: u.area || "-",
+        branch: u.branch || "-",
+        region: u.region || "-",
+        managerEmpCode: u.managerEmpCode || (u.reportTo && u.reportTo[0]?.empCode) || "-",
+        managerName: (u.reportTo && u.reportTo[0]?.name) || "-",
+      };
+    });
 
-    reports.sort((a, b) => new Date(b.date) - new Date(a.date));
+    // ✅ Fetch manager names for those who have managerEmpCode
+    const managerCodes = users.map(u => u.managerEmpCode || (u.reportTo && u.reportTo[0]?.empCode)).filter(Boolean);
+    const managers = await User.find({ empCode: { $in: managerCodes } }).lean();
+    const managerMap = {};
+    managers.forEach(m => { managerMap[m.empCode] = m.name; });
+
+    // ✅ Enrich reports with user details
+    const enrichedReports = reports.map(r => {
+      const userInfo = userMap[r.empCode] || {};
+      return {
+        ...r,
+        empName: userInfo.empName || r.empName || "-",
+        location: userInfo.location || "-",
+        area: userInfo.location || "-",
+        branch: userInfo.branch || "-",
+        region: userInfo.region || "-",
+        managerName: userInfo.managerName !== "-" ? userInfo.managerName : (managerMap[userInfo.managerEmpCode] || "-"),
+      };
+    });
+
+    console.log("🔍 Final reports count:", enrichedReports.length);
+
+    enrichedReports.sort((a, b) => new Date(b.date) - new Date(a.date));
     res.json({
       summary: { externalCount, internalCount, typeCounts },
-      reports,
+      reports: enrichedReports,
     });
   } catch (err) {
     console.error("Submitted Reports Error:", err);

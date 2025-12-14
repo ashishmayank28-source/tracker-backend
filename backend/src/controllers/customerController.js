@@ -1,4 +1,5 @@
 import Customer from "../models/customerModel.js";
+import User from "../models/userModel.js";
 import generateCustomerId from "../utils/generateCustomerId.js";
 
 /* -------------------------------------------------------------
@@ -535,8 +536,26 @@ export const myReports = async (req, res) => {
       console.log("📊 After date filter:", rows.length);
     }
 
-    rows.sort((a, b) => new Date(b.date) - new Date(a.date));
-    res.json(rows);
+    // ✅ Get employee details from User model for enrichment
+    const currentUser = await User.findOne({ empCode }).lean();
+    const managerName = currentUser?.reportTo?.[0]?.name || "-";
+    const userLocation = currentUser?.area || "-";
+    const userBranch = currentUser?.branch || "-";
+    const userRegion = currentUser?.region || "-";
+
+    // ✅ Enrich all rows with user details
+    const enrichedRows = rows.map(r => ({
+      ...r,
+      empName: currentUser?.name || "-",
+      location: userLocation,
+      area: userLocation,
+      branch: userBranch,
+      region: userRegion,
+      managerName: managerName,
+    }));
+
+    enrichedRows.sort((a, b) => new Date(b.date) - new Date(a.date));
+    res.json(enrichedRows);
   } catch (err) {
     console.error("❌ MyReports Error:", err);
     res.status(500).json({ message: err.message });
