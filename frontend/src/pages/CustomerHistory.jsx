@@ -36,7 +36,15 @@ export default function CustomerHistory() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to load history");
-      setHistory(data);
+      
+      // Handle both old format (object with visits) and new format (array)
+      if (Array.isArray(data)) {
+        setHistory(data);
+      } else if (data.visits) {
+        setHistory(data.visits);
+      } else {
+        setHistory([]);
+      }
     } catch (e) {
       setErr(e.message);
     }
@@ -165,58 +173,46 @@ export default function CustomerHistory() {
         </form>
       )}
 
-      {/* History Table - Color Coded Format */}
-      <div style={{ overflowX: "auto", maxHeight: "70vh" }}>
-        <table style={{ ...tableStyle, minWidth: 1800 }}>
-          <thead style={{ position: "sticky", top: 0 }}>
-            <tr>
-              {/* Yellow Columns - Employee Info */}
-              <th style={thYellow}>Customer ID</th>
-              <th style={thYellow}>Employee Name & (Emp Code)</th>
-              <th style={thYellow}>Location</th>
-              <th style={thYellow}>Manager Name</th>
-              <th style={thYellow}>Branch</th>
-              <th style={thYellow}>Region</th>
-              {/* Orange Columns - Meeting Info */}
-              <th style={thOrange}>Submission Date</th>
-              <th style={thOrange}>Meeting Type</th>
-              <th style={thOrange}>Internal Meeting Attendees</th>
-              {/* Green Columns - Customer & Opportunity */}
-              <th style={thGreen}>Customer Type</th>
-              <th style={thGreen}>Customer Name</th>
-              <th style={thGreen}>Customer Mob No.</th>
-              <th style={thGreen}>Discussion</th>
-              <th style={thGreen}>Opportunity Type</th>
-              <th style={thGreen}>Opportunity Name</th>
-              <th style={thGreen}>Order Status</th>
-              <th style={thGreen}>Next Meeting Date</th>
-              <th style={thGreen}>Expected Date of Order</th>
+      {/* History Table - Simple Old Format */}
+      <div style={{ overflowX: "auto" }}>
+        <table style={tableStyle}>
+          <thead>
+            <tr style={{ background: "#f9f9f9" }}>
+              <th style={th}>Customer ID</th>
+              <th style={th}>Emp Code</th>
+              <th style={th}>Name</th>
+              <th style={th}>Mobile</th>
+              <th style={th}>Company</th>
+              <th style={th}>Meeting Type</th>
+              <th style={th}>Discussion</th>
+              <th style={th}>Order Status</th>
+              <th style={th}>Order Value</th>
+              <th style={th}>Vertical</th>
+              <th style={th}>Distributor</th>
+              <th style={th}>Order Type</th>
+              <th style={th}>Item</th>
+              <th style={th}>PO No</th>
+              <th style={th}>Date</th>
             </tr>
           </thead>
           <tbody>
             {history.map((h, i) => (
-              <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#f9fafb" }}>
-                {/* Yellow - Employee Info */}
-                <td style={td}>{h.customerId || customerId || "-"}</td>
-                <td style={td}>{h.empName || h.name || "-"} ({h.empCode || "-"})</td>
-                <td style={td}>{h.location || h.area || "-"}</td>
-                <td style={td}>{h.managerName || "-"}</td>
-                <td style={td}>{h.branch || "-"}</td>
-                <td style={td}>{h.region || "-"}</td>
-                {/* Orange - Meeting Info */}
-                <td style={td}>{h.date ? new Date(h.date).toLocaleDateString() : "-"}</td>
-                <td style={td}>{h.meetingType || "-"}</td>
-                <td style={td}>{h.attendees || h.internalAttendees || "-"}</td>
-                {/* Green - Customer & Opportunity */}
-                <td style={td}>{h.customerType || "-"}</td>
+              <tr key={i} style={{ borderBottom: "1px solid #eee" }}>
+                <td style={td}>{h.customerId || customerId}</td>
+                <td style={td}>{h.empCode || "-"}</td>
                 <td style={td}>{h.customerName || h.name || "-"}</td>
                 <td style={td}>{h.mobile || h.customerMobile || "-"}</td>
-                <td style={{ ...td, maxWidth: 200, wordBreak: "break-word" }}>{h.discussion || "-"}</td>
-                <td style={td}>{h.opportunityType || "-"}</td>
-                <td style={td}>{h.opportunityName || h.company || "-"}</td>
+                <td style={td}>{h.company || "-"}</td>
+                <td style={td}>{h.meetingType || "-"}</td>
+                <td style={td}>{h.discussion || "-"}</td>
                 <td style={td}>{h.orderStatus || "-"}</td>
-                <td style={td}>{h.nextMeetingDate ? new Date(h.nextMeetingDate).toLocaleDateString() : "-"}</td>
-                <td style={td}>{h.expectedOrderDate ? new Date(h.expectedOrderDate).toLocaleDateString() : "-"}</td>
+                <td style={td}>{h.orderValue || "-"}</td>
+                <td style={td}>{h.vertical || "-"}</td>
+                <td style={td}>{h.distributorName || "-"}</td>
+                <td style={td}>{h.orderType || "-"}</td>
+                <td style={td}>{h.itemName || "-"}</td>
+                <td style={td}>{h.poNumber || "-"}</td>
+                <td style={td}>{h.date ? new Date(h.date).toLocaleString() : "-"}</td>
               </tr>
             ))}
           </tbody>
@@ -261,22 +257,13 @@ const tableStyle = {
 };
 
 const th = {
-  border: "1px solid #ddd",
-  padding: "8px 6px",
-  background: "#f5f5f5",
-  fontWeight: "600",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
   textAlign: "left",
+  padding: "8px",
+  borderBottom: "1px solid #ddd",
+  fontSize: "13px",
 };
 
-// Color coded headers like attached image
-const thYellow = { ...th, background: "#fef08a", color: "#854d0e" }; // Yellow for Employee Info
-const thOrange = { ...th, background: "#fed7aa", color: "#9a3412" }; // Orange for Meeting Info
-const thGreen = { ...th, background: "#bbf7d0", color: "#166534" };  // Green for Customer/Opportunity
-
 const td = {
-  border: "1px solid #e5e7eb",
-  padding: "6px",
-  fontSize: "12px",
+  padding: "8px",
+  fontSize: "13px",
 };
