@@ -265,19 +265,54 @@ export const getHistory = async (req, res) => {
       (a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)
     );
     
-    // ✅ Enrich visits with customer details
-    const enrichedVisits = sortedVisits.map(v => ({
-      ...v.toObject ? v.toObject() : v,
+    // ✅ Get unique empCodes from visits for enrichment
+    const empCodes = [...new Set(sortedVisits.map(v => {
+      const ec = v.empCode;
+      return typeof ec === "string" ? ec : Array.isArray(ec) ? ec[0] : null;
+    }).filter(Boolean))];
+    
+    // ✅ Fetch user details for enrichment
+    const users = await User.find({ empCode: { $in: empCodes } }).lean();
+    const userMap = {};
+    users.forEach(u => {
+      userMap[u.empCode] = {
+        empName: u.name || "-",
+        location: u.area || "-",
+        branch: u.branch || "-",
+        region: u.region || "-",
+        managerName: u.reportTo?.[0]?.name || "-",
+      };
+    });
+    
+    // ✅ Enrich visits with employee details
+    const enrichedVisits = sortedVisits.map(v => {
+      const empCode = typeof v.empCode === "string" ? v.empCode : Array.isArray(v.empCode) ? v.empCode[0] : "-";
+      const userInfo = userMap[empCode] || {};
+      return {
+        ...v.toObject ? v.toObject() : v,
+        empCode: empCode,
+        empName: userInfo.empName || "-",
+        location: userInfo.location || "-",
+        area: userInfo.location || "-",
+        branch: userInfo.branch || "-",
+        region: userInfo.region || "-",
+        managerName: userInfo.managerName || "-",
+      };
+    });
+    
+    // ✅ Return object format expected by frontend (with visits array)
+    res.json({
       customerId: customer.customerId,
-      customerName: customer.name,
       name: customer.name,
       customerMobile: customer.customerMobile || customer.mobile,
       mobile: customer.customerMobile || customer.mobile,
-      customerType: customer.customerType,
       company: customer.company,
-    }));
-    
-    res.json(enrichedVisits);
+      designation: customer.designation,
+      customerType: customer.customerType,
+      vertical: customer.vertical,
+      createdAt: customer.createdAt,
+      visits: enrichedVisits,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

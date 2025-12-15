@@ -37,11 +37,11 @@ export default function CustomerHistory() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to load history");
       
-      // Handle both old format (object with visits) and new format (array)
-      if (Array.isArray(data)) {
-        setHistory(data);
-      } else if (data.visits) {
+      // ✅ Backend returns object with visits array
+      if (data.visits && Array.isArray(data.visits)) {
         setHistory(data.visits);
+      } else if (Array.isArray(data)) {
+        setHistory(data);
       } else {
         setHistory([]);
       }
