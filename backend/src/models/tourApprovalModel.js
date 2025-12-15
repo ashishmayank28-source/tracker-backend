@@ -50,3 +50,4 @@ tourApprovalSchema.index({ managerCode: 1, status: 1 });
 const TourApproval = mongoose.model("TourApproval", tourApprovalSchema);
 export default TourApproval;
 
+

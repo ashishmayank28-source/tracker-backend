@@ -265,18 +265,48 @@ export const getHistory = async (req, res) => {
       (a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)
     );
     
-    res.json({
-      customerId: customer.customerId,
-      name: customer.name,
-      customerMobile: customer.customerMobile,
-      mobile: customer.mobile,
-      company: customer.company,
-      designation: customer.designation,
-      customerType: customer.customerType,
-      vertical: customer.vertical,
-      createdAt: customer.createdAt,
-      visits: sortedVisits,
+    // ✅ Get unique empCodes from visits
+    const empCodes = [...new Set(sortedVisits.map(v => {
+      const ec = v.empCode;
+      return typeof ec === "string" ? ec : Array.isArray(ec) ? ec[0] : null;
+    }).filter(Boolean))];
+    
+    // ✅ Fetch user details for enrichment
+    const users = await User.find({ empCode: { $in: empCodes } }).lean();
+    const userMap = {};
+    users.forEach(u => {
+      userMap[u.empCode] = {
+        empName: u.name || "-",
+        location: u.area || "-",
+        branch: u.branch || "-",
+        region: u.region || "-",
+        managerName: u.reportTo?.[0]?.name || "-",
+      };
     });
+    
+    // ✅ Enrich visits with employee details
+    const enrichedVisits = sortedVisits.map(v => {
+      const empCode = typeof v.empCode === "string" ? v.empCode : Array.isArray(v.empCode) ? v.empCode[0] : "-";
+      const userInfo = userMap[empCode] || {};
+      return {
+        ...v.toObject ? v.toObject() : v,
+        customerId: customer.customerId,
+        customerName: customer.name,
+        customerMobile: customer.customerMobile || customer.mobile,
+        customerType: customer.customerType,
+        company: customer.company,
+        empCode: empCode,
+        empName: userInfo.empName || "-",
+        location: userInfo.location || "-",
+        area: userInfo.location || "-",
+        branch: userInfo.branch || "-",
+        region: userInfo.region || "-",
+        managerName: userInfo.managerName || "-",
+        opportunityName: customer.company || "-",
+      };
+    });
+    
+    res.json(enrichedVisits);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
