@@ -26,6 +26,8 @@ const assignmentSchema = new mongoose.Schema({
 
   /* 🔹 Assignment Details */
   item: { type: String, required: true },
+  year: { type: String, default: () => new Date().getFullYear().toString() },  // ✅ Year from stock
+  lot: { type: String, default: "Lot 1" },                                      // ✅ Lot from stock
   employees: [employeeSchema],
   purpose: { type: String, default: "" },
   assignedBy: { type: String, default: "" },

@@ -133,7 +133,7 @@ export default function SampleBoardsAllocationManager() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15 }}>
         <h2 style={{ margin: 0 }}>📦 Sample Allocation (Manager)</h2>
         <button
-          onClick={fetchManagerData}
+          onClick={fetchStockAndHistory}
           style={{
             padding: "8px 16px",
             background: "#3b82f6",

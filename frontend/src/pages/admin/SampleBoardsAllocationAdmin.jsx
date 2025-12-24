@@ -7,13 +7,60 @@ export default function SampleBoardsAllocationAdmin() {
   const { user, token } = useAuth();
 
   const [stockColumns, setStockColumns] = useState(["Opening", "Issued", "Balance"]);
-  const [items, setItems] = useState([
-    { name: "Blenze Pro PDB", Opening: 500, Issued: 0, Balance: 500 },
-    { name: "Impact PDB", Opening: 600, Issued: 0, Balance: 600 },
-    { name: "Horizon PDB", Opening: 400, Issued: 0, Balance: 400 },
-    { name: "Evo PDB", Opening: 350, Issued: 0, Balance: 350 },
-    { name: "Orna PDB", Opening: 500, Issued: 0, Balance: 500 },
-  ]);
+  const [items, setItems] = useState([]);
+  const [stockLoading, setStockLoading] = useState(true);
+
+  /* 🔹 Fetch Stock from Database */
+  const fetchStock = async () => {
+    try {
+      setStockLoading(true);
+      const res = await fetch(`${API_BASE}/api/stock`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.items) {
+        // ✅ Ensure Balance is calculated if not set
+        const itemsWithBalance = data.items.map(item => ({
+          ...item,
+          Opening: item.Opening || 0,
+          Issued: item.Issued || 0,
+          Balance: item.Balance !== undefined ? item.Balance : (item.Opening || 0) - (item.Issued || 0),
+        }));
+        setItems(itemsWithBalance);
+        setStockColumns(data.columns || ["Opening", "Issued", "Balance"]);
+        console.log("📦 Stock loaded:", itemsWithBalance);
+      }
+    } catch (err) {
+      console.error("Stock fetch error:", err);
+    } finally {
+      setStockLoading(false);
+    }
+  };
+
+  /* 🔹 Save Stock to Database */
+  const saveStock = async (newItems, newColumns) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/stock`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ items: newItems || items, columns: newColumns || stockColumns }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        console.error("Stock save failed:", data.message);
+      }
+    } catch (err) {
+      console.error("Stock save error:", err);
+    }
+  };
+
+  /* 🔹 Load stock on mount */
+  useEffect(() => {
+    if (token) fetchStock();
+  }, [token]);
 
   const [employees, setEmployees] = useState([]);
   const [selectedItem, setSelectedItem] = useState("");
@@ -83,8 +130,19 @@ export default function SampleBoardsAllocationAdmin() {
 
     const totalQty = selectedEmps.reduce((sum, e) => sum + (e.qty || 0), 0);
     const found = items.find((i) => i.name === selectedItem);
-    if (found && totalQty > found.Balance) {
-      alert("❌ Not enough stock available!");
+    
+    // ✅ Calculate available stock (Opening - Issued) if Balance not set
+    const availableStock = found ? (found.Balance || (found.Opening - (found.Issued || 0))) : 0;
+    
+    console.log("📦 Stock check:", { item: selectedItem, found, availableStock, totalQty });
+    
+    if (found && totalQty > availableStock) {
+      alert(`❌ Not enough stock available!\n\nItem: ${selectedItem}\nAvailable: ${availableStock}\nRequested: ${totalQty}`);
+      return;
+    }
+    
+    if (totalQty === 0) {
+      alert("❌ Please enter quantity for at least one employee!");
       return;
     }
 
@@ -92,6 +150,11 @@ export default function SampleBoardsAllocationAdmin() {
     const createdIds = [];
 
     try {
+      // ✅ Get year and lot from selected item
+      const selectedItemData = items.find(i => i.name === selectedItem);
+      const itemYear = selectedItemData?.year || new Date().getFullYear().toString();
+      const itemLot = selectedItemData?.lot || "Lot 1";
+      
       // Create SEPARATE assignment for EACH selected employee
       for (let i = 0; i < selectedEmps.length; i++) {
         const emp = selectedEmps[i];
@@ -100,6 +163,8 @@ export default function SampleBoardsAllocationAdmin() {
         const newAssignment = {
           rootId,
           item: selectedItem,
+          year: itemYear,           // ✅ Include year
+          lot: itemLot,             // ✅ Include lot
           employees: [emp], // Single employee per assignment
           purpose,
           assignedBy: user.name,
@@ -124,13 +189,15 @@ export default function SampleBoardsAllocationAdmin() {
 
       fetchHistory();
 
-      setItems((prev) =>
-        prev.map((i) =>
-          i.name === selectedItem
-            ? { ...i, Issued: i.Issued + totalQty, Balance: i.Balance - totalQty }
-            : i
-        )
-      );
+      // ✅ Update local state and save to DB
+      const newItems = items.map((i) => {
+        if (i.name !== selectedItem) return i;
+        const newIssued = (i.Issued || 0) + totalQty;
+        const newBalance = (i.Opening || 0) - newIssued;
+        return { ...i, Issued: newIssued, Balance: newBalance };
+      });
+      setItems(newItems);
+      saveStock(newItems);
 
       setSelectedEmps([]);
       setPurpose("");
@@ -225,29 +292,15 @@ export default function SampleBoardsAllocationAdmin() {
       alert("❌ Failed to update POD");
     }
   }
-  /* 🔹 Stock table row/col controls */
-  const addStockRow = () => {
-    const newName = prompt("Enter new item name:");
-    if (newName) {
-      setItems([...items, { name: newName, Opening: 0, Issued: 0, Balance: 0 }]);
-    }
-  };
-  const removeStockRow = (idx) => {
-    setItems(items.filter((_, i) => i !== idx));
-  };
-  const addStockColumn = () => {
-    const newCol = prompt("Enter new stock column name:");
-    if (newCol && !stockColumns.includes(newCol)) {
-      setStockColumns([...stockColumns, newCol]);
-      setItems((prev) => prev.map((i) => ({ ...i, [newCol]: 0 })));
-    }
-  };
+  /* 🔹 Stock table column control */
   const removeStockColumn = (col) => {
     if (["Opening", "Issued", "Balance"].includes(col)) {
       alert("❌ Cannot remove core columns");
       return;
     }
-    setStockColumns(stockColumns.filter((c) => c !== col));
+    const newColumns = stockColumns.filter((c) => c !== col);
+    setStockColumns(newColumns);
+    saveStock(items, newColumns);
   };
 
   /* 🔹 Filtered assignments */
@@ -289,55 +342,158 @@ export default function SampleBoardsAllocationAdmin() {
         </button>
       </div>
 
-      {/* 🔹 Main Stock Table */}
+      {/* 🔹 Main Stock Table - Year & Lot Wise */}
       <h3>📊 Main Stock Table</h3>
-      <table border="1" cellPadding="6" style={{ width: "100%", marginBottom: 20 }}>
-        <thead>
-          <tr>
-            <th>Item</th>
-            {stockColumns.map((col) => (
-              <th key={col}>
-                {col}
-                {!["Opening", "Issued", "Balance"].includes(col) && (
-                  <button onClick={() => removeStockColumn(col)} style={{ marginLeft: 5, color: "red" }}>
-                    ❌
-                  </button>
-                )}
-              </th>
-            ))}
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((it, idx) => (
-            <tr key={idx}>
-              <td>{it.name}</td>
-              {stockColumns.map((col) => (
-                <td key={col}>
-                  <input
-                    type="number"
-                    value={it[col] || 0}
-                    onChange={(e) =>
-                      setItems((prev) =>
-                        prev.map((p, i) => (i === idx ? { ...p, [col]: Number(e.target.value) } : p))
-                      )
-                    }
-                  />
-                </td>
-              ))}
-              <td>
-                <button onClick={() => removeStockRow(idx)} style={{ color: "red" }}>
-                  ❌ Remove
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <button onClick={addStockColumn}>➕ Add Column</button>
-      <button onClick={addStockRow} style={{ marginLeft: 10 }}>
-        ➕ Add Row
-      </button>
+      {stockLoading ? (
+        <p>Loading stock...</p>
+      ) : (
+        <>
+          <div style={{ overflowX: "auto" }}>
+            <table border="1" cellPadding="6" style={{ width: "100%", marginBottom: 20, borderCollapse: "collapse" }}>
+              <thead style={{ background: "#f5f5f5" }}>
+                <tr>
+                  <th style={{ minWidth: 120 }}>Item</th>
+                  <th style={{ minWidth: 80, background: "#e3f2fd" }}>Year</th>
+                  <th style={{ minWidth: 80, background: "#fff3e0" }}>Lot</th>
+                  {stockColumns.map((col) => (
+                    <th key={col} style={{ minWidth: 80 }}>
+                      {col}
+                      {!["Opening", "Issued", "Balance"].includes(col) && (
+                        <button onClick={() => removeStockColumn(col)} style={{ marginLeft: 5, color: "red", fontSize: 10 }}>
+                          ✕
+                        </button>
+                      )}
+                    </th>
+                  ))}
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((it, idx) => (
+                  <tr key={it._id || idx}>
+                    <td>
+                      <input
+                        type="text"
+                        value={it.name || ""}
+                        onChange={(e) => {
+                          const newItems = items.map((p, i) => (i === idx ? { ...p, name: e.target.value } : p));
+                          setItems(newItems);
+                        }}
+                        onBlur={() => saveStock()}
+                        style={{ width: "100%", border: "1px solid #ddd", padding: 4 }}
+                      />
+                    </td>
+                    <td style={{ background: "#e3f2fd" }}>
+                      <select
+                        value={it.year || "2025"}
+                        onChange={(e) => {
+                          const newItems = items.map((p, i) => (i === idx ? { ...p, year: e.target.value } : p));
+                          setItems(newItems);
+                          saveStock(newItems);
+                        }}
+                        style={{ width: "100%", padding: 4 }}
+                      >
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                      </select>
+                    </td>
+                    <td style={{ background: "#fff3e0" }}>
+                      <select
+                        value={it.lot || "Lot 1"}
+                        onChange={(e) => {
+                          const newItems = items.map((p, i) => (i === idx ? { ...p, lot: e.target.value } : p));
+                          setItems(newItems);
+                          saveStock(newItems);
+                        }}
+                        style={{ width: "100%", padding: 4 }}
+                      >
+                        <option value="Lot 1">Lot 1</option>
+                        <option value="Lot 2">Lot 2</option>
+                        <option value="Lot 3">Lot 3</option>
+                        <option value="Lot 4">Lot 4</option>
+                        <option value="Lot 5">Lot 5</option>
+                      </select>
+                    </td>
+                    {stockColumns.map((col) => (
+                      <td key={col}>
+                        <input
+                          type="number"
+                          value={it[col] || 0}
+                          disabled={col === "Balance"} // Balance is auto-calculated
+                          onChange={(e) => {
+                            const newVal = Number(e.target.value);
+                            const newItems = items.map((p, i) => {
+                              if (i !== idx) return p;
+                              const updated = { ...p, [col]: newVal };
+                              // ✅ Auto-calculate Balance when Opening or Issued changes
+                              if (col === "Opening" || col === "Issued") {
+                                updated.Balance = (updated.Opening || 0) - (updated.Issued || 0);
+                              }
+                              return updated;
+                            });
+                            setItems(newItems);
+                          }}
+                          onBlur={() => saveStock()}
+                          style={{ width: 70, padding: 4, border: "1px solid #ddd" }}
+                        />
+                      </td>
+                    ))}
+                    <td>
+                      <button 
+                        onClick={() => {
+                          const newItems = items.filter((_, i) => i !== idx);
+                          setItems(newItems);
+                          saveStock(newItems);
+                        }} 
+                        style={{ color: "red", background: "#fee2e2", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}
+                      >
+                        ❌ Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button 
+              onClick={() => {
+                const newCol = prompt("Enter new stock column name:");
+                if (newCol && !stockColumns.includes(newCol)) {
+                  const newColumns = [...stockColumns, newCol];
+                  setStockColumns(newColumns);
+                  const newItems = items.map((i) => ({ ...i, [newCol]: 0 }));
+                  setItems(newItems);
+                  saveStock(newItems, newColumns);
+                }
+              }}
+              style={{ background: "#3b82f6", color: "white", border: "none", padding: "8px 12px", borderRadius: 4, cursor: "pointer" }}
+            >
+              ➕ Add Column
+            </button>
+            <button 
+              onClick={() => {
+                const newName = prompt("Enter new item name:");
+                if (newName) {
+                  const newItems = [...items, { name: newName, year: "2025", lot: "Lot 1", Opening: 0, Issued: 0, Balance: 0 }];
+                  setItems(newItems);
+                  saveStock(newItems);
+                }
+              }} 
+              style={{ background: "#10b981", color: "white", border: "none", padding: "8px 12px", borderRadius: 4, cursor: "pointer" }}
+            >
+              ➕ Add Row
+            </button>
+            <button 
+              onClick={() => saveStock()}
+              style={{ background: "#f59e0b", color: "white", border: "none", padding: "8px 12px", borderRadius: 4, cursor: "pointer" }}
+            >
+              💾 Save Changes
+            </button>
+          </div>
+        </>
+      )}
 
       {/* 🔹 Assign To - Region-wise Hierarchy (RM removed - Admin → BM → Manager → Emp) */}
       <div style={{ marginTop: 30 }}>

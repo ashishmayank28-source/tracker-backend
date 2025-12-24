@@ -20,14 +20,30 @@ export default function AssignmentTable() {
   const [selectedEmp, setSelectedEmp] = useState(null);
   const [empHistory, setEmpHistory] = useState([]);
 
-  // Sample board items
-  const sampleItems = [
-    "Blenze Pro PDB",
-    "Impact PDB",
-    "Horizon PDB",
-    "Evo PDB",
-    "Orna PDB"
-  ];
+  // ✅ Dynamic sample board items from Stock API
+  const [sampleItems, setSampleItems] = useState([]);
+
+  // ✅ Fetch stock items from database
+  useEffect(() => {
+    async function fetchStockItems() {
+      try {
+        const res = await fetch(`${API_BASE}/api/stock`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (data.items && Array.isArray(data.items)) {
+          // Extract unique item names from stock
+          const itemNames = [...new Set(data.items.map(item => item.name))];
+          setSampleItems(itemNames);
+        }
+      } catch (err) {
+        console.error("Error fetching stock items:", err);
+        // Fallback to empty array
+        setSampleItems([]);
+      }
+    }
+    if (token) fetchStockItems();
+  }, [token]);
 
   // Fetch employees (only Emp, Manager, BM)
   useEffect(() => {
@@ -74,17 +90,24 @@ export default function AssignmentTable() {
   // Stock = Received - (Used + Assigned Out to Others)
   const calculateEmpStock = (empCode, empName) => {
     const stock = {};
+    // ✅ Initialize with dynamic items
     sampleItems.forEach(item => {
       stock[item] = { assigned: 0, used: 0, assignedOut: 0, available: 0 };
     });
 
     assignments.forEach(a => {
       // Filter by year if needed
-      const assignYear = new Date(a.createdAt || a.date).getFullYear();
+      const assignYear = a.year ? parseInt(a.year) : new Date(a.createdAt || a.date).getFullYear();
       if (year !== "All" && assignYear !== parseInt(year)) return;
 
+      // Filter by lot if needed
+      if (lot !== "All" && a.lot !== lot) return;
+
       const item = a.item;
-      if (!stock[item]) return;
+      // ✅ Create entry if item exists in assignment but not in stock list
+      if (!stock[item]) {
+        stock[item] = { assigned: 0, used: 0, assignedOut: 0, available: 0 };
+      }
 
       // ✅ Count RECEIVED qty (when this person is in employees array)
       (a.employees || []).forEach(emp => {
@@ -95,11 +118,8 @@ export default function AssignmentTable() {
       });
 
       // ✅ Count ASSIGNED OUT qty (when this person assigned to others)
-      // Check if assignedBy matches this employee's empCode or name
       if (a.assignerEmpCode === empCode || a.assignedBy === empName) {
-        // This person assigned this to someone else - count as assigned out
         (a.employees || []).forEach(emp => {
-          // Don't count if assigned to self
           if (emp.empCode !== empCode) {
             stock[item].assignedOut += emp.qty || 0;
           }
@@ -108,7 +128,7 @@ export default function AssignmentTable() {
     });
 
     // Calculate available = assigned - used - assignedOut
-    sampleItems.forEach(item => {
+    Object.keys(stock).forEach(item => {
       stock[item].available = stock[item].assigned - stock[item].used - stock[item].assignedOut;
     });
 
@@ -233,6 +253,8 @@ export default function AssignmentTable() {
       {/* Table */}
       {loading ? (
         <p>Loading...</p>
+      ) : sampleItems.length === 0 ? (
+        <p style={{ color: "#999" }}>⚠️ No stock items found. Please add items in Sample Boards Allocation first.</p>
       ) : (
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", minWidth: 1200, borderCollapse: "collapse", fontSize: 13 }}>
@@ -261,9 +283,10 @@ export default function AssignmentTable() {
             <tbody>
               {filteredEmps.map((emp, idx) => {
                 const stock = calculateEmpStock(emp.empCode, emp.name);
-                const totalAssigned = Object.values(stock).reduce((sum, s) => sum + s.assigned, 0);
-                const totalUsed = Object.values(stock).reduce((sum, s) => sum + s.used + s.assignedOut, 0);
-                const totalAvailable = Object.values(stock).reduce((sum, s) => sum + s.available, 0);
+                // ✅ Only count items that exist in sampleItems list
+                const totalAssigned = sampleItems.reduce((sum, item) => sum + (stock[item]?.assigned || 0), 0);
+                const totalUsed = sampleItems.reduce((sum, item) => sum + ((stock[item]?.used || 0) + (stock[item]?.assignedOut || 0)), 0);
+                const totalAvailable = sampleItems.reduce((sum, item) => sum + (stock[item]?.available || 0), 0);
 
                 return (
                   <tr key={emp.empCode} style={{ background: idx % 2 === 0 ? "#fff" : "#f9f9f9" }}>
@@ -285,11 +308,11 @@ export default function AssignmentTable() {
                     <td style={{ padding: 8, border: "1px solid #ddd", fontSize: 12 }}>{emp.branch || "-"}</td>
                     {sampleItems.map(item => (
                       <td key={item} style={{ padding: 8, border: "1px solid #ddd", textAlign: "center" }}>
-                        <span style={{ color: "#1976d2" }}>{stock[item].assigned}</span>
+                        <span style={{ color: "#1976d2" }}>{stock[item]?.assigned || 0}</span>
                         <span style={{ color: "#999" }}> | </span>
-                        <span style={{ color: "#f57c00" }}>{stock[item].used + stock[item].assignedOut}</span>
+                        <span style={{ color: "#f57c00" }}>{(stock[item]?.used || 0) + (stock[item]?.assignedOut || 0)}</span>
                         <span style={{ color: "#999" }}> | </span>
-                        <span style={{ color: stock[item].available > 0 ? "#388e3c" : "#999" }}>{stock[item].available}</span>
+                        <span style={{ color: (stock[item]?.available || 0) > 0 ? "#388e3c" : "#999" }}>{stock[item]?.available || 0}</span>
                       </td>
                     ))}
                     <td style={{ padding: 8, border: "1px solid #ddd", textAlign: "center", fontWeight: 600, color: "#1976d2" }}>

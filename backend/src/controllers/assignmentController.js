@@ -632,24 +632,26 @@ export const getAssignmentLedger = async (req, res) => {
 export const getAssignmentSummary = async (req, res) => {
   try {
     const { year, lot } = req.query;
-    const targetYear = parseInt(year) || new Date().getFullYear();
+    const targetYear = String(parseInt(year) || new Date().getFullYear());
 
     // Get all assignments
     let assignments = await Assignment.find().lean();
 
-    // Filter by year (based on date field)
+    // ✅ Filter by year field from assignment (or fallback to date parsing)
     assignments = assignments.filter(a => {
+      // Use assignment's year field if available
+      if (a.year) {
+        return a.year === targetYear;
+      }
+      // Fallback to date parsing
       if (!a.date) return false;
-      const assignmentYear = new Date(a.date).getFullYear();
+      const assignmentYear = new Date(a.date).getFullYear().toString();
       return assignmentYear === targetYear;
     });
 
-    // Filter by lot if specified
+    // ✅ Filter by lot if specified - use assignment's lot field
     if (lot && lot !== "all") {
-      assignments = assignments.filter(a => 
-        a.purpose?.toLowerCase().includes(lot.toLowerCase()) ||
-        a.lot === lot
-      );
+      assignments = assignments.filter(a => a.lot === lot);
     }
 
     // Calculate totals
@@ -665,23 +667,14 @@ export const getAssignmentSummary = async (req, res) => {
     };
 
     assignments.forEach(a => {
-      const qty = a.totalQty || 0;
-      totalProduction += qty;
-
-      // Determine lot
-      const lotName = a.lot || (a.purpose?.match(/Lot\s*\d/i)?.[0] || "Lot 1");
-      const normalizedLot = lotName.replace(/lot\s*/i, "Lot ");
+      // ✅ Use the assignment's lot field directly
+      const lotName = a.lot || "Lot 1";
       
-      if (lotBreakdown[normalizedLot]) {
-        lotBreakdown[normalizedLot].production += qty;
-      }
-
       // Item-wise tracking
       if (a.item) {
         if (!itemMap[a.item]) {
           itemMap[a.item] = { name: a.item, production: 0, assigned: 0, used: 0, available: 0 };
         }
-        itemMap[a.item].production += qty;
       }
 
       // Process employees
@@ -692,11 +685,11 @@ export const getAssignmentSummary = async (req, res) => {
         totalAssigned += empQty;
         totalUsed += empUsed;
 
-        // Lot tracking
-        if (lotBreakdown[normalizedLot]) {
-          lotBreakdown[normalizedLot].assigned += empQty;
-          lotBreakdown[normalizedLot].used += empUsed;
-          lotBreakdown[normalizedLot].stock += (empQty - empUsed);
+        // ✅ Lot tracking using assignment's lot field
+        if (lotBreakdown[lotName]) {
+          lotBreakdown[lotName].assigned += empQty;
+          lotBreakdown[lotName].used += empUsed;
+          lotBreakdown[lotName].stock += (empQty - empUsed);
         }
 
         // Item tracking
@@ -723,7 +716,7 @@ export const getAssignmentSummary = async (req, res) => {
 
     // Calculate available for items
     Object.values(itemMap).forEach(item => {
-      item.available = item.production - item.used;
+      item.available = item.assigned - item.used;
     });
 
     // Prepare response
