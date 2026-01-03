@@ -40,20 +40,31 @@ export default function SampleBoardsAllocationAdmin() {
   /* 🔹 Save Stock to Database */
   const saveStock = async (newItems, newColumns) => {
     try {
+      const itemsToSave = newItems || items;
+      const columnsToSave = newColumns || stockColumns;
+      
+      console.log("💾 Saving stock:", { items: itemsToSave, columns: columnsToSave });
+      
       const res = await fetch(`${API_BASE}/api/stock`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ items: newItems || items, columns: newColumns || stockColumns }),
+        body: JSON.stringify({ items: itemsToSave, columns: columnsToSave }),
       });
       const data = await res.json();
-      if (!data.success) {
+      if (data.success) {
+        console.log("✅ Stock saved successfully");
+        // ✅ Refresh stock from DB to ensure sync
+        await fetchStock();
+      } else {
         console.error("Stock save failed:", data.message);
+        alert("❌ Failed to save stock: " + data.message);
       }
     } catch (err) {
       console.error("Stock save error:", err);
+      alert("❌ Stock save error: " + err.message);
     }
   };
 
@@ -189,18 +200,21 @@ export default function SampleBoardsAllocationAdmin() {
 
       fetchHistory();
 
-      // ✅ Update local state and save to DB
+      // ✅ Update stock in DB - add issued quantity
       const newItems = items.map((i) => {
         if (i.name !== selectedItem) return i;
         const newIssued = (i.Issued || 0) + totalQty;
         const newBalance = (i.Opening || 0) - newIssued;
+        console.log(`📦 Stock update for ${i.name}: Issued ${i.Issued || 0} → ${newIssued}, Balance → ${newBalance}`);
         return { ...i, Issued: newIssued, Balance: newBalance };
       });
-      setItems(newItems);
-      saveStock(newItems);
+      
+      // ✅ Save to DB and wait for completion
+      await saveStock(newItems);
 
       setSelectedEmps([]);
       setPurpose("");
+      setSelectedItem("");
       alert(`✅ Stock assigned!\n${createdIds.length} separate IDs created:\n${createdIds.join("\n")}`);
     } catch (err) {
       console.error("Save error:", err);
@@ -456,7 +470,7 @@ export default function SampleBoardsAllocationAdmin() {
               </tbody>
             </table>
           </div>
-          <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button 
               onClick={() => {
                 const newCol = prompt("Enter new stock column name:");
@@ -483,13 +497,50 @@ export default function SampleBoardsAllocationAdmin() {
               }} 
               style={{ background: "#10b981", color: "white", border: "none", padding: "8px 12px", borderRadius: 4, cursor: "pointer" }}
             >
-              ➕ Add Row
+              ➕ Add Item
+            </button>
+            {/* ✅ NEW: Add New Lot Button */}
+            <button 
+              onClick={() => {
+                const year = prompt("Enter Year (e.g., 2025):", new Date().getFullYear().toString());
+                if (!year) return;
+                
+                const lotNumber = prompt("Enter Lot Number (1-5):", "2");
+                if (!lotNumber) return;
+                
+                const lotName = `Lot ${lotNumber}`;
+                const itemName = prompt("Enter Item Name for this lot:");
+                if (!itemName) return;
+                
+                const opening = prompt("Enter Opening Stock:", "0");
+                
+                const newItems = [...items, { 
+                  name: itemName, 
+                  year: year, 
+                  lot: lotName, 
+                  Opening: Number(opening) || 0, 
+                  Issued: 0, 
+                  Balance: Number(opening) || 0 
+                }];
+                setItems(newItems);
+                saveStock(newItems);
+                alert(`✅ New lot added: ${itemName} (${year} - ${lotName})`);
+              }} 
+              style={{ background: "#8b5cf6", color: "white", border: "none", padding: "8px 12px", borderRadius: 4, cursor: "pointer" }}
+            >
+              📦 Add New Lot
             </button>
             <button 
               onClick={() => saveStock()}
               style={{ background: "#f59e0b", color: "white", border: "none", padding: "8px 12px", borderRadius: 4, cursor: "pointer" }}
             >
               💾 Save Changes
+            </button>
+            <button 
+              onClick={fetchStock}
+              style={{ background: "#6b7280", color: "white", border: "none", padding: "8px 12px", borderRadius: 4, cursor: "pointer" }}
+            >
+              🔄 Refresh Stock
             </button>
           </div>
         </>
@@ -721,7 +772,7 @@ export default function SampleBoardsAllocationAdmin() {
         <td>{a.assignedBy}</td>
         <td>{a.role}</td>
 
-        {/* ✅ Submit to Vendor (now allowed for ANY project/marketing purpose) */}
+        {/* ✅ Submit to Vendor - Use bmId if exists, otherwise rootId */}
         <td>
           {(a.purpose || "").toLowerCase().includes("project") ||
            (a.purpose || "").toLowerCase().includes("marketing") ? (
@@ -730,7 +781,7 @@ export default function SampleBoardsAllocationAdmin() {
             ) : (
               <button
                 onClick={() =>
-                  handleSubmitToVendor(a.rootId, a.purpose)
+                  handleSubmitToVendor(a.bmId || a.rootId, a.purpose)
                 }
                 style={{
                   background: "#00ccff",

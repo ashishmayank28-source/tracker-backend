@@ -32,22 +32,41 @@ export const updateStock = async (req, res) => {
   try {
     const { columns, items } = req.body;
     
+    console.log("📦 Stock update request:", { columns, itemsCount: items?.length });
+    
     let stock = await Stock.findOne();
     
     if (!stock) {
       stock = new Stock({ columns, items });
     } else {
       stock.columns = columns || stock.columns;
-      stock.items = items || stock.items;
+      
+      // ✅ Properly update items - preserve _id if exists
+      if (items && Array.isArray(items)) {
+        stock.items = items.map(item => ({
+          _id: item._id, // Preserve existing _id
+          name: item.name,
+          year: item.year || new Date().getFullYear().toString(),
+          lot: item.lot || "Lot 1",
+          Opening: item.Opening || 0,
+          Issued: item.Issued || 0,
+          Balance: item.Balance !== undefined ? item.Balance : (item.Opening || 0) - (item.Issued || 0),
+          extraColumns: item.extraColumns || {},
+          createdAt: item.createdAt || new Date(),
+          updatedAt: new Date(),
+        }));
+      }
+      
       stock.updatedBy = req.user?.name || "Admin";
       stock.updatedAt = new Date();
     }
     
     await stock.save();
+    console.log("✅ Stock saved:", stock.items.map(i => ({ name: i.name, Issued: i.Issued, Balance: i.Balance })));
     res.json({ success: true, message: "Stock updated successfully", stock });
   } catch (err) {
     console.error("Update stock error:", err);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 

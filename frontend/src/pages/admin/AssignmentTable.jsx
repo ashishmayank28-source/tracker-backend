@@ -10,8 +10,8 @@ export default function AssignmentTable() {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Filters
-  const [year, setYear] = useState(new Date().getFullYear());
+  // Filters - Default to "All" to show all assignments
+  const [year, setYear] = useState("All");
   const [lot, setLot] = useState("All");
   const [searchName, setSearchName] = useState("");
   
@@ -20,10 +20,10 @@ export default function AssignmentTable() {
   const [selectedEmp, setSelectedEmp] = useState(null);
   const [empHistory, setEmpHistory] = useState([]);
 
-  // ✅ Dynamic sample board items from Stock API
+  // ✅ Dynamic sample board items from Stock API + Assignments
   const [sampleItems, setSampleItems] = useState([]);
 
-  // ✅ Fetch stock items from database
+  // ✅ Fetch stock items from database AND merge with assignment items
   useEffect(() => {
     async function fetchStockItems() {
       try {
@@ -33,17 +33,27 @@ export default function AssignmentTable() {
         const data = await res.json();
         if (data.items && Array.isArray(data.items)) {
           // Extract unique item names from stock
-          const itemNames = [...new Set(data.items.map(item => item.name))];
-          setSampleItems(itemNames);
+          const stockItemNames = data.items.map(item => item.name);
+          setSampleItems(stockItemNames);
         }
       } catch (err) {
         console.error("Error fetching stock items:", err);
-        // Fallback to empty array
         setSampleItems([]);
       }
     }
     if (token) fetchStockItems();
   }, [token]);
+
+  // ✅ Also include items from assignments that might not be in stock
+  useEffect(() => {
+    if (assignments.length > 0) {
+      const assignmentItems = [...new Set(assignments.map(a => a.item).filter(Boolean))];
+      setSampleItems(prev => {
+        const merged = [...new Set([...prev, ...assignmentItems])];
+        return merged;
+      });
+    }
+  }, [assignments]);
 
   // Fetch employees (only Emp, Manager, BM)
   useEffect(() => {
@@ -154,6 +164,8 @@ export default function AssignmentTable() {
             rootId: a.rootId,
             rmId: a.rmId,
             bmId: a.bmId,
+            lrNo: a.lrNo || "",           // ✅ Added LR No.
+            toVendor: a.toVendor || false, // ✅ Added dispatch status
             usedSamples: emp.usedSamples || []
           });
         }
@@ -176,6 +188,8 @@ export default function AssignmentTable() {
               rootId: a.rootId,
               rmId: a.rmId,
               bmId: a.bmId,
+              lrNo: a.lrNo || "",           // ✅ Added LR No.
+              toVendor: a.toVendor || false, // ✅ Added dispatch status
             });
           }
         });
@@ -404,6 +418,8 @@ export default function AssignmentTable() {
                     <th style={{ padding: 8, border: "1px solid #ddd" }}>Purpose</th>
                     <th style={{ padding: 8, border: "1px solid #ddd" }}>By/To</th>
                     <th style={{ padding: 8, border: "1px solid #ddd" }}>ID</th>
+                    <th style={{ padding: 8, border: "1px solid #ddd", background: "#e8f5e9" }}>LR No.</th>
+                    <th style={{ padding: 8, border: "1px solid #ddd", background: "#fff3e0" }}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -460,6 +476,22 @@ export default function AssignmentTable() {
                       </td>
                       <td style={{ padding: 8, border: "1px solid #ddd", fontSize: 10, color: "#666" }}>
                         {h.bmId || h.rmId || h.rootId}
+                      </td>
+                      {/* ✅ LR No. Column */}
+                      <td style={{ padding: 8, border: "1px solid #ddd", textAlign: "center", background: "#e8f5e9" }}>
+                        {h.lrNo ? (
+                          <span style={{ color: "#2e7d32", fontWeight: 600 }}>📦 {h.lrNo}</span>
+                        ) : (
+                          <span style={{ color: "#999" }}>-</span>
+                        )}
+                      </td>
+                      {/* ✅ Dispatch Status Column */}
+                      <td style={{ padding: 8, border: "1px solid #ddd", textAlign: "center", background: "#fff3e0" }}>
+                        {h.toVendor ? (
+                          <span style={{ color: "#2e7d32", fontWeight: 600, fontSize: 11 }}>✅ Dispatched</span>
+                        ) : (
+                          <span style={{ color: "#f57c00", fontSize: 11 }}>⏳ Pending</span>
+                        )}
                       </td>
                     </tr>
                   ))}
