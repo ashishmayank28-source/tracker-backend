@@ -91,16 +91,22 @@ export default function AttendanceStatus() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, token]);
 
-  // 🔹 Group by date
+  // 🔹 Group by date (using LOCAL timezone, not UTC)
   const byDate = useMemo(() => {
     const map = {};
     for (const r of items) {
-      const d =
-        (r.date && String(r.date).slice(0, 10)) ||
-        (r.createdAt ? dayjs(r.createdAt).format("YYYY-MM-DD") : "");
+      // ✅ Fix: Convert to local date string (YYYY-MM-DD) to avoid timezone issues
+      let d = "";
+      if (r.date) {
+        const dateObj = new Date(r.date);
+        d = dayjs(dateObj).format("YYYY-MM-DD"); // Local timezone
+      } else if (r.createdAt) {
+        d = dayjs(r.createdAt).format("YYYY-MM-DD"); // Local timezone
+      }
       if (!d) continue;
       if (!map[d]) map[d] = { external: 0, internal: 0, leave: 0, rows: [] };
-      if (r.meetingType === "External") map[d].external++;
+      // ✅ Count both "External" and "Revisit" as external visits for attendance
+      if (r.meetingType === "External" || r.meetingType === "Revisit") map[d].external++;
       if (r.meetingType === "Internal") map[d].internal++;
       if (r.meetingType === "Leave") map[d].leave++;
       map[d].rows.push(r);

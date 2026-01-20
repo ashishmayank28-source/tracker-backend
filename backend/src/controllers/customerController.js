@@ -561,13 +561,15 @@ export const myReports = async (req, res) => {
     console.log("📊 After adding manual entries:", rows.length);
 
     if (from && to) {
-      const fromDate = new Date(from);
-      fromDate.setHours(0, 0, 0, 0);
-      const toDate = new Date(to);
-      toDate.setHours(23, 59, 59, 999);
+      // ✅ Fix: Compare dates by YYYY-MM-DD string to avoid timezone issues
+      const fromStr = from; // Already in YYYY-MM-DD format
+      const toStr = to;     // Already in YYYY-MM-DD format
       rows = rows.filter((r) => {
-        const d = new Date(r.date);
-        return d >= fromDate && d <= toDate;
+        if (!r.date) return false;
+        // Convert record date to local YYYY-MM-DD string
+        const recordDate = new Date(r.date);
+        const recordDateStr = recordDate.toLocaleDateString('en-CA'); // en-CA gives YYYY-MM-DD format
+        return recordDateStr >= fromStr && recordDateStr <= toStr;
       });
       console.log("📊 After date filter:", rows.length);
     }
