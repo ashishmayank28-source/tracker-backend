@@ -205,6 +205,7 @@ export const approveTourRequest = async (req, res) => {
       {
         status: "Approved",
         approvedBy: approvedByName,
+        approvedByCode: approver.empCode, // ✅ Store manager empCode for expense verification
         approvedDate: new Date(),
       },
       { new: true }
@@ -262,7 +263,7 @@ export const rejectTourRequest = async (req, res) => {
 };
 
 /* =============================================================
-   💰 Submit Expenses (Employee - After Tour)
+   💰 Submit Expenses with Files (Employee - After Tour)
 ============================================================= */
 export const submitTourExpenses = async (req, res) => {
   try {
@@ -289,6 +290,23 @@ export const submitTourExpenses = async (req, res) => {
     const accommodation = Number(accommodationExpense) || 0;
     const total = travel + food + accommodation;
 
+    // ✅ Handle file uploads (bills, tickets, invoices)
+    const files = req.files || {};
+    const year = new Date().getFullYear();
+    const month = String(new Date().getMonth() + 1).padStart(2, "0");
+    
+    const billsUrl = files.bills?.[0] 
+      ? `/uploads/${year}/${month}/${files.bills[0].filename}` 
+      : "";
+    const ticketsUrl = files.tickets?.[0] 
+      ? `/uploads/${year}/${month}/${files.tickets[0].filename}` 
+      : "";
+    const invoicesUrl = files.invoices?.[0] 
+      ? `/uploads/${year}/${month}/${files.invoices[0].filename}` 
+      : "";
+
+    console.log("📄 Expense files:", { billsUrl, ticketsUrl, invoicesUrl });
+
     const updated = await TourApproval.findByIdAndUpdate(
       id,
       {
@@ -299,14 +317,17 @@ export const submitTourExpenses = async (req, res) => {
         totalExpense: total,
         expenseDate: new Date(),
         expenseRemarks: remarks || "",
-        status: "Completed",
+        billsUrl,
+        ticketsUrl,
+        invoicesUrl,
+        status: "ExpenseSubmitted", // ✅ Pending verification by manager
       },
       { new: true }
     );
 
     res.json({
       success: true,
-      message: "✅ Expenses submitted successfully!",
+      message: "✅ Expenses submitted! Waiting for manager verification.",
       data: updated,
     });
   } catch (err) {
@@ -315,3 +336,96 @@ export const submitTourExpenses = async (req, res) => {
   }
 };
 
+/* =============================================================
+   ✅ Verify Expenses (Same Manager who approved the tour)
+============================================================= */
+export const verifyTourExpenses = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { verificationRemarks } = req.body;
+    const verifier = req.user;
+
+    const tourRequest = await TourApproval.findById(id);
+
+    if (!tourRequest) {
+      return res.status(404).json({ message: "Tour request not found" });
+    }
+
+    // ✅ Only the same manager who approved can verify
+    if (tourRequest.approvedByCode !== verifier.empCode) {
+      return res.status(403).json({ 
+        message: `Only the approving manager (${tourRequest.approvedBy}) can verify expenses` 
+      });
+    }
+
+    if (tourRequest.status !== "ExpenseSubmitted") {
+      return res.status(400).json({ message: "Expenses not submitted yet" });
+    }
+
+    const updated = await TourApproval.findByIdAndUpdate(
+      id,
+      {
+        expenseVerified: true,
+        verifiedBy: `${verifier.empCode} - ${verifier.name}`,
+        verifiedByCode: verifier.empCode,
+        verifiedDate: new Date(),
+        verificationRemarks: verificationRemarks || "",
+        status: "Completed", // ✅ Now complete after verification
+      },
+      { new: true }
+    );
+
+    res.json({
+      success: true,
+      message: "✅ Expenses verified! Tour marked as completed.",
+      data: updated,
+    });
+  } catch (err) {
+    console.error("Verify Expenses Error:", err);
+    res.status(500).json({ message: "Failed to verify expenses" });
+  }
+};
+
+/* =============================================================
+   ❌ Reject Expenses (Same Manager who approved the tour)
+============================================================= */
+export const rejectTourExpenses = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const verifier = req.user;
+
+    const tourRequest = await TourApproval.findById(id);
+
+    if (!tourRequest) {
+      return res.status(404).json({ message: "Tour request not found" });
+    }
+
+    // ✅ Only the same manager who approved can reject expenses
+    if (tourRequest.approvedByCode !== verifier.empCode) {
+      return res.status(403).json({ 
+        message: `Only the approving manager (${tourRequest.approvedBy}) can reject expenses` 
+      });
+    }
+
+    // Reset to Approved status so employee can resubmit
+    const updated = await TourApproval.findByIdAndUpdate(
+      id,
+      {
+        expensesFilled: false,
+        status: "Approved", // ✅ Back to approved so employee can resubmit
+        verificationRemarks: reason || "Expenses rejected - please resubmit",
+      },
+      { new: true }
+    );
+
+    res.json({
+      success: true,
+      message: "❌ Expenses rejected. Employee can resubmit.",
+      data: updated,
+    });
+  } catch (err) {
+    console.error("Reject Expenses Error:", err);
+    res.status(500).json({ message: "Failed to reject expenses" });
+  }
+};

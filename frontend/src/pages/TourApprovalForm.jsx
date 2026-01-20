@@ -18,6 +18,11 @@ export default function TourApprovalForm({ token, user }) {
   const [foodExpense, setFoodExpense] = useState("");
   const [accommodationExpense, setAccommodationExpense] = useState("");
   const [expenseRemarks, setExpenseRemarks] = useState("");
+  
+  // ✅ File upload states
+  const [billsFile, setBillsFile] = useState(null);
+  const [ticketsFile, setTicketsFile] = useState(null);
+  const [invoicesFile, setInvoicesFile] = useState(null);
 
   // Load my tour requests
   useEffect(() => {
@@ -75,35 +80,45 @@ export default function TourApprovalForm({ token, user }) {
     }
   };
 
-  // Submit expenses
+  // Submit expenses with files
   const handleSubmitExpenses = async (e) => {
     e.preventDefault();
     if (!selectedRequest) return;
 
     try {
       setLoading(true);
+      
+      // ✅ Use FormData for file uploads
+      const formData = new FormData();
+      formData.append("travelExpense", Number(travelExpense) || 0);
+      formData.append("foodExpense", Number(foodExpense) || 0);
+      formData.append("accommodationExpense", Number(accommodationExpense) || 0);
+      formData.append("remarks", expenseRemarks);
+      
+      // ✅ Append files if selected
+      if (billsFile) formData.append("bills", billsFile);
+      if (ticketsFile) formData.append("tickets", ticketsFile);
+      if (invoicesFile) formData.append("invoices", invoicesFile);
+
       const res = await fetch(`${API_BASE}/api/tour/expenses/${selectedRequest._id}`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          travelExpense: Number(travelExpense) || 0,
-          foodExpense: Number(foodExpense) || 0,
-          accommodationExpense: Number(accommodationExpense) || 0,
-          remarks: expenseRemarks,
-        }),
+        body: formData,
       });
 
       const data = await res.json();
       if (res.ok) {
-        setMessage("✅ Expenses submitted successfully!");
+        setMessage("✅ Expenses submitted! Waiting for manager verification.");
         setSelectedRequest(null);
         setTravelExpense("");
         setFoodExpense("");
         setAccommodationExpense("");
         setExpenseRemarks("");
+        setBillsFile(null);
+        setTicketsFile(null);
+        setInvoicesFile(null);
         loadMyRequests();
         setActiveView("history");
       } else {
@@ -124,12 +139,14 @@ export default function TourApprovalForm({ token, user }) {
 
   const getStatusBadge = (status) => {
     const styles = {
-      Pending: { bg: "#fef3c7", color: "#d97706" },
-      Approved: { bg: "#dcfce7", color: "#16a34a" },
-      Rejected: { bg: "#fee2e2", color: "#dc2626" },
-      Completed: { bg: "#dbeafe", color: "#2563eb" },
+      Pending: { bg: "#fef3c7", color: "#d97706", label: "⏳ Pending" },
+      Approved: { bg: "#dcfce7", color: "#16a34a", label: "✅ Approved" },
+      Rejected: { bg: "#fee2e2", color: "#dc2626", label: "❌ Rejected" },
+      ExpenseSubmitted: { bg: "#e0e7ff", color: "#4338ca", label: "📄 Expense Submitted" },
+      Verified: { bg: "#d1fae5", color: "#065f46", label: "✓ Verified" },
+      Completed: { bg: "#dbeafe", color: "#2563eb", label: "🎉 Completed" },
     };
-    const s = styles[status] || { bg: "#f3f4f6", color: "#6b7280" };
+    const s = styles[status] || { bg: "#f3f4f6", color: "#6b7280", label: status };
     return (
       <span style={{
         padding: "4px 10px",
@@ -139,7 +156,7 @@ export default function TourApprovalForm({ token, user }) {
         background: s.bg,
         color: s.color,
       }}>
-        {status}
+        {s.label}
       </span>
     );
   };
@@ -262,7 +279,7 @@ export default function TourApprovalForm({ token, user }) {
                       </div>
 
                       {/* Action Buttons */}
-                      <div style={{ display: "flex", gap: 8 }}>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                         {req.status === "Approved" && !req.expensesFilled && (
                           <button
                             onClick={() => openExpenseForm(req)}
@@ -270,6 +287,11 @@ export default function TourApprovalForm({ token, user }) {
                           >
                             💰 Fill Expenses
                           </button>
+                        )}
+                        {req.status === "ExpenseSubmitted" && (
+                          <span style={{ fontSize: 12, color: "#4338ca", background: "#e0e7ff", padding: "4px 8px", borderRadius: 4 }}>
+                            ⏳ Waiting for manager verification
+                          </span>
                         )}
                         {req.status === "Rejected" && req.rejectReason && (
                           <span style={{ fontSize: 12, color: "#dc2626" }}>
@@ -286,6 +308,34 @@ export default function TourApprovalForm({ token, user }) {
                         <span>🍽️ Food: ₹{req.foodExpense}</span>
                         <span>🏨 Stay: ₹{req.accommodationExpense}</span>
                         <span style={{ fontWeight: 600 }}>📊 Total: ₹{req.totalExpense}</span>
+                      </div>
+                    )}
+
+                    {/* ✅ Verification Status */}
+                    {req.expenseVerified && (
+                      <div style={{ marginTop: 8, padding: "8px 12px", background: "#d1fae5", borderRadius: 6, fontSize: 12, color: "#065f46" }}>
+                        ✓ Verified by: {req.verifiedBy} on {new Date(req.verifiedDate).toLocaleDateString()}
+                      </div>
+                    )}
+
+                    {/* 📎 Uploaded Documents Links */}
+                    {(req.billsUrl || req.ticketsUrl || req.invoicesUrl) && (
+                      <div style={{ marginTop: 8, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        {req.billsUrl && (
+                          <a href={`${API_BASE}${req.billsUrl}`} target="_blank" rel="noreferrer" style={docLinkStyle}>
+                            🧾 Bills
+                          </a>
+                        )}
+                        {req.ticketsUrl && (
+                          <a href={`${API_BASE}${req.ticketsUrl}`} target="_blank" rel="noreferrer" style={docLinkStyle}>
+                            🎫 Tickets
+                          </a>
+                        )}
+                        {req.invoicesUrl && (
+                          <a href={`${API_BASE}${req.invoicesUrl}`} target="_blank" rel="noreferrer" style={docLinkStyle}>
+                            📋 Invoices
+                          </a>
+                        )}
                       </div>
                     )}
                   </div>
@@ -359,6 +409,44 @@ export default function TourApprovalForm({ token, user }) {
                 />
               </div>
 
+              {/* ✅ File Uploads Section */}
+              <div style={fileUploadSection}>
+                <h4 style={{ margin: "0 0 12px 0", color: "#374151" }}>📎 Upload Documents</h4>
+                
+                <div style={formGroup}>
+                  <label style={labelStyle}>🧾 Bills (Hotel, Food, etc.)</label>
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    onChange={(e) => setBillsFile(e.target.files[0])}
+                    style={fileInputStyle}
+                  />
+                  {billsFile && <span style={fileNameStyle}>📄 {billsFile.name}</span>}
+                </div>
+
+                <div style={formGroup}>
+                  <label style={labelStyle}>🎫 Tickets (Travel, Train, Bus, etc.)</label>
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    onChange={(e) => setTicketsFile(e.target.files[0])}
+                    style={fileInputStyle}
+                  />
+                  {ticketsFile && <span style={fileNameStyle}>📄 {ticketsFile.name}</span>}
+                </div>
+
+                <div style={formGroup}>
+                  <label style={labelStyle}>📋 Invoices (Other expenses)</label>
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    onChange={(e) => setInvoicesFile(e.target.files[0])}
+                    style={fileInputStyle}
+                  />
+                  {invoicesFile && <span style={fileNameStyle}>📄 {invoicesFile.name}</span>}
+                </div>
+              </div>
+
               {/* Total Display */}
               <div style={totalBox}>
                 <span>Total Expense:</span>
@@ -368,7 +456,7 @@ export default function TourApprovalForm({ token, user }) {
               </div>
 
               <button type="submit" disabled={loading} style={submitBtnStyle}>
-                {loading ? "⏳ Submitting..." : "✅ Submit Expenses"}
+                {loading ? "⏳ Submitting..." : "📤 Submit Expenses for Verification"}
               </button>
             </form>
           </div>
@@ -506,6 +594,42 @@ const totalBox = {
   borderRadius: 8,
   marginBottom: 16,
   fontSize: 16,
+};
+
+const fileUploadSection = {
+  padding: 16,
+  background: "#fefce8",
+  borderRadius: 8,
+  border: "1px dashed #fbbf24",
+  marginBottom: 16,
+};
+
+const fileInputStyle = {
+  width: "100%",
+  padding: "8px",
+  border: "1px solid #d1d5db",
+  borderRadius: 6,
+  fontSize: 13,
+  background: "#fff",
+};
+
+const fileNameStyle = {
+  display: "block",
+  marginTop: 4,
+  fontSize: 12,
+  color: "#16a34a",
+  fontWeight: 500,
+};
+
+const docLinkStyle = {
+  padding: "4px 10px",
+  background: "#f3f4f6",
+  border: "1px solid #d1d5db",
+  borderRadius: 6,
+  fontSize: 11,
+  color: "#374151",
+  textDecoration: "none",
+  fontWeight: 500,
 };
 
 

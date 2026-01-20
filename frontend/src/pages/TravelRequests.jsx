@@ -11,6 +11,12 @@ export default function TravelRequests({ isAdmin = false }) {
   const [message, setMessage] = useState("");
   const [rejectModal, setRejectModal] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
+  
+  // ✅ Expense verification states
+  const [verifyModal, setVerifyModal] = useState(null);
+  const [verifyRemarks, setVerifyRemarks] = useState("");
+  const [rejectExpenseModal, setRejectExpenseModal] = useState(null);
+  const [rejectExpenseReason, setRejectExpenseReason] = useState("");
 
   // Load requests
   useEffect(() => {
@@ -92,9 +98,66 @@ export default function TravelRequests({ isAdmin = false }) {
     }
   };
 
+  // ✅ Verify Expenses
+  const handleVerifyExpense = async () => {
+    if (!verifyModal) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/tour/verify-expense/${verifyModal}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ verificationRemarks: verifyRemarks }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setMessage("✅ Expenses verified! Tour marked as completed.");
+        setVerifyModal(null);
+        setVerifyRemarks("");
+        loadRequests();
+      } else {
+        setMessage(`❌ ${data.message || "Failed to verify expenses"}`);
+      }
+    } catch (err) {
+      setMessage("❌ Error verifying expenses");
+    }
+  };
+
+  // ✅ Reject Expenses
+  const handleRejectExpense = async () => {
+    if (!rejectExpenseModal) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/tour/reject-expense/${rejectExpenseModal}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ reason: rejectExpenseReason }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setMessage("❌ Expenses rejected. Employee can resubmit.");
+        setRejectExpenseModal(null);
+        setRejectExpenseReason("");
+        loadRequests();
+      } else {
+        setMessage(`❌ ${data.message || "Failed to reject expenses"}`);
+      }
+    } catch (err) {
+      setMessage("❌ Error rejecting expenses");
+    }
+  };
+
   // Filter requests
   const filteredRequests = requests.filter((r) => {
     if (filter === "all") return true;
+    if (filter === "expensesubmitted") return r.status === "ExpenseSubmitted";
     return r.status.toLowerCase() === filter;
   });
 
@@ -103,18 +166,21 @@ export default function TravelRequests({ isAdmin = false }) {
     total: requests.length,
     pending: requests.filter(r => r.status === "Pending").length,
     approved: requests.filter(r => r.status === "Approved").length,
+    expenseSubmitted: requests.filter(r => r.status === "ExpenseSubmitted").length,
     rejected: requests.filter(r => r.status === "Rejected").length,
     completed: requests.filter(r => r.status === "Completed").length,
   };
 
   const getStatusBadge = (status) => {
     const styles = {
-      Pending: { bg: "#fef3c7", color: "#d97706", icon: "⏳" },
-      Approved: { bg: "#dcfce7", color: "#16a34a", icon: "✅" },
-      Rejected: { bg: "#fee2e2", color: "#dc2626", icon: "❌" },
-      Completed: { bg: "#dbeafe", color: "#2563eb", icon: "✔️" },
+      Pending: { bg: "#fef3c7", color: "#d97706", icon: "⏳", label: "Pending" },
+      Approved: { bg: "#dcfce7", color: "#16a34a", icon: "✅", label: "Approved" },
+      ExpenseSubmitted: { bg: "#e0e7ff", color: "#4338ca", icon: "📄", label: "Expense Pending" },
+      Verified: { bg: "#d1fae5", color: "#065f46", icon: "✓", label: "Verified" },
+      Rejected: { bg: "#fee2e2", color: "#dc2626", icon: "❌", label: "Rejected" },
+      Completed: { bg: "#dbeafe", color: "#2563eb", icon: "🎉", label: "Completed" },
     };
-    const s = styles[status] || { bg: "#f3f4f6", color: "#6b7280", icon: "•" };
+    const s = styles[status] || { bg: "#f3f4f6", color: "#6b7280", icon: "•", label: status };
     return (
       <span style={{
         padding: "4px 10px",
@@ -124,7 +190,7 @@ export default function TravelRequests({ isAdmin = false }) {
         background: s.bg,
         color: s.color,
       }}>
-        {s.icon} {status}
+        {s.icon} {s.label}
       </span>
     );
   };
@@ -154,6 +220,10 @@ export default function TravelRequests({ isAdmin = false }) {
           <span style={{ fontSize: 20, fontWeight: 700 }}>{stats.approved}</span>
           <span style={{ fontSize: 11 }}>Approved</span>
         </div>
+        <div style={statCardSmall("#e0e7ff", "#4338ca")}>
+          <span style={{ fontSize: 20, fontWeight: 700 }}>{stats.expenseSubmitted}</span>
+          <span style={{ fontSize: 11 }}>📄 Verify</span>
+        </div>
         <div style={statCardSmall("#fee2e2", "#dc2626")}>
           <span style={{ fontSize: 20, fontWeight: 700 }}>{stats.rejected}</span>
           <span style={{ fontSize: 11 }}>Rejected</span>
@@ -166,13 +236,20 @@ export default function TravelRequests({ isAdmin = false }) {
 
       {/* Filter Tabs - Scrollable on Mobile */}
       <div style={filterContainer}>
-        {["all", "pending", "approved", "rejected", "completed"].map((f) => (
+        {[
+          { key: "all", label: "All" },
+          { key: "pending", label: "Pending" },
+          { key: "approved", label: "Approved" },
+          { key: "expensesubmitted", label: "📄 Verify Expense" },
+          { key: "rejected", label: "Rejected" },
+          { key: "completed", label: "Completed" },
+        ].map((f) => (
           <button
-            key={f}
-            onClick={() => setFilter(f)}
-            style={filterBtn(filter === f)}
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            style={filterBtn(filter === f.key)}
           >
-            {f.charAt(0).toUpperCase() + f.slice(1)}
+            {f.label}
           </button>
         ))}
       </div>
@@ -253,7 +330,28 @@ export default function TravelRequests({ isAdmin = false }) {
                 </div>
               )}
 
-              {/* Actions */}
+              {/* ✅ Uploaded Documents */}
+              {(req.billsUrl || req.ticketsUrl || req.invoicesUrl) && (
+                <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                  {req.billsUrl && (
+                    <a href={`${API_BASE}${req.billsUrl}`} target="_blank" rel="noreferrer" style={docLink}>
+                      🧾 Bills
+                    </a>
+                  )}
+                  {req.ticketsUrl && (
+                    <a href={`${API_BASE}${req.ticketsUrl}`} target="_blank" rel="noreferrer" style={docLink}>
+                      🎫 Tickets
+                    </a>
+                  )}
+                  {req.invoicesUrl && (
+                    <a href={`${API_BASE}${req.invoicesUrl}`} target="_blank" rel="noreferrer" style={docLink}>
+                      📋 Invoices
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* Actions - Pending Approval */}
               {req.status === "Pending" && (
                 <div style={cardActions}>
                   <button onClick={() => handleApprove(req._id)} style={approveBtn}>
@@ -262,6 +360,25 @@ export default function TravelRequests({ isAdmin = false }) {
                   <button onClick={() => setRejectModal(req._id)} style={rejectBtn}>
                     ❌ Reject
                   </button>
+                </div>
+              )}
+
+              {/* ✅ Actions - Expense Verification */}
+              {req.status === "ExpenseSubmitted" && (
+                <div style={cardActions}>
+                  <button onClick={() => setVerifyModal(req._id)} style={verifyBtn}>
+                    ✓ Verify Expense
+                  </button>
+                  <button onClick={() => setRejectExpenseModal(req._id)} style={rejectBtn}>
+                    ❌ Reject Expense
+                  </button>
+                </div>
+              )}
+
+              {/* Verification Info */}
+              {req.expenseVerified && (
+                <div style={{ padding: "8px 12px", background: "#d1fae5", borderRadius: 6, fontSize: 12, color: "#065f46", marginTop: 8 }}>
+                  ✓ Verified by: {req.verifiedBy} on {new Date(req.verifiedDate).toLocaleDateString()}
                 </div>
               )}
 
@@ -296,6 +413,73 @@ export default function TravelRequests({ isAdmin = false }) {
                 onClick={() => {
                   setRejectModal(null);
                   setRejectReason("");
+                }}
+                style={cancelBtn}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Verify Expense Modal */}
+      {verifyModal && (
+        <div style={modalOverlay}>
+          <div style={modalContent}>
+            <h3 style={{ margin: "0 0 16px", color: "#065f46" }}>✓ Verify Expenses</h3>
+            <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>
+              Please review the submitted bills, tickets, and invoices before verifying.
+            </p>
+            <textarea
+              value={verifyRemarks}
+              onChange={(e) => setVerifyRemarks(e.target.value)}
+              placeholder="Verification remarks (optional)..."
+              style={textareaStyle}
+              rows={2}
+            />
+            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              <button onClick={handleVerifyExpense} style={verifyBtn}>
+                ✓ Confirm Verification
+              </button>
+              <button
+                onClick={() => {
+                  setVerifyModal(null);
+                  setVerifyRemarks("");
+                }}
+                style={cancelBtn}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ❌ Reject Expense Modal */}
+      {rejectExpenseModal && (
+        <div style={modalOverlay}>
+          <div style={modalContent}>
+            <h3 style={{ margin: "0 0 16px", color: "#dc2626" }}>❌ Reject Expenses</h3>
+            <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>
+              Employee will be able to resubmit expenses after rejection.
+            </p>
+            <textarea
+              value={rejectExpenseReason}
+              onChange={(e) => setRejectExpenseReason(e.target.value)}
+              placeholder="Reason for rejection (required)..."
+              style={textareaStyle}
+              rows={3}
+              required
+            />
+            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              <button onClick={handleRejectExpense} style={rejectBtn}>
+                ❌ Confirm Reject
+              </button>
+              <button
+                onClick={() => {
+                  setRejectExpenseModal(null);
+                  setRejectExpenseReason("");
                 }}
                 style={cancelBtn}
               >
@@ -385,6 +569,28 @@ const approveBtn = {
   borderRadius: 6,
   cursor: "pointer",
   fontSize: 12,
+  fontWeight: 500,
+};
+
+const verifyBtn = {
+  padding: "6px 12px",
+  background: "#0d9488",
+  color: "#fff",
+  border: "none",
+  borderRadius: 6,
+  cursor: "pointer",
+  fontSize: 12,
+  fontWeight: 500,
+};
+
+const docLink = {
+  padding: "4px 10px",
+  background: "#f3f4f6",
+  border: "1px solid #d1d5db",
+  borderRadius: 6,
+  fontSize: 11,
+  color: "#374151",
+  textDecoration: "none",
   fontWeight: 500,
 };
 

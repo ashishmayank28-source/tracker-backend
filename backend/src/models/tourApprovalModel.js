@@ -20,10 +20,11 @@ const tourApprovalSchema = new mongoose.Schema(
     /* 🔹 Approval Status */
     status: { 
       type: String, 
-      enum: ["Pending", "Approved", "Rejected", "Completed"],
+      enum: ["Pending", "Approved", "Rejected", "ExpenseSubmitted", "Verified", "Completed"],
       default: "Pending" 
     },
     approvedBy: { type: String, default: null },
+    approvedByCode: { type: String, default: null }, // ✅ Store manager empCode for verification
     approvedDate: { type: Date },
     rejectedBy: { type: String, default: null },
     rejectedDate: { type: Date },
@@ -37,6 +38,18 @@ const tourApprovalSchema = new mongoose.Schema(
     totalExpense: { type: Number, default: 0 },
     expenseDate: { type: Date },
     expenseRemarks: { type: String, default: "" },
+
+    /* 🔹 Expense Documents (Bills, Tickets, Invoices) */
+    billsUrl: { type: String, default: "" },
+    ticketsUrl: { type: String, default: "" },
+    invoicesUrl: { type: String, default: "" },
+
+    /* 🔹 Expense Verification (by same manager who approved) */
+    expenseVerified: { type: Boolean, default: false },
+    verifiedBy: { type: String, default: null },
+    verifiedByCode: { type: String, default: null },
+    verifiedDate: { type: Date },
+    verificationRemarks: { type: String, default: "" },
   },
   {
     timestamps: true,
