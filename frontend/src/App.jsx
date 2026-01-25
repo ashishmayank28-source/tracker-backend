@@ -23,6 +23,8 @@ import VendorLogin from "./pages/VendorLogin.jsx";
 import VendorDashboard from "./pages/VendorDashboard.jsx";
 import Profile from "./pages/Profile.jsx";
 import UserProfileManager from "./pages/admin/UserProfileManager.jsx";
+import GuestLogin from "./pages/GuestLogin.jsx"; // ✅ Guest Login
+import GuestDashboard from "./pages/GuestDashboard.jsx"; // ✅ Guest Dashboard
 
 /* ---------- Guards ---------- */
 function RequireAdmin({ children }) {
@@ -118,6 +120,7 @@ export default function App() {
           <Route path="/login/regional" element={<RegionalManagerLogin />} />
           <Route path="/login/admin" element={<AdminLogin />} />
           <Route path="/vendor/login" element={<VendorLogin />} />
+          <Route path="/login/guest" element={<GuestLogin />} />
 
           {/* Employee view for managers/admin */}
           <Route
@@ -196,6 +199,16 @@ export default function App() {
             element={
               <RequireRole roles={["Vendor"]}>
                 <VendorDashboard />
+              </RequireRole>
+            }
+          />
+
+          {/* Guest */}
+          <Route
+            path="/guest-dashboard"
+            element={
+              <RequireRole roles={["Guest"]}>
+                <GuestDashboard />
               </RequireRole>
             }
           />

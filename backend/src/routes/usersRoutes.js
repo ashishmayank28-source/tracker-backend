@@ -64,10 +64,11 @@ router.get("/", protect, async (req, res) => {
   }
 });
 
-/* ---------- All Users (Admin only) ---------- */
+/* ---------- All Users (Admin + Guest read-only) ---------- */
 router.get("/all", protect, async (req, res) => {
   try {
-    if (req.user.role !== "Admin") {
+    // ✅ Allow Admin and Guest (read-only access)
+    if (req.user.role !== "Admin" && req.user.role !== "Guest") {
       return res.status(403).json({ message: "Access denied" });
     }
     const users = await User.find().select("-passwordHash").lean();

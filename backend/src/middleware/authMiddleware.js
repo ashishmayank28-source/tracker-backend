@@ -49,8 +49,12 @@ export const authMiddleware = async (req, res, next) => {
 export const requireRole = (...allowed) => (req, res, next) => {
   try {
     const role = req.user?.role?.toLowerCase();   // ✅ case-insensitive
-    const allowedLower = allowed.map(r => r.toLowerCase());
-    if (!role || !allowedLower.includes(role)) {
+    const allowedLower = allowed.flat().map(r => r.toLowerCase());
+    
+    // ✅ Allow Guest for GET requests (read-only access)
+    const isGuestReadAccess = role === "guest" && req.method === "GET";
+    
+    if (!role || (!allowedLower.includes(role) && !isGuestReadAccess)) {
       return res.status(403).json({ message: "Forbidden" });
     }
     next();
@@ -65,13 +69,17 @@ export const protect = authMiddleware;
 /* ---------- Admin Only ---------- */
 export const adminOnly = (req, res, next) => {
   try {
-    const role = req.user?.role?.toLowerCase();
-    if (role === "admin") {
+    const role = (req.user?.role || "").toLowerCase();
+    // ✅ Allow Guest for GET requests (read-only access)
+    if (role === "admin" || (role === "guest" && req.method === "GET")) {
+      console.log("✅ adminOnly PASSED for role:", role, "method:", req.method);
       next();
     } else {
+      console.log("❌ adminOnly FAILED for role:", role, "method:", req.method);
       res.status(403).json({ message: "Access denied: Admins only" });
     }
   } catch (err) {
+    console.error("adminOnly error:", err);
     res.status(500).json({ message: "Auth check failed" });
   }
 };

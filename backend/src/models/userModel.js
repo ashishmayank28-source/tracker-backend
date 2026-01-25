@@ -4,9 +4,12 @@ const userSchema = new mongoose.Schema(
   {
     empCode: { type: String, required: true, unique: true },
     name: { type: String, required: true },
-    role: { type: String, enum: ["Employee", "Manager", "BranchManager", "RegionalManager", "Admin","Vendor"], required: true },
+    role: { type: String, enum: ["Employee", "Manager", "BranchManager", "RegionalManager", "Admin", "Vendor", "Guest"], required: true },
     passwordHash: { type: String, required: true },
     plainPassword: { type: String, default: "" }, // ⚠️ For admin reference only
+    
+    // ✅ Guest user specific - allowed tiles
+    allowedTiles: { type: [String], default: [] },
     area: String,
     branch: String,
     region: String,

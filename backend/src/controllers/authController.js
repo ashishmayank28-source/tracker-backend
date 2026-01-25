@@ -22,20 +22,21 @@ export async function login(req, res) {
     if (!raw || !password) {
       return res.status(400).json({ message: "Missing credentials" });
     }
-// After user found & password validated
-if (req.body.role && req.body.role !== user.role) {
-  return res.status(403).json({ message: `Access denied: You are not a ${req.body.role}` });
-}
  
-    // 🔍 Find by email OR empCode
+    // 🔍 Find by email OR empCode (case-insensitive)
     const query = raw.includes("@")
       ? { email: normEmail(raw) }
-      : { empCode: normCode(raw) };
+      : { empCode: { $regex: new RegExp(`^${raw}$`, 'i') } }; // ✅ Case-insensitive search
 
+    console.log("🔍 Searching user with query:", JSON.stringify(query));
+    
     const user = await User.findOne(query).select("+passwordHash");
     if (!user || user.isActive === false) {
+      console.log("❌ User not found or inactive");
       return res.status(401).json({ message: "Invalid credentials" });
     }
+    
+    console.log("✅ User found:", user.empCode, user.role);
 
     let ok = false;
 
@@ -92,6 +93,7 @@ if (req.body.role && req.body.role !== user.role) {
         area: user.area || "",
         branch: user.branch || "",
         region: user.region || "",
+        allowedTiles: user.allowedTiles || [], // ✅ For Guest users
       },
     });
   } catch (e) {

@@ -2,6 +2,23 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../auth.jsx";
 import { useUserHierarchy } from "../../context/UserHierarchyContext.jsx";
 
+// ✅ Available tiles for Guest users
+const AVAILABLE_TILES = [
+  { id: "users", label: "👥 Users", color: "#3b82f6" },
+  { id: "user-details", label: "📋 User Details", color: "#8b5cf6" },
+  { id: "user-profiles", label: "✏️ User Profiles", color: "#f97316" },
+  { id: "attendance", label: "📅 Attendance", color: "#10b981" },
+  { id: "performance", label: "⭐ Performance", color: "#f59e0b" },
+  { id: "daily", label: "📝 Daily Tracker", color: "#06b6d4" },
+  { id: "revenue", label: "💰 Revenue", color: "#22c55e" },
+  { id: "assets", label: "🎁 Assets", color: "#ec4899" },
+  { id: "retailers", label: "🏬 Retailers DB", color: "#6366f1" },
+  { id: "dump", label: "🗂 Dump Management", color: "#ef4444" },
+  { id: "ledger", label: "📊 Assignment Ledger", color: "#14b8a6" },
+  { id: "assignment-table", label: "📋 Assignment Table", color: "#a855f7" },
+  { id: "travel", label: "✈️ Travel Requests", color: "#0ea5e9" },
+];
+
 export default function UsersTile() {
   const { setUsers: setContextUsers } = useUserHierarchy();
   const { token } = useAuth();
@@ -18,6 +35,7 @@ export default function UsersTile() {
     managerEmpCode: "",
     branchManagerEmpCode: "",
     regionalManagerEmpCode: "",
+    allowedTiles: [], // ✅ For Guest users
   });
   const [err, setErr] = useState("");
   const [success, setSuccess] = useState("");
@@ -25,6 +43,7 @@ export default function UsersTile() {
   const [managerEmpCode, setManagerEmpCode] = useState("");
   const [editUser, setEditUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showTileModal, setShowTileModal] = useState(false); // ✅ Tile selection modal
 
   const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
   const api = (path) => `${API_BASE}/api/admin${path}`;
@@ -90,6 +109,7 @@ export default function UsersTile() {
         managerEmpCode: "",
         branchManagerEmpCode: "",
         regionalManagerEmpCode: "",
+        allowedTiles: [],
       });
       setSuccess(`User ${data.empCode} created successfully!`);
       loadUsers();
@@ -158,7 +178,23 @@ export default function UsersTile() {
       managerEmpCode: role === "Employee" ? form.managerEmpCode : "",
       branchManagerEmpCode: ["Employee", "Manager"].includes(role) ? form.branchManagerEmpCode : "",
       regionalManagerEmpCode: ["Employee", "Manager", "BranchManager"].includes(role) ? form.regionalManagerEmpCode : "",
+      allowedTiles: role === "Guest" ? form.allowedTiles : [], // ✅ Reset tiles if not Guest
     });
+    
+    // ✅ Open tile selection modal when Guest is selected
+    if (role === "Guest") {
+      setShowTileModal(true);
+    }
+  }
+
+  // ✅ Toggle tile selection
+  function toggleTile(tileId) {
+    setForm((prev) => ({
+      ...prev,
+      allowedTiles: prev.allowedTiles.includes(tileId)
+        ? prev.allowedTiles.filter((id) => id !== tileId)
+        : [...prev.allowedTiles, tileId],
+    }));
   }
 
   useEffect(() => {
@@ -243,7 +279,29 @@ export default function UsersTile() {
             <option value="RegionalManager">Regional Manager</option>
             <option value="Admin">Admin</option>
             <option value="Vendor">Vendor</option>
+            <option value="Guest">👤 Guest</option>
           </select>
+
+          {/* ✅ Show tile selection button when Guest is selected */}
+          {form.role === "Guest" && (
+            <button
+              type="button"
+              onClick={() => setShowTileModal(true)}
+              style={{
+                padding: 10,
+                borderRadius: 6,
+                border: "2px dashed #6b7280",
+                background: form.allowedTiles.length > 0 ? "#f0fdf4" : "#f9fafb",
+                cursor: "pointer",
+                fontWeight: 500,
+                color: form.allowedTiles.length > 0 ? "#16a34a" : "#6b7280",
+              }}
+            >
+              📋 {form.allowedTiles.length > 0 
+                ? `${form.allowedTiles.length} Tiles Selected` 
+                : "Select Tiles for Guest"}
+            </button>
+          )}
 
           {/* Location Info */}
           <input
@@ -611,6 +669,163 @@ export default function UsersTile() {
                 }}
               >
                 Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Tile Selection Modal for Guest Users */}
+      {showTileModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              background: "white",
+              padding: 24,
+              borderRadius: 16,
+              width: 600,
+              maxWidth: "95vw",
+              maxHeight: "80vh",
+              overflow: "auto",
+            }}
+          >
+            <h4 style={{ marginBottom: 16, fontSize: 18, fontWeight: 600 }}>
+              📋 Select Tiles for Guest Access
+            </h4>
+            <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
+              Select which tiles this guest user can access in their dashboard.
+            </p>
+
+            {/* Select All / Deselect All */}
+            <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, allowedTiles: AVAILABLE_TILES.map((t) => t.id) })}
+                style={{
+                  padding: "6px 12px",
+                  background: "#3b82f6",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  cursor: "pointer",
+                }}
+              >
+                Select All
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, allowedTiles: [] })}
+                style={{
+                  padding: "6px 12px",
+                  background: "#ef4444",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  cursor: "pointer",
+                }}
+              >
+                Deselect All
+              </button>
+            </div>
+
+            {/* Tile Grid */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+                gap: 10,
+                marginBottom: 20,
+              }}
+            >
+              {AVAILABLE_TILES.map((tile) => (
+                <div
+                  key={tile.id}
+                  onClick={() => toggleTile(tile.id)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: 12,
+                    background: form.allowedTiles.includes(tile.id) ? `${tile.color}15` : "#fff",
+                    border: `2px solid ${form.allowedTiles.includes(tile.id) ? tile.color : "#e2e8f0"}`,
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={form.allowedTiles.includes(tile.id)}
+                    onChange={() => {}}
+                    style={{ width: 16, height: 16, cursor: "pointer" }}
+                  />
+                  <span
+                    style={{
+                      fontWeight: form.allowedTiles.includes(tile.id) ? 600 : 400,
+                      color: form.allowedTiles.includes(tile.id) ? "#1e293b" : "#64748b",
+                      fontSize: 13,
+                    }}
+                  >
+                    {tile.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
+              {form.allowedTiles.length} of {AVAILABLE_TILES.length} tiles selected
+            </p>
+
+            {/* Buttons */}
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTileModal(false);
+                  if (form.allowedTiles.length === 0) {
+                    setForm({ ...form, role: "Employee" }); // Reset if no tiles selected
+                  }
+                }}
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: 8,
+                  background: "#e5e7eb",
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: 500,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowTileModal(false)}
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: 8,
+                  background: "#10b981",
+                  color: "#fff",
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                ✅ Confirm Selection
               </button>
             </div>
           </div>

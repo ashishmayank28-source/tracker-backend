@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../../auth.jsx";
+import * as XLSX from "xlsx"; // ✅ Excel export
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
@@ -216,24 +217,74 @@ export default function AssignmentTable() {
   const years = ["All", 2024, 2025, 2026];
   const lots = ["All", "Lot 1", "Lot 2", "Lot 3"];
 
+  // ✅ Export to Excel function
+  const exportToExcel = () => {
+    const exportData = filteredEmps.map((emp) => {
+      const stock = calculateEmpStock(emp.empCode, emp.name);
+      const row = {
+        "Emp Code": emp.empCode,
+        "Emp Name": emp.name,
+        "Role": emp.role,
+        "Branch": emp.branch || "-",
+      };
+      
+      // Add sample items columns
+      sampleItems.forEach((item) => {
+        row[`${item} (Assigned)`] = stock[item]?.assigned || 0;
+        row[`${item} (Used)`] = (stock[item]?.used || 0) + (stock[item]?.assignedOut || 0);
+        row[`${item} (Available)`] = stock[item]?.available || 0;
+      });
+      
+      // Add totals
+      row["Total Assigned"] = sampleItems.reduce((sum, item) => sum + (stock[item]?.assigned || 0), 0);
+      row["Total Used"] = sampleItems.reduce((sum, item) => sum + ((stock[item]?.used || 0) + (stock[item]?.assignedOut || 0)), 0);
+      row["Total Available"] = sampleItems.reduce((sum, item) => sum + (stock[item]?.available || 0), 0);
+      
+      return row;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Assignment Table");
+    
+    const fileName = `Assignment_Table_${year}_${lot}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  };
+
   return (
     <div style={{ padding: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <h2 style={{ margin: 0 }}>📋 Assignment Table (Employee-wise Stock)</h2>
-        <button
-          onClick={fetchAssignments}
-          style={{
-            padding: "8px 16px",
-            background: "#3b82f6",
-            color: "white",
-            border: "none",
-            borderRadius: 6,
-            cursor: "pointer",
-            fontWeight: 500,
-          }}
-        >
-          🔄 Refresh
-        </button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={exportToExcel}
+            style={{
+              padding: "8px 16px",
+              background: "#22c55e",
+              color: "white",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontWeight: 500,
+            }}
+          >
+            📥 Export to Excel
+          </button>
+          <button
+            onClick={fetchAssignments}
+            style={{
+              padding: "8px 16px",
+              background: "#3b82f6",
+              color: "white",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontWeight: 500,
+            }}
+          >
+            🔄 Refresh
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -264,102 +315,136 @@ export default function AssignmentTable() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table - Excel Style Freeze */}
       {loading ? (
         <p>Loading...</p>
       ) : sampleItems.length === 0 ? (
         <p style={{ color: "#999" }}>⚠️ No stock items found. Please add items in Sample Boards Allocation first.</p>
       ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", minWidth: 1200, borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: "#1976d2", color: "white" }}>
-                <th style={{ padding: 10, border: "1px solid #ddd", position: "sticky", left: 0, background: "#1976d2", zIndex: 2 }}>Emp Code</th>
-                <th style={{ padding: 10, border: "1px solid #ddd", position: "sticky", left: 80, background: "#1976d2", zIndex: 2 }}>Emp Name</th>
-                <th style={{ padding: 10, border: "1px solid #ddd" }}>Role</th>
-                <th style={{ padding: 10, border: "1px solid #ddd" }}>Branch</th>
-                {sampleItems.map(item => (
-                  <th key={item} style={{ padding: 10, border: "1px solid #ddd", minWidth: 100 }}>
-                    <div style={{ fontSize: 11 }}>{item}</div>
-                    <div style={{ fontSize: 10, fontWeight: 400, marginTop: 4 }}>
-                      <span style={{ color: "#90caf9" }}>Asgn</span> | 
-                      <span style={{ color: "#ffcc80" }}> Used</span> | 
-                      <span style={{ color: "#a5d6a7" }}> Avl</span>
-                    </div>
-                  </th>
-                ))}
-                <th style={{ padding: 10, border: "1px solid #ddd" }}>Total Assigned</th>
-                <th style={{ padding: 10, border: "1px solid #ddd" }}>Total Used</th>
-                <th style={{ padding: 10, border: "1px solid #ddd" }}>Total Available</th>
-                <th style={{ padding: 10, border: "1px solid #ddd" }}>History</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredEmps.map((emp, idx) => {
-                const stock = calculateEmpStock(emp.empCode, emp.name);
-                // ✅ Only count items that exist in sampleItems list
-                const totalAssigned = sampleItems.reduce((sum, item) => sum + (stock[item]?.assigned || 0), 0);
-                const totalUsed = sampleItems.reduce((sum, item) => sum + ((stock[item]?.used || 0) + (stock[item]?.assignedOut || 0)), 0);
-                const totalAvailable = sampleItems.reduce((sum, item) => sum + (stock[item]?.available || 0), 0);
+        <>
+          <style>{`
+            .excel-table-container {
+              max-height: 60vh;
+              overflow: auto;
+              border: 1px solid #ddd;
+              border-radius: 8px;
+            }
+            .excel-table {
+              border-collapse: separate;
+              border-spacing: 0;
+              width: 100%;
+              min-width: 1400px;
+            }
+            .excel-table th {
+              position: sticky;
+              top: 0;
+              background: #1976d2;
+              color: white;
+              padding: 10px;
+              border: 1px solid #1565c0;
+              font-weight: 600;
+              z-index: 2;
+            }
+            .excel-table td {
+              padding: 8px;
+              border: 1px solid #ddd;
+            }
+            .excel-table .freeze-col {
+              position: sticky;
+              background: #1976d2;
+              z-index: 3;
+            }
+            .excel-table .freeze-col-1 { left: 0; min-width: 90px; }
+            .excel-table .freeze-col-2 { left: 90px; min-width: 120px; }
+            .excel-table tbody .freeze-col {
+              z-index: 1;
+            }
+            .excel-table tbody tr:nth-child(odd) { background: #fff; }
+            .excel-table tbody tr:nth-child(even) { background: #f5f5f5; }
+            .excel-table tbody tr:nth-child(odd) .freeze-col { background: #fff; }
+            .excel-table tbody tr:nth-child(even) .freeze-col { background: #f5f5f5; }
+          `}</style>
+          
+          <div className="excel-table-container">
+            <table className="excel-table">
+              <thead>
+                <tr>
+                  <th className="freeze-col freeze-col-1">Emp Code</th>
+                  <th className="freeze-col freeze-col-2">Emp Name</th>
+                  <th>Role</th>
+                  <th>Branch</th>
+                  {sampleItems.map(item => (
+                    <th key={item} style={{ minWidth: 110 }}>
+                      <div style={{ fontSize: 11 }}>{item}</div>
+                      <div style={{ fontSize: 10, fontWeight: 400, marginTop: 4 }}>
+                        <span style={{ color: "#90caf9" }}>Asgn</span> | 
+                        <span style={{ color: "#ffcc80" }}> Used</span> | 
+                        <span style={{ color: "#a5d6a7" }}> Avl</span>
+                      </div>
+                    </th>
+                  ))}
+                  <th>Total Assigned</th>
+                  <th>Total Used</th>
+                  <th>Total Available</th>
+                  <th>History</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredEmps.map((emp) => {
+                  const stock = calculateEmpStock(emp.empCode, emp.name);
+                  const totalAssigned = sampleItems.reduce((sum, item) => sum + (stock[item]?.assigned || 0), 0);
+                  const totalUsed = sampleItems.reduce((sum, item) => sum + ((stock[item]?.used || 0) + (stock[item]?.assignedOut || 0)), 0);
+                  const totalAvailable = sampleItems.reduce((sum, item) => sum + (stock[item]?.available || 0), 0);
 
-                return (
-                  <tr key={emp.empCode} style={{ background: idx % 2 === 0 ? "#fff" : "#f9f9f9" }}>
-                    <td style={{ padding: 8, border: "1px solid #ddd", position: "sticky", left: 0, background: idx % 2 === 0 ? "#fff" : "#f9f9f9", fontWeight: 500 }}>
-                      {emp.empCode}
-                    </td>
-                    <td style={{ padding: 8, border: "1px solid #ddd", position: "sticky", left: 80, background: idx % 2 === 0 ? "#fff" : "#f9f9f9" }}>
-                      {emp.name}
-                    </td>
-                    <td style={{ padding: 8, border: "1px solid #ddd", fontSize: 11 }}>
-                      <span style={{ 
-                        background: emp.role === "Employee" ? "#e3f2fd" : emp.role === "Manager" ? "#e8f5e9" : "#fff3e0",
-                        padding: "2px 6px",
-                        borderRadius: 4
-                      }}>
-                        {emp.role}
-                      </span>
-                    </td>
-                    <td style={{ padding: 8, border: "1px solid #ddd", fontSize: 12 }}>{emp.branch || "-"}</td>
-                    {sampleItems.map(item => (
-                      <td key={item} style={{ padding: 8, border: "1px solid #ddd", textAlign: "center" }}>
-                        <span style={{ color: "#1976d2" }}>{stock[item]?.assigned || 0}</span>
-                        <span style={{ color: "#999" }}> | </span>
-                        <span style={{ color: "#f57c00" }}>{(stock[item]?.used || 0) + (stock[item]?.assignedOut || 0)}</span>
-                        <span style={{ color: "#999" }}> | </span>
-                        <span style={{ color: (stock[item]?.available || 0) > 0 ? "#388e3c" : "#999" }}>{stock[item]?.available || 0}</span>
+                  return (
+                    <tr key={emp.empCode}>
+                      <td className="freeze-col freeze-col-1" style={{ fontWeight: 500 }}>{emp.empCode}</td>
+                      <td className="freeze-col freeze-col-2">{emp.name}</td>
+                      <td style={{ fontSize: 11 }}>
+                        <span style={{ 
+                          background: emp.role === "Employee" ? "#e3f2fd" : emp.role === "Manager" ? "#e8f5e9" : "#fff3e0",
+                          padding: "2px 6px",
+                          borderRadius: 4
+                        }}>
+                          {emp.role}
+                        </span>
                       </td>
-                    ))}
-                    <td style={{ padding: 8, border: "1px solid #ddd", textAlign: "center", fontWeight: 600, color: "#1976d2" }}>
-                      {totalAssigned}
-                    </td>
-                    <td style={{ padding: 8, border: "1px solid #ddd", textAlign: "center", fontWeight: 600, color: "#f57c00" }}>
-                      {totalUsed}
-                    </td>
-                    <td style={{ padding: 8, border: "1px solid #ddd", textAlign: "center", fontWeight: 600, color: totalAvailable > 0 ? "#388e3c" : "#999" }}>
-                      {totalAvailable}
-                    </td>
-                    <td style={{ padding: 8, border: "1px solid #ddd", textAlign: "center" }}>
-                      <button
-                        onClick={() => openHistory(emp)}
-                        style={{
-                          background: "#7c4dff",
-                          color: "white",
-                          border: "none",
-                          borderRadius: 4,
-                          padding: "4px 10px",
-                          fontSize: 12,
-                          cursor: "pointer"
-                        }}
-                      >
-                        📜 View
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      <td style={{ fontSize: 12 }}>{emp.branch || "-"}</td>
+                      {sampleItems.map(item => (
+                        <td key={item} style={{ textAlign: "center" }}>
+                          <span style={{ color: "#1976d2" }}>{stock[item]?.assigned || 0}</span>
+                          <span style={{ color: "#999" }}> | </span>
+                          <span style={{ color: "#f57c00" }}>{(stock[item]?.used || 0) + (stock[item]?.assignedOut || 0)}</span>
+                          <span style={{ color: "#999" }}> | </span>
+                          <span style={{ color: (stock[item]?.available || 0) > 0 ? "#388e3c" : "#999" }}>{stock[item]?.available || 0}</span>
+                        </td>
+                      ))}
+                      <td style={{ textAlign: "center", fontWeight: 600, color: "#1976d2" }}>{totalAssigned}</td>
+                      <td style={{ textAlign: "center", fontWeight: 600, color: "#f57c00" }}>{totalUsed}</td>
+                      <td style={{ textAlign: "center", fontWeight: 600, color: totalAvailable > 0 ? "#388e3c" : "#999" }}>{totalAvailable}</td>
+                      <td style={{ textAlign: "center" }}>
+                        <button
+                          onClick={() => openHistory(emp)}
+                          style={{
+                            background: "#7c4dff",
+                            color: "white",
+                            border: "none",
+                            borderRadius: 4,
+                            padding: "4px 10px",
+                            fontSize: 12,
+                            cursor: "pointer"
+                          }}
+                        >
+                          📜 View
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* History Modal */}

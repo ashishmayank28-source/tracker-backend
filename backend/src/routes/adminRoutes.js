@@ -1,4 +1,5 @@
 import express from "express";
+import { protect, adminOnly } from "../middleware/authMiddleware.js";
 import {
   getUsers,
   createUser,
@@ -10,11 +11,14 @@ import {
 
 const router = express.Router();
 
-router.get("/users", getUsers);
-router.post("/users", createUser);
-router.delete("/users/:empCode", removeUser);
-router.post("/users/:empCode/reset-password", resetPassword);
-router.post("/users/:empCode/report-to", updateReportTo);
-router.delete("/users/:empCode/report-to/:managerEmpCode", removeReportTo);
+// ✅ GET routes - Admin and Guest (read-only) can access
+router.get("/users", protect, adminOnly, getUsers);
+
+// ✅ POST/PUT/DELETE routes - Admin only
+router.post("/users", protect, adminOnly, createUser);
+router.delete("/users/:empCode", protect, adminOnly, removeUser);
+router.post("/users/:empCode/reset-password", protect, adminOnly, resetPassword);
+router.post("/users/:empCode/report-to", protect, adminOnly, updateReportTo);
+router.delete("/users/:empCode/report-to/:managerEmpCode", protect, adminOnly, removeReportTo);
 
 export default router;

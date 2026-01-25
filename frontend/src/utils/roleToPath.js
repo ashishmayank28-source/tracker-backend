@@ -14,6 +14,8 @@ export function roleToDashboardPath(role) {
     case "regionalmanager":
     case "regional_manager":
       return "/regional-dashboard";   // ✅ match App.jsx
+    case "guest":
+      return "/guest-dashboard";      // ✅ Guest dashboard
     default:
       return "/";
   }

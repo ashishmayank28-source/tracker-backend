@@ -3,7 +3,7 @@ import { useAuth } from "../../auth.jsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
-export default function SampleBoardsAllocationAdmin() {
+export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
   const { user, token } = useAuth();
 
   const [stockColumns, setStockColumns] = useState(["Opening", "Issued", "Balance"]);
@@ -372,170 +372,196 @@ export default function SampleBoardsAllocationAdmin() {
                   {stockColumns.map((col) => (
                     <th key={col} style={{ minWidth: 80 }}>
                       {col}
-                      {!["Opening", "Issued", "Balance"].includes(col) && (
+                      {/* ✅ Hide column delete for Guest */}
+                      {!isGuest && !["Opening", "Issued", "Balance"].includes(col) && (
                         <button onClick={() => removeStockColumn(col)} style={{ marginLeft: 5, color: "red", fontSize: 10 }}>
                           ✕
                         </button>
                       )}
                     </th>
                   ))}
-                  <th>Action</th>
+                  {/* ✅ Hide Action column for Guest */}
+                  {!isGuest && <th>Action</th>}
                 </tr>
               </thead>
               <tbody>
                 {items.map((it, idx) => (
                   <tr key={it._id || idx}>
                     <td>
-                      <input
-                        type="text"
-                        value={it.name || ""}
-                        onChange={(e) => {
-                          const newItems = items.map((p, i) => (i === idx ? { ...p, name: e.target.value } : p));
-                          setItems(newItems);
-                        }}
-                        onBlur={() => saveStock()}
-                        style={{ width: "100%", border: "1px solid #ddd", padding: 4 }}
-                      />
-                    </td>
-                    <td style={{ background: "#e3f2fd" }}>
-                      <select
-                        value={it.year || "2025"}
-                        onChange={(e) => {
-                          const newItems = items.map((p, i) => (i === idx ? { ...p, year: e.target.value } : p));
-                          setItems(newItems);
-                          saveStock(newItems);
-                        }}
-                        style={{ width: "100%", padding: 4 }}
-                      >
-                        <option value="2024">2024</option>
-                        <option value="2025">2025</option>
-                        <option value="2026">2026</option>
-                      </select>
-                    </td>
-                    <td style={{ background: "#fff3e0" }}>
-                      <select
-                        value={it.lot || "Lot 1"}
-                        onChange={(e) => {
-                          const newItems = items.map((p, i) => (i === idx ? { ...p, lot: e.target.value } : p));
-                          setItems(newItems);
-                          saveStock(newItems);
-                        }}
-                        style={{ width: "100%", padding: 4 }}
-                      >
-                        <option value="Lot 1">Lot 1</option>
-                        <option value="Lot 2">Lot 2</option>
-                        <option value="Lot 3">Lot 3</option>
-                        <option value="Lot 4">Lot 4</option>
-                        <option value="Lot 5">Lot 5</option>
-                      </select>
-                    </td>
-                    {stockColumns.map((col) => (
-                      <td key={col}>
+                      {isGuest ? (
+                        <span style={{ padding: 4 }}>{it.name || ""}</span>
+                      ) : (
                         <input
-                          type="number"
-                          value={it[col] || 0}
-                          disabled={col === "Balance"} // Balance is auto-calculated
+                          type="text"
+                          value={it.name || ""}
                           onChange={(e) => {
-                            const newVal = Number(e.target.value);
-                            const newItems = items.map((p, i) => {
-                              if (i !== idx) return p;
-                              const updated = { ...p, [col]: newVal };
-                              // ✅ Auto-calculate Balance when Opening or Issued changes
-                              if (col === "Opening" || col === "Issued") {
-                                updated.Balance = (updated.Opening || 0) - (updated.Issued || 0);
-                              }
-                              return updated;
-                            });
+                            const newItems = items.map((p, i) => (i === idx ? { ...p, name: e.target.value } : p));
                             setItems(newItems);
                           }}
                           onBlur={() => saveStock()}
-                          style={{ width: 70, padding: 4, border: "1px solid #ddd" }}
+                          style={{ width: "100%", border: "1px solid #ddd", padding: 4 }}
                         />
+                      )}
+                    </td>
+                    <td style={{ background: "#e3f2fd" }}>
+                      {isGuest ? (
+                        <span style={{ padding: 4 }}>{it.year || "2025"}</span>
+                      ) : (
+                        <select
+                          value={it.year || "2025"}
+                          onChange={(e) => {
+                            const newItems = items.map((p, i) => (i === idx ? { ...p, year: e.target.value } : p));
+                            setItems(newItems);
+                            saveStock(newItems);
+                          }}
+                          style={{ width: "100%", padding: 4 }}
+                        >
+                          <option value="2024">2024</option>
+                          <option value="2025">2025</option>
+                          <option value="2026">2026</option>
+                        </select>
+                      )}
+                    </td>
+                    <td style={{ background: "#fff3e0" }}>
+                      {isGuest ? (
+                        <span style={{ padding: 4 }}>{it.lot || "Lot 1"}</span>
+                      ) : (
+                        <select
+                          value={it.lot || "Lot 1"}
+                          onChange={(e) => {
+                            const newItems = items.map((p, i) => (i === idx ? { ...p, lot: e.target.value } : p));
+                            setItems(newItems);
+                            saveStock(newItems);
+                          }}
+                          style={{ width: "100%", padding: 4 }}
+                        >
+                          <option value="Lot 1">Lot 1</option>
+                          <option value="Lot 2">Lot 2</option>
+                          <option value="Lot 3">Lot 3</option>
+                          <option value="Lot 4">Lot 4</option>
+                          <option value="Lot 5">Lot 5</option>
+                        </select>
+                      )}
+                    </td>
+                    {stockColumns.map((col) => (
+                      <td key={col}>
+                        {isGuest ? (
+                          <span style={{ padding: 4 }}>{it[col] || 0}</span>
+                        ) : (
+                          <input
+                            type="number"
+                            value={it[col] || 0}
+                            disabled={col === "Balance"} // Balance is auto-calculated
+                            onChange={(e) => {
+                              const newVal = Number(e.target.value);
+                              const newItems = items.map((p, i) => {
+                                if (i !== idx) return p;
+                                const updated = { ...p, [col]: newVal };
+                                // ✅ Auto-calculate Balance when Opening or Issued changes
+                                if (col === "Opening" || col === "Issued") {
+                                  updated.Balance = (updated.Opening || 0) - (updated.Issued || 0);
+                                }
+                                return updated;
+                              });
+                              setItems(newItems);
+                            }}
+                            onBlur={() => saveStock()}
+                            style={{ width: 70, padding: 4, border: "1px solid #ddd" }}
+                          />
+                        )}
                       </td>
                     ))}
-                    <td>
-                      <button 
-                        onClick={() => {
-                          const newItems = items.filter((_, i) => i !== idx);
-                          setItems(newItems);
-                          saveStock(newItems);
-                        }} 
-                        style={{ color: "red", background: "#fee2e2", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}
-                      >
-                        ❌ Remove
-                      </button>
-                    </td>
+                    {/* ✅ Hide Remove button for Guest */}
+                    {!isGuest && (
+                      <td>
+                        <button 
+                          onClick={() => {
+                            const newItems = items.filter((_, i) => i !== idx);
+                            setItems(newItems);
+                            saveStock(newItems);
+                          }} 
+                          style={{ color: "red", background: "#fee2e2", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}
+                        >
+                          ❌ Remove
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button 
-              onClick={() => {
-                const newCol = prompt("Enter new stock column name:");
-                if (newCol && !stockColumns.includes(newCol)) {
-                  const newColumns = [...stockColumns, newCol];
-                  setStockColumns(newColumns);
-                  const newItems = items.map((i) => ({ ...i, [newCol]: 0 }));
-                  setItems(newItems);
-                  saveStock(newItems, newColumns);
-                }
-              }}
-              style={{ background: "#3b82f6", color: "white", border: "none", padding: "8px 12px", borderRadius: 4, cursor: "pointer" }}
-            >
-              ➕ Add Column
-            </button>
-            <button 
-              onClick={() => {
-                const newName = prompt("Enter new item name:");
-                if (newName) {
-                  const newItems = [...items, { name: newName, year: "2025", lot: "Lot 1", Opening: 0, Issued: 0, Balance: 0 }];
-                  setItems(newItems);
-                  saveStock(newItems);
-                }
-              }} 
-              style={{ background: "#10b981", color: "white", border: "none", padding: "8px 12px", borderRadius: 4, cursor: "pointer" }}
-            >
-              ➕ Add Item
-            </button>
-            {/* ✅ NEW: Add New Lot Button */}
-            <button 
-              onClick={() => {
-                const year = prompt("Enter Year (e.g., 2025):", new Date().getFullYear().toString());
-                if (!year) return;
-                
-                const lotNumber = prompt("Enter Lot Number (1-5):", "2");
-                if (!lotNumber) return;
-                
-                const lotName = `Lot ${lotNumber}`;
-                const itemName = prompt("Enter Item Name for this lot:");
-                if (!itemName) return;
-                
-                const opening = prompt("Enter Opening Stock:", "0");
-                
-                const newItems = [...items, { 
-                  name: itemName, 
-                  year: year, 
-                  lot: lotName, 
-                  Opening: Number(opening) || 0, 
-                  Issued: 0, 
-                  Balance: Number(opening) || 0 
-                }];
-                setItems(newItems);
-                saveStock(newItems);
-                alert(`✅ New lot added: ${itemName} (${year} - ${lotName})`);
-              }} 
-              style={{ background: "#8b5cf6", color: "white", border: "none", padding: "8px 12px", borderRadius: 4, cursor: "pointer" }}
-            >
-              📦 Add New Lot
-            </button>
-            <button 
-              onClick={() => saveStock()}
-              style={{ background: "#f59e0b", color: "white", border: "none", padding: "8px 12px", borderRadius: 4, cursor: "pointer" }}
-            >
-              💾 Save Changes
-            </button>
+            {/* ✅ Hide edit buttons for Guest users */}
+            {!isGuest && (
+              <>
+                <button 
+                  onClick={() => {
+                    const newCol = prompt("Enter new stock column name:");
+                    if (newCol && !stockColumns.includes(newCol)) {
+                      const newColumns = [...stockColumns, newCol];
+                      setStockColumns(newColumns);
+                      const newItems = items.map((i) => ({ ...i, [newCol]: 0 }));
+                      setItems(newItems);
+                      saveStock(newItems, newColumns);
+                    }
+                  }}
+                  style={{ background: "#3b82f6", color: "white", border: "none", padding: "8px 12px", borderRadius: 4, cursor: "pointer" }}
+                >
+                  ➕ Add Column
+                </button>
+                <button 
+                  onClick={() => {
+                    const newName = prompt("Enter new item name:");
+                    if (newName) {
+                      const newItems = [...items, { name: newName, year: "2025", lot: "Lot 1", Opening: 0, Issued: 0, Balance: 0 }];
+                      setItems(newItems);
+                      saveStock(newItems);
+                    }
+                  }} 
+                  style={{ background: "#10b981", color: "white", border: "none", padding: "8px 12px", borderRadius: 4, cursor: "pointer" }}
+                >
+                  ➕ Add Item
+                </button>
+                {/* ✅ NEW: Add New Lot Button */}
+                <button 
+                  onClick={() => {
+                    const year = prompt("Enter Year (e.g., 2025):", new Date().getFullYear().toString());
+                    if (!year) return;
+                    
+                    const lotNumber = prompt("Enter Lot Number (1-5):", "2");
+                    if (!lotNumber) return;
+                    
+                    const lotName = `Lot ${lotNumber}`;
+                    const itemName = prompt("Enter Item Name for this lot:");
+                    if (!itemName) return;
+                    
+                    const opening = prompt("Enter Opening Stock:", "0");
+                    
+                    const newItems = [...items, { 
+                      name: itemName, 
+                      year: year, 
+                      lot: lotName, 
+                      Opening: Number(opening) || 0, 
+                      Issued: 0, 
+                      Balance: Number(opening) || 0 
+                    }];
+                    setItems(newItems);
+                    saveStock(newItems);
+                    alert(`✅ New lot added: ${itemName} (${year} - ${lotName})`);
+                  }} 
+                  style={{ background: "#8b5cf6", color: "white", border: "none", padding: "8px 12px", borderRadius: 4, cursor: "pointer" }}
+                >
+                  📦 Add New Lot
+                </button>
+                <button 
+                  onClick={() => saveStock()}
+                  style={{ background: "#f59e0b", color: "white", border: "none", padding: "8px 12px", borderRadius: 4, cursor: "pointer" }}
+                >
+                  💾 Save Changes
+                </button>
+              </>
+            )}
             <button 
               onClick={fetchStock}
               style={{ background: "#6b7280", color: "white", border: "none", padding: "8px 12px", borderRadius: 4, cursor: "pointer" }}
@@ -547,77 +573,80 @@ export default function SampleBoardsAllocationAdmin() {
       )}
 
       {/* 🔹 Assign To - Region-wise Hierarchy (RM removed - Admin → BM → Manager → Emp) */}
-      <div style={{ marginTop: 30 }}>
-        <b>Assign To:</b>
-        <p style={{ fontSize: 12, color: "#666", margin: "5px 0" }}>
-          ℹ️ Flow: Admin → BM → Manager → Employee
-        </p>
-        {(() => {
-          // Group employees by region, then by role (excluding RM)
-          const grouped = employees.reduce((acc, emp) => {
-            const region = emp.region || "Unknown Region";
-            if (!acc[region]) acc[region] = { BM: [], Manager: [], Employee: [] };
-            const role = emp.role || "Employee";
-            // ❌ Skip Regional Managers - RM layer removed
-            if (role.includes("Regional")) return acc;
-            else if (role.includes("Branch")) acc[region].BM.push(emp);
-            else if (role === "Manager") acc[region].Manager.push(emp);
-            else acc[region].Employee.push(emp);
-            return acc;
-          }, {});
+      {/* ✅ Hide for Guest users */}
+      {!isGuest && (
+        <div style={{ marginTop: 30 }}>
+          <b>Assign To:</b>
+          <p style={{ fontSize: 12, color: "#666", margin: "5px 0" }}>
+            ℹ️ Flow: Admin → BM → Manager → Employee
+          </p>
+          {(() => {
+            // Group employees by region, then by role (excluding RM)
+            const grouped = employees.reduce((acc, emp) => {
+              const region = emp.region || "Unknown Region";
+              if (!acc[region]) acc[region] = { BM: [], Manager: [], Employee: [] };
+              const role = emp.role || "Employee";
+              // ❌ Skip Regional Managers - RM layer removed
+              if (role.includes("Regional")) return acc;
+              else if (role.includes("Branch")) acc[region].BM.push(emp);
+              else if (role === "Manager") acc[region].Manager.push(emp);
+              else acc[region].Employee.push(emp);
+              return acc;
+            }, {});
 
-          return Object.entries(grouped).map(([region, roles]) => (
-            <div key={region} style={{ marginTop: 15, border: "1px solid #ddd", borderRadius: 8, padding: 10 }}>
-              <h4 style={{ margin: "0 0 10px 0", color: "#1976d2" }}>🌍 {region}</h4>
+            return Object.entries(grouped).map(([region, roles]) => (
+              <div key={region} style={{ marginTop: 15, border: "1px solid #ddd", borderRadius: 8, padding: 10 }}>
+                <h4 style={{ margin: "0 0 10px 0", color: "#1976d2" }}>🌍 {region}</h4>
 
-              {/* Branch Managers */}
-              {roles.BM.length > 0 && (
-                <div style={{ marginBottom: 8 }}>
-                  <b style={{ color: "#ff9800" }}>Branch Managers:</b>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
-                    {roles.BM.map((emp) => (
-                      <label key={emp.empCode} style={{ border: "1px solid #ff9800", borderRadius: 4, padding: "3px 6px", fontSize: 12, background: selectedEmps.find(e => e.empCode === emp.empCode) ? "#ffe0b2" : "white" }}>
-                        <input type="checkbox" checked={!!selectedEmps.find((e) => e.empCode === emp.empCode)} onChange={() => toggleEmployee(emp)} />{" "}
-                        {emp.name} ({emp.empCode})
-                      </label>
-                    ))}
+                {/* Branch Managers */}
+                {roles.BM.length > 0 && (
+                  <div style={{ marginBottom: 8 }}>
+                    <b style={{ color: "#ff9800" }}>Branch Managers:</b>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                      {roles.BM.map((emp) => (
+                        <label key={emp.empCode} style={{ border: "1px solid #ff9800", borderRadius: 4, padding: "3px 6px", fontSize: 12, background: selectedEmps.find(e => e.empCode === emp.empCode) ? "#ffe0b2" : "white" }}>
+                          <input type="checkbox" checked={!!selectedEmps.find((e) => e.empCode === emp.empCode)} onChange={() => toggleEmployee(emp)} />{" "}
+                          {emp.name} ({emp.empCode})
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Managers */}
-              {roles.Manager.length > 0 && (
-                <div style={{ marginBottom: 8 }}>
-                  <b style={{ color: "#4caf50" }}>Managers:</b>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
-                    {roles.Manager.map((emp) => (
-                      <label key={emp.empCode} style={{ border: "1px solid #4caf50", borderRadius: 4, padding: "3px 6px", fontSize: 12, background: selectedEmps.find(e => e.empCode === emp.empCode) ? "#c8e6c9" : "white" }}>
-                        <input type="checkbox" checked={!!selectedEmps.find((e) => e.empCode === emp.empCode)} onChange={() => toggleEmployee(emp)} />{" "}
-                        {emp.name} ({emp.empCode})
-                      </label>
-                    ))}
+                {/* Managers */}
+                {roles.Manager.length > 0 && (
+                  <div style={{ marginBottom: 8 }}>
+                    <b style={{ color: "#4caf50" }}>Managers:</b>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                      {roles.Manager.map((emp) => (
+                        <label key={emp.empCode} style={{ border: "1px solid #4caf50", borderRadius: 4, padding: "3px 6px", fontSize: 12, background: selectedEmps.find(e => e.empCode === emp.empCode) ? "#c8e6c9" : "white" }}>
+                          <input type="checkbox" checked={!!selectedEmps.find((e) => e.empCode === emp.empCode)} onChange={() => toggleEmployee(emp)} />{" "}
+                          {emp.name} ({emp.empCode})
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Employees */}
-              {roles.Employee.length > 0 && (
-                <div>
-                  <b style={{ color: "#2196f3" }}>Employees:</b>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
-                    {roles.Employee.map((emp) => (
-                      <label key={emp.empCode} style={{ border: "1px solid #2196f3", borderRadius: 4, padding: "3px 6px", fontSize: 12, background: selectedEmps.find(e => e.empCode === emp.empCode) ? "#bbdefb" : "white" }}>
-                        <input type="checkbox" checked={!!selectedEmps.find((e) => e.empCode === emp.empCode)} onChange={() => toggleEmployee(emp)} />{" "}
-                        {emp.name} ({emp.empCode})
-                      </label>
-                    ))}
+                {/* Employees */}
+                {roles.Employee.length > 0 && (
+                  <div>
+                    <b style={{ color: "#2196f3" }}>Employees:</b>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                      {roles.Employee.map((emp) => (
+                        <label key={emp.empCode} style={{ border: "1px solid #2196f3", borderRadius: 4, padding: "3px 6px", fontSize: 12, background: selectedEmps.find(e => e.empCode === emp.empCode) ? "#bbdefb" : "white" }}>
+                          <input type="checkbox" checked={!!selectedEmps.find((e) => e.empCode === emp.empCode)} onChange={() => toggleEmployee(emp)} />{" "}
+                          {emp.name} ({emp.empCode})
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ));
-        })()}
-      </div>
+                )}
+              </div>
+            ));
+          })()}
+        </div>
+      )}
 
       {/* 🔹 Allocation Table */}
       {selectedEmps.length > 0 && (

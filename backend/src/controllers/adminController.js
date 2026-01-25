@@ -16,7 +16,7 @@ export const getUsers = async (req, res) => {
 export const createUser = async (req, res) => {
   try {
     const {
-      empCode,
+      empCode: rawEmpCode,
       name,
       role,
       password,
@@ -26,7 +26,11 @@ export const createUser = async (req, res) => {
       managerEmpCode,
       branchManagerEmpCode,
       regionalManagerEmpCode,
+      allowedTiles, // ✅ For Guest users
     } = req.body;
+
+    // ✅ Normalize empCode to uppercase (same as login)
+    const empCode = String(rawEmpCode || "").trim().toUpperCase();
 
     const existing = await User.findOne({ empCode });
     if (existing) {
@@ -45,6 +49,7 @@ export const createUser = async (req, res) => {
       branch,
       region,
       reportTo: [],
+      allowedTiles: role === "Guest" ? (allowedTiles || []) : [], // ✅ Save tiles for Guest
     });
 
     const managers = [];

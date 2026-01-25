@@ -16,7 +16,7 @@ function TileWrapper({ onBack, children }) {
   );
 }
 
-export default function AssetsTile() {
+export default function AssetsTile({ isGuest = false }) {
   const { token } = useAuth();
   const [activeTile, setActiveTile] = useState("assets");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -270,7 +270,7 @@ export default function AssetsTile() {
 
       {/* --- Sample Boards Allocation --- */}
       {activeTile === "sample" && (
-        <SampleBoardsAllocationAdmin onBack={() => setActiveTile("assets")} />
+        <SampleBoardsAllocationAdmin onBack={() => setActiveTile("assets")} isGuest={isGuest} />
       )}
     </div>
   );
