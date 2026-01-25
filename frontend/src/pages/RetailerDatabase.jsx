@@ -142,6 +142,7 @@ export default function RetailerDatabase({ readOnly = false }) {
             <thead>
               <tr style={{ background: "#86c541" }}>
                 {[
+                  "Customer UID", // ✅ First column
                   "Owner Mobile No.",
                   "Company GSTN",
                   "Company Name (As Per GST Certificate)",
@@ -182,6 +183,7 @@ export default function RetailerDatabase({ readOnly = false }) {
                     transition: "background 0.2s",
                   }}
                 >
+                  <td style={{ ...cellStyle, fontWeight: 600, color: "#3b82f6" }}>{r.customerUID || "-"}</td>
                   <td style={cellStyle}>{r.ownerMobile || "-"}</td>
                   <td style={cellStyle}>{r.companyGSTN || "-"}</td>
                   <td style={{ ...cellStyle, maxWidth: 200 }}>{r.companyName || "-"}</td>

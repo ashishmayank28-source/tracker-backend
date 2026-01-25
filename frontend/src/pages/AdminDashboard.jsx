@@ -13,6 +13,7 @@ import AdminAttendance from "./admin/AdminAttendance.jsx";
 import PerformanceReview from "./admin/PerformanceReview.jsx";
 import RetailerDatabaseTeam from "./RetailerDatabaseTeam.jsx";
 import TravelRequests from "./TravelRequests.jsx";
+import CustomerDatabase from "./customerDatabase/CustomerDatabase.jsx"; // ✅ Customer Database
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -44,7 +45,7 @@ export default function AdminDashboard() {
           <Tile label="📝 Daily Tracker" onClick={() => setActiveTile("daily")} color="#06b6d4" />
           <Tile label="💰 Revenue" onClick={() => setActiveTile("revenue")} color="#22c55e" />
           <Tile label="🎁 Assets" onClick={() => setActiveTile("assets")} color="#ec4899" />
-          <Tile label="🏬 Retailers DB" onClick={() => setActiveTile("retailers")} color="#6366f1" />
+          <Tile label="📋 Customer DB" onClick={() => setActiveTile("customerDB")} color="#6366f1" />
           <Tile label="🗂 Dump Management" onClick={() => setActiveTile("dump")} color="#ef4444" />
           <Tile label="📊 Assignment Ledger" onClick={() => setActiveTile("ledger")} color="#14b8a6" />
           <Tile label="📋 Assignment Table" onClick={() => setActiveTile("assignment-table")} color="#a855f7" />
@@ -108,10 +109,10 @@ export default function AdminDashboard() {
         </TileWrapper>
       )}
 
-      {/* Retailers Database */}
-      {activeTile === "retailers" && (
-        <TileWrapper title="🏬 Retailer Database (All Regions)" onBack={() => setActiveTile("dashboard")}>
-          <RetailerDatabaseTeam />
+      {/* 📋 Customer Database */}
+      {activeTile === "customerDB" && (
+        <TileWrapper title="📋 Customer Database" onBack={() => setActiveTile("dashboard")}>
+          <CustomerDatabase onBack={() => setActiveTile("dashboard")} />
         </TileWrapper>
       )}
 

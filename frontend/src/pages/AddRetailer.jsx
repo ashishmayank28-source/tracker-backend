@@ -9,6 +9,7 @@ export default function AddRetailer() {
   const [success, setSuccess] = useState(false);
   
   const [form, setForm] = useState({
+    customerUID: "", // ✅ Customer UID - First field
     ownerMobile: "",
     companyGSTN: "",
     companyName: "",
@@ -102,6 +103,7 @@ export default function AddRetailer() {
       if (res.ok && data.success) {
         setSuccess(true);
         setForm({
+          customerUID: "",
           ownerMobile: "",
           companyGSTN: "",
           companyName: "",
@@ -162,6 +164,14 @@ export default function AddRetailer() {
           gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
           gap: 20,
         }}>
+          {/* ✅ Customer UID - First Field */}
+          <FormField
+            label="Customer UID (Optional - Auto-generated if empty)"
+            value={form.customerUID}
+            onChange={(e) => handleChange("customerUID", e.target.value.toUpperCase())}
+            placeholder="e.g., RET240126ABCD"
+          />
+
           {/* Owner Mobile */}
           <div>
             <label style={labelStyle}>Owner Mobile No. *</label>
@@ -322,6 +332,7 @@ export default function AddRetailer() {
           <button
             type="button"
             onClick={() => setForm({
+              customerUID: "",
               ownerMobile: "",
               companyGSTN: "",
               companyName: "",
