@@ -1,4 +1,4 @@
-import Customer from "../models/customerModel.js";
+import CustomerDB from "../models/customerDBModel.js";
 
 // ✅ Create new customer
 export const createCustomer = async (req, res) => {
@@ -41,7 +41,7 @@ export const createCustomer = async (req, res) => {
     }
 
     // Check if mobile already exists for this customer type
-    const existing = await Customer.findOne({ mobile, customerType });
+    const existing = await CustomerDB.findOne({ mobile, customerType });
     if (existing) {
       return res.status(400).json({ 
         success: false, 
@@ -50,7 +50,7 @@ export const createCustomer = async (req, res) => {
     }
 
     // Create customer
-    const customer = new Customer({
+    const customer = new CustomerDB({
       customerUID: customerUID || undefined, // Will be auto-generated if not provided
       customerType,
       mobile,
@@ -120,7 +120,7 @@ export const getCustomers = async (req, res) => {
       ];
     }
 
-    const customers = await Customer.find(filter).sort({ createdAt: -1 });
+    const customers = await CustomerDB.find(filter).sort({ createdAt: -1 });
 
     res.json({
       success: true,
@@ -141,7 +141,7 @@ export const getMyCustomers = async (req, res) => {
     
     if (type) filter.customerType = type;
 
-    const customers = await Customer.find(filter).sort({ createdAt: -1 });
+    const customers = await CustomerDB.find(filter).sort({ createdAt: -1 });
 
     res.json({
       success: true,
@@ -158,7 +158,7 @@ export const getMyCustomers = async (req, res) => {
 export const getCustomerById = async (req, res) => {
   try {
     const { id } = req.params;
-    const customer = await Customer.findById(id);
+    const customer = await CustomerDB.findById(id);
     
     if (!customer) {
       return res.status(404).json({ success: false, message: "Customer not found" });
@@ -182,7 +182,7 @@ export const updateCustomer = async (req, res) => {
     delete updates.customerUID;
     delete updates.createdBy;
 
-    const customer = await Customer.findByIdAndUpdate(id, updates, { new: true });
+    const customer = await CustomerDB.findByIdAndUpdate(id, updates, { new: true });
     
     if (!customer) {
       return res.status(404).json({ success: false, message: "Customer not found" });
@@ -203,7 +203,7 @@ export const updateCustomer = async (req, res) => {
 export const deleteCustomer = async (req, res) => {
   try {
     const { id } = req.params;
-    const customer = await Customer.findByIdAndDelete(id);
+    const customer = await CustomerDB.findByIdAndDelete(id);
     
     if (!customer) {
       return res.status(404).json({ success: false, message: "Customer not found" });
@@ -220,7 +220,7 @@ export const deleteCustomer = async (req, res) => {
 export const checkMobile = async (req, res) => {
   try {
     const { mobile, type } = req.params;
-    const existing = await Customer.findOne({ mobile, customerType: type });
+    const existing = await CustomerDB.findOne({ mobile, customerType: type });
     
     res.json({ exists: !!existing });
   } catch (err) {
@@ -246,7 +246,7 @@ export const getTeamCustomers = async (req, res) => {
     }
     // Admin sees all
 
-    const customers = await Customer.find(filter).sort({ createdAt: -1 });
+    const customers = await CustomerDB.find(filter).sort({ createdAt: -1 });
 
     res.json({
       success: true,
