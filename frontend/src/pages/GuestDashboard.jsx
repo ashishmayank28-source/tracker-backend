@@ -16,6 +16,7 @@ import AdminAttendance from "./admin/AdminAttendance.jsx";
 import PerformanceReview from "./admin/PerformanceReview.jsx";
 import RetailerDatabaseTeam from "./RetailerDatabaseTeam.jsx";
 import TravelRequests from "./TravelRequests.jsx";
+import CustomerDatabase from "./customerDatabase/CustomerDatabase.jsx"; // ✅ Customer Database
 
 // ✅ All available tiles with their components
 const TILE_CONFIG = {
@@ -28,6 +29,7 @@ const TILE_CONFIG = {
   revenue: { label: "💰 Revenue", color: "#22c55e", component: AdminRevenueTracker },
   assets: { label: "🎁 Assets", color: "#ec4899", component: AssetsTile },
   retailers: { label: "🏬 Retailers DB", color: "#6366f1", component: RetailerDatabaseTeam },
+  customerDatabase: { label: "📋 Customer DB", color: "#84cc16", component: CustomerDatabase }, // ✅ NEW
   dump: { label: "🗂 Dump Management", color: "#ef4444", component: ReportDump },
   ledger: { label: "📊 Assignment Ledger", color: "#14b8a6", component: AssignmentLedger },
   "assignment-table": { label: "📋 Assignment Table", color: "#a855f7", component: AssignmentTable },

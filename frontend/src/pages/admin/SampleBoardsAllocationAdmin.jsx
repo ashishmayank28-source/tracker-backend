@@ -9,6 +9,12 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
   const [stockColumns, setStockColumns] = useState(["Opening", "Issued", "Balance"]);
   const [items, setItems] = useState([]);
   const [stockLoading, setStockLoading] = useState(true);
+  
+  // ✅ History Modal State
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState(null);
+  const [itemHistory, setItemHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   /* 🔹 Fetch Stock from Database */
   const fetchStock = async () => {
@@ -34,6 +40,64 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
       console.error("Stock fetch error:", err);
     } finally {
       setStockLoading(false);
+    }
+  };
+
+  /* 🔹 Fetch History for an Item */
+  const fetchItemHistory = async (item) => {
+    setHistoryLoading(true);
+    setSelectedHistoryItem(item);
+    setShowHistoryModal(true);
+    
+    try {
+      // ✅ Fetch all assignments using correct endpoint
+      const res = await fetch(`${API_BASE}/api/assignments/history/admin`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const allAssignments = await res.json();
+      
+      console.log("📜 All Assignments:", allAssignments);
+      console.log("🔍 Looking for item:", item.name);
+      
+      // ✅ Filter by item name only (case insensitive) to get ALL allocations for this item
+      const itemNameLower = (item.name || "").toLowerCase().trim();
+      const filtered = (Array.isArray(allAssignments) ? allAssignments : []).filter(a => {
+        const assignmentItem = (a.item || "").toLowerCase().trim();
+        return assignmentItem === itemNameLower;
+      });
+      
+      console.log("✅ Filtered assignments:", filtered.length, "records");
+      
+      // Flatten to show individual employee allocations with Assignment ID
+      const history = [];
+      filtered.forEach(assignment => {
+        (assignment.employees || []).forEach(emp => {
+          history.push({
+            assignmentId: assignment.rootId || assignment._id || "-", // ✅ Assignment ID
+            date: assignment.date || assignment.createdAt,
+            empCode: emp.empCode,
+            empName: emp.name,
+            qty: emp.qty || 0,
+            usedQty: emp.usedQty || 0,
+            purpose: assignment.purpose || "-",
+            assignedBy: assignment.assignedBy || "-",
+            lrNo: assignment.lrNo || "-",
+            year: assignment.year || "-",
+            lot: assignment.lot || "-",
+          });
+        });
+      });
+      
+      // Sort by date (newest first)
+      history.sort((a, b) => new Date(b.date) - new Date(a.date));
+      
+      console.log("📊 History data:", history.length, "employee allocations");
+      setItemHistory(history);
+    } catch (err) {
+      console.error("Error fetching item history:", err);
+      setItemHistory([]);
+    } finally {
+      setHistoryLoading(false);
     }
   };
 
@@ -380,6 +444,7 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
                       )}
                     </th>
                   ))}
+                  <th>History</th>
                   {/* ✅ Hide Action column for Guest */}
                   {!isGuest && <th>Action</th>}
                 </tr>
@@ -471,6 +536,23 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
                         )}
                       </td>
                     ))}
+                    {/* 📜 History Button */}
+                    <td>
+                      <button 
+                        onClick={() => fetchItemHistory(it)}
+                        style={{ 
+                          background: "#8b5cf6", 
+                          color: "white", 
+                          border: "none", 
+                          padding: "4px 10px", 
+                          borderRadius: 4, 
+                          cursor: "pointer",
+                          fontSize: 12,
+                        }}
+                      >
+                        📜 History
+                      </button>
+                    </td>
                     {/* ✅ Hide Remove button for Guest */}
                     {!isGuest && (
                       <td>
@@ -904,6 +986,149 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
       >
         📑 History
       </button>
+
+      {/* 📜 Item History Modal */}
+      {showHistoryModal && selectedHistoryItem && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              background: "white",
+              borderRadius: 12,
+              padding: 24,
+              maxWidth: 1200,
+              width: "98%",
+              maxHeight: "90vh",
+              overflow: "auto",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 20,
+                borderBottom: "2px solid #e2e8f0",
+                paddingBottom: 15,
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0, color: "#1e293b" }}>
+                  📜 Issue History - {selectedHistoryItem.name}
+                </h3>
+                <p style={{ margin: "5px 0 0", fontSize: 13, color: "#64748b" }}>
+                  Year: <b>{selectedHistoryItem.year}</b> | Lot: <b>{selectedHistoryItem.lot}</b> | 
+                  Opening: <b style={{ color: "#3b82f6" }}>{selectedHistoryItem.Opening}</b> | 
+                  Issued: <b style={{ color: "#f59e0b" }}>{selectedHistoryItem.Issued}</b> | 
+                  Balance: <b style={{ color: "#22c55e" }}>{selectedHistoryItem.Balance}</b>
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowHistoryModal(false);
+                  setSelectedHistoryItem(null);
+                  setItemHistory([]);
+                }}
+                style={{
+                  background: "#ef4444",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "8px 16px",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            {historyLoading ? (
+              <p style={{ textAlign: "center", padding: 40 }}>Loading history...</p>
+            ) : itemHistory.length === 0 ? (
+              <div style={{ textAlign: "center", padding: 40, color: "#64748b" }}>
+                <div style={{ fontSize: 48, marginBottom: 10 }}>📭</div>
+                <p>No issue history found for this item.</p>
+              </div>
+            ) : (
+              <>
+                <div style={{ marginBottom: 15, fontSize: 14, color: "#475569" }}>
+                  Total <b>{itemHistory.length}</b> allocations | 
+                  Total Qty: <b style={{ color: "#f59e0b" }}>{itemHistory.reduce((sum, h) => sum + (h.qty || 0), 0)}</b>
+                </div>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: "#8b5cf6", color: "white" }}>
+                      <th style={{ padding: "10px 8px", textAlign: "left" }}>Assignment ID</th>
+                      <th style={{ padding: "10px 8px", textAlign: "left" }}>Date</th>
+                      <th style={{ padding: "10px 8px", textAlign: "left" }}>Emp Code</th>
+                      <th style={{ padding: "10px 8px", textAlign: "left" }}>Employee Name</th>
+                      <th style={{ padding: "10px 8px", textAlign: "center" }}>Qty Issued</th>
+                      <th style={{ padding: "10px 8px", textAlign: "center" }}>Used</th>
+                      <th style={{ padding: "10px 8px", textAlign: "left" }}>Purpose</th>
+                      <th style={{ padding: "10px 8px", textAlign: "left" }}>Assigned By</th>
+                      <th style={{ padding: "10px 8px", textAlign: "left" }}>LR No.</th>
+                      <th style={{ padding: "10px 8px", textAlign: "center" }}>Year</th>
+                      <th style={{ padding: "10px 8px", textAlign: "center" }}>Lot</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {itemHistory.map((h, idx) => (
+                      <tr key={idx} style={{ background: idx % 2 === 0 ? "#fff" : "#f8fafc" }}>
+                        <td style={{ padding: "8px", borderBottom: "1px solid #e2e8f0", fontFamily: "monospace", fontSize: 11, color: "#6366f1" }}>
+                          {h.assignmentId}
+                        </td>
+                        <td style={{ padding: "8px", borderBottom: "1px solid #e2e8f0" }}>
+                          {h.date ? new Date(h.date).toLocaleDateString() : "-"}
+                        </td>
+                        <td style={{ padding: "8px", borderBottom: "1px solid #e2e8f0", fontWeight: 600, color: "#3b82f6" }}>
+                          {h.empCode}
+                        </td>
+                        <td style={{ padding: "8px", borderBottom: "1px solid #e2e8f0" }}>
+                          {h.empName}
+                        </td>
+                        <td style={{ padding: "8px", borderBottom: "1px solid #e2e8f0", textAlign: "center", fontWeight: 600, color: "#f59e0b" }}>
+                          {h.qty}
+                        </td>
+                        <td style={{ padding: "8px", borderBottom: "1px solid #e2e8f0", textAlign: "center", color: "#22c55e" }}>
+                          {h.usedQty || 0}
+                        </td>
+                        <td style={{ padding: "8px", borderBottom: "1px solid #e2e8f0" }}>
+                          {h.purpose}
+                        </td>
+                        <td style={{ padding: "8px", borderBottom: "1px solid #e2e8f0" }}>
+                          {h.assignedBy}
+                        </td>
+                        <td style={{ padding: "8px", borderBottom: "1px solid #e2e8f0" }}>
+                          {h.lrNo || "-"}
+                        </td>
+                        <td style={{ padding: "8px", borderBottom: "1px solid #e2e8f0", textAlign: "center" }}>
+                          {h.year}
+                        </td>
+                        <td style={{ padding: "8px", borderBottom: "1px solid #e2e8f0", textAlign: "center" }}>
+                          {h.lot}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

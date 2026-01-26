@@ -13,6 +13,7 @@ const AVAILABLE_TILES = [
   { id: "revenue", label: "💰 Revenue", color: "#22c55e" },
   { id: "assets", label: "🎁 Assets", color: "#ec4899" },
   { id: "retailers", label: "🏬 Retailers DB", color: "#6366f1" },
+  { id: "customerDatabase", label: "📋 Customer DB", color: "#84cc16" }, // ✅ Customer Database
   { id: "dump", label: "🗂 Dump Management", color: "#ef4444" },
   { id: "ledger", label: "📊 Assignment Ledger", color: "#14b8a6" },
   { id: "assignment-table", label: "📋 Assignment Table", color: "#a855f7" },
