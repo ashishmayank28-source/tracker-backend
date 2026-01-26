@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../auth.jsx";
 import ReportsViewer from "../components/ReportsViewer.jsx";
-import SampleBoardsAllocationBranch from "./SampleBoardsAllocationBranch.jsx";
 import RevenueTrackerBranch from "./RevenueTrackerBranch.jsx";
 import PerformanceReviewBranch from "./PerformanceReviewBranch.jsx";
 import RetailerDatabaseTeam from "./RetailerDatabaseTeam.jsx";
 import TravelRequests from "./TravelRequests.jsx";
-import CustomerDatabase from "./customerDatabase/CustomerDatabase.jsx"; // ✅ Customer Database 
+import CustomerDatabase from "./customerDatabase/CustomerDatabase.jsx"; // ✅ Customer Database
+import BranchManagerAssets from "./BranchManagerAssets.jsx"; // ✅ Assets wrapper with approval 
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
@@ -53,7 +53,7 @@ export default function BranchManagerDashboard() {
           <Tile label="📅 Daily Tracker" onClick={() => setActiveTile("daily")} />
           <Tile label="💰 Revenue" onClick={() => setActiveTile("revenue")} />
           <Tile label="👥 My Team" onClick={() => setActiveTile("team")} />
-          <Tile label="📦 Sample Boards" onClick={() => setActiveTile("sample")} />
+          <Tile label="🎁 Assets" onClick={() => setActiveTile("assets")} />
           <Tile label="📋 Customer DB" onClick={() => setActiveTile("customerDB")} />
           <Tile label="⭐ Performance Review" onClick={() => setActiveTile("performance")} />
           <Tile label="✈️ Travel Requests" onClick={() => setActiveTile("travel")} />
@@ -111,10 +111,10 @@ export default function BranchManagerDashboard() {
         </TileWrapper>
       )}
 
-      {/* --- Sample Boards --- */}
-      {activeTile === "sample" && (
+      {/* 🎁 Assets */}
+      {activeTile === "assets" && (
         <TileWrapper onBack={() => setActiveTile("dashboard")}>
-          <SampleBoardsAllocationBranch />
+          <BranchManagerAssets />
         </TileWrapper>
       )}
 

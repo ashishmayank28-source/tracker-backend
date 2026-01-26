@@ -26,6 +26,7 @@ import tourApprovalRoutes from "./routes/tourApprovalRoutes.js";
 import stockRoutes from "./routes/stockRoutes.js";
 import guestRoutes from "./routes/guestRoutes.js"; // ✅ Guest routes
 import customerDatabaseRoutes from "./routes/customerDatabaseRoutes.js"; // ✅ Customer Database routes
+import assetRequestRoutes from "./routes/assetRequestRoutes.js"; // ✅ Asset Request routes
 
 
 async function start() {
@@ -69,6 +70,7 @@ async function start() {
   app.use("/api/stock", stockRoutes);
   app.use("/api/guest", guestRoutes); // ✅ Guest routes
   app.use("/api/customer-database", customerDatabaseRoutes); // ✅ Customer Database routes
+  app.use("/api/asset-requests", assetRequestRoutes); // ✅ Asset Request routes
   app.use("/uploads", express.static("uploads"));
 
   // Serve frontend static files if built (Vite build outputs to frontend/dist)

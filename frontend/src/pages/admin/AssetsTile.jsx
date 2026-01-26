@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../auth.jsx";
 import SampleBoardsAllocationAdmin from "./SampleBoardsAllocationAdmin.jsx";
+import AssetRequestAdmin from "./AssetRequestAdmin.jsx"; // ✅ Asset Request
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
@@ -70,6 +71,12 @@ export default function AssetsTile({ isGuest = false }) {
               label="Sample Boards Allocation" 
               color="#3b82f6"
               onClick={() => setActiveTile("sample")} 
+            />
+            <ActionTile 
+              icon="📋" 
+              label="Asset Requests" 
+              color="#f97316"
+              onClick={() => setActiveTile("assetRequests")} 
             />
             <ActionTile 
               icon="📊" 
@@ -271,6 +278,13 @@ export default function AssetsTile({ isGuest = false }) {
       {/* --- Sample Boards Allocation --- */}
       {activeTile === "sample" && (
         <SampleBoardsAllocationAdmin onBack={() => setActiveTile("assets")} isGuest={isGuest} />
+      )}
+
+      {/* --- Asset Requests Management --- */}
+      {activeTile === "assetRequests" && (
+        <TileWrapper onBack={() => setActiveTile("assets")}>
+          <AssetRequestAdmin />
+        </TileWrapper>
       )}
     </div>
   );

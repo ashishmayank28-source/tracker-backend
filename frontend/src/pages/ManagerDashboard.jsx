@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../auth.jsx";
 import ReportsViewer from "../components/ReportsViewer.jsx";
-import SampleBoardsAllocationManager from "./SampleBoardsAllocationManager.jsx";
+import ManagerAssets from "./ManagerAssets.jsx"; // ✅ Wrapper with Sample Boards + Asset Request
 import RevenueTrackerManager from "./RevenueTrackerManager.jsx";
 import RetailerDatabaseTeam from "./RetailerDatabaseTeam.jsx";
 import TravelRequests from "./TravelRequests.jsx";
@@ -52,7 +52,7 @@ export default function ManagerDashboard() {
         >
           <Tile label="📅 Daily Tracker" onClick={() => setActiveTile("daily")} />
           <Tile label="👥 My Team" onClick={() => setActiveTile("team")} />
-          <Tile label="📦 Sample Boards" onClick={() => setActiveTile("sample")} />
+          <Tile label="🎁 Assets" onClick={() => setActiveTile("assets")} />
           <Tile label="💰 Revenue Tracker" onClick={() => setActiveTile("revenue")} />
           <Tile label="📋 Customer DB" onClick={() => setActiveTile("customerDB")} />
           <Tile label="✈️ Travel Requests" onClick={() => setActiveTile("travel")} /> 
@@ -107,10 +107,10 @@ export default function ManagerDashboard() {
           )}
         </TileWrapper>
       )}
-      {/* Sample Boards */}
-      {activeTile === "sample" && (
+      {/* 🎁 Assets */}
+      {activeTile === "assets" && (
         <TileWrapper onBack={() => setActiveTile("dashboard")}>
-          <SampleBoardsAllocationManager scope={user.role === "Employee" ? "self" : "team"} />
+          <ManagerAssets />
         </TileWrapper>
       )}
 
