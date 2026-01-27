@@ -5,7 +5,6 @@ import MyReports from "./MyReports.jsx";
 import AttendanceStatus from "./AttendanceStatus.jsx";
 import RetailerDatabase from "./RetailerDatabase.jsx";
 import Notifications from "./Notifications.jsx";
-import SampleBoardsAllocationEmp from "./SampleBoardsAllocationEmp.jsx";
 import MyAssets from "./MyAssets.jsx";
 import RevenueTrackerEmp from "./RevenueTrackerEmp.jsx";
 import AddRetailer from "./AddRetailer.jsx";
@@ -97,22 +96,10 @@ export default function EmployeeDashboard({ readOnly = false }) {
   </TileWrapper>
 )}
 
-      {/* --- Assets (subtiles) --- */}
+      {/* --- Assets (with tabs for Stock + Asset Request) --- */}
       {activeTile === "assets" && (
         <TileWrapper onBack={() => setActiveTile("dashboard")}>
-          <h3>🎁 Assets</h3>
-          <div style={{ display: "flex", gap: "12px" }}>
-            <button onClick={() => setActiveTile("sampleBoards")}>📦 Sample Boards</button>
-          
-          
-          </div>
-        </TileWrapper>
-      )}
-
-      {/* ✅ Sample Boards Page */}
-      {activeTile === "sampleBoards" && (
-        <TileWrapper onBack={() => setActiveTile("assets")}>
-          <SampleBoardsAllocationEmp />
+          <MyAssets />
         </TileWrapper>
       )}
 
