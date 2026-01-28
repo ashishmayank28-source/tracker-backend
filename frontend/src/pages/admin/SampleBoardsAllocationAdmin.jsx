@@ -833,13 +833,63 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
     <h3>📑 Assignment History</h3>
 
     {/* Filters - RM ID removed */}
-    <div style={{ marginBottom: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
-      <input type="text" placeholder="Filter by Root ID" onChange={(e) => setFilters((p) => ({ ...p, rootId: e.target.value }))} />
-      <input type="text" placeholder="Filter by BM ID" onChange={(e) => setFilters((p) => ({ ...p, bmId: e.target.value }))} />
-      <input type="text" placeholder="Filter by Emp Code" onChange={(e) => setFilters((p) => ({ ...p, empCode: e.target.value }))} />
-      <input type="text" placeholder="Filter by Emp Name" onChange={(e) => setFilters((p) => ({ ...p, empName: e.target.value }))} />
-      <input type="text" placeholder="Filter by Purpose" onChange={(e) => setFilters((p) => ({ ...p, purpose: e.target.value }))} />
-      <input type="text" placeholder="Filter by Role" onChange={(e) => setFilters((p) => ({ ...p, role: e.target.value }))} />
+    <div style={{ marginBottom: 10, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+      <input 
+        type="text" 
+        placeholder="Filter by Root ID" 
+        value={filters.rootId}
+        onChange={(e) => setFilters((p) => ({ ...p, rootId: e.target.value }))} 
+        style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid #d1d5db" }}
+      />
+      <input 
+        type="text" 
+        placeholder="Filter by BM ID" 
+        value={filters.bmId}
+        onChange={(e) => setFilters((p) => ({ ...p, bmId: e.target.value }))} 
+        style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid #d1d5db" }}
+      />
+      <input 
+        type="text" 
+        placeholder="Filter by Emp Code" 
+        value={filters.empCode}
+        onChange={(e) => setFilters((p) => ({ ...p, empCode: e.target.value }))} 
+        style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid #d1d5db" }}
+      />
+      <input 
+        type="text" 
+        placeholder="Filter by Emp Name" 
+        value={filters.empName}
+        onChange={(e) => setFilters((p) => ({ ...p, empName: e.target.value }))} 
+        style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid #d1d5db" }}
+      />
+      <input 
+        type="text" 
+        placeholder="Filter by Purpose" 
+        value={filters.purpose}
+        onChange={(e) => setFilters((p) => ({ ...p, purpose: e.target.value }))} 
+        style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid #d1d5db" }}
+      />
+      <input 
+        type="text" 
+        placeholder="Filter by Role" 
+        value={filters.role}
+        onChange={(e) => setFilters((p) => ({ ...p, role: e.target.value }))} 
+        style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid #d1d5db" }}
+      />
+      <button
+        onClick={() => setFilters({ rootId: "", rmId: "", bmId: "", empCode: "", empName: "", purpose: "", role: "" })}
+        style={{
+          padding: "6px 14px",
+          background: "#ef4444",
+          color: "white",
+          border: "none",
+          borderRadius: 4,
+          cursor: "pointer",
+          fontWeight: 600,
+        }}
+      >
+        🔄 Reset Filters
+      </button>
     </div>
 
     {/* Scrollable Table Container */}
