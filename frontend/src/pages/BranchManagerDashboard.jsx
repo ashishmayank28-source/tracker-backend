@@ -6,7 +6,8 @@ import PerformanceReviewBranch from "./PerformanceReviewBranch.jsx";
 import RetailerDatabaseTeam from "./RetailerDatabaseTeam.jsx";
 import TravelRequests from "./TravelRequests.jsx";
 import CustomerDatabase from "./customerDatabase/CustomerDatabase.jsx"; // ✅ Customer Database
-import BranchManagerAssets from "./BranchManagerAssets.jsx"; // ✅ Assets wrapper with approval 
+import BranchManagerAssets from "./BranchManagerAssets.jsx"; // ✅ Assets wrapper with approval
+import TeamAttendance from "./TeamAttendance.jsx"; // ✅ Team Attendance 
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
@@ -51,6 +52,7 @@ export default function BranchManagerDashboard() {
           }}
         >
           <Tile label="📅 Daily Tracker" onClick={() => setActiveTile("daily")} />
+          <Tile label="📊 Attendance" onClick={() => setActiveTile("attendance")} />
           <Tile label="💰 Revenue" onClick={() => setActiveTile("revenue")} />
           <Tile label="👥 My Team" onClick={() => setActiveTile("team")} />
           <Tile label="🎁 Assets" onClick={() => setActiveTile("assets")} />
@@ -108,6 +110,13 @@ export default function BranchManagerDashboard() {
           ) : (
             <p>No users found under your branch.</p>
           )}
+        </TileWrapper>
+      )}
+
+      {/* 📊 Team Attendance */}
+      {activeTile === "attendance" && (
+        <TileWrapper onBack={() => setActiveTile("dashboard")}>
+          <TeamAttendance />
         </TileWrapper>
       )}
 

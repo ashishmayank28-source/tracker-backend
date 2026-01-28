@@ -6,6 +6,7 @@ import RevenueTrackerManager from "./RevenueTrackerManager.jsx";
 import RetailerDatabaseTeam from "./RetailerDatabaseTeam.jsx";
 import TravelRequests from "./TravelRequests.jsx";
 import CustomerDatabase from "./customerDatabase/CustomerDatabase.jsx"; // ✅ Customer Database
+import TeamAttendance from "./TeamAttendance.jsx"; // ✅ Team Attendance
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
@@ -52,6 +53,7 @@ export default function ManagerDashboard() {
         >
           <Tile label="📅 Daily Tracker" onClick={() => setActiveTile("daily")} />
           <Tile label="👥 My Team" onClick={() => setActiveTile("team")} />
+          <Tile label="📊 Attendance" onClick={() => setActiveTile("attendance")} />
           <Tile label="🎁 Assets" onClick={() => setActiveTile("assets")} />
           <Tile label="💰 Revenue Tracker" onClick={() => setActiveTile("revenue")} />
           <Tile label="📋 Customer DB" onClick={() => setActiveTile("customerDB")} />
@@ -107,6 +109,13 @@ export default function ManagerDashboard() {
           )}
         </TileWrapper>
       )}
+      {/* 📊 Team Attendance */}
+      {activeTile === "attendance" && (
+        <TileWrapper onBack={() => setActiveTile("dashboard")}>
+          <TeamAttendance />
+        </TileWrapper>
+      )}
+
       {/* 🎁 Assets */}
       {activeTile === "assets" && (
         <TileWrapper onBack={() => setActiveTile("dashboard")}>
