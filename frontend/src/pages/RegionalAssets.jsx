@@ -51,15 +51,15 @@ export default function RegionalAssets() {
   async function fetchAssignments() {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/api/assignments/regional/stock`, {
+      // ✅ Use new endpoint that fetches all team member assignments
+      const res = await fetch(`${API_BASE}/api/assignments/regional/team`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
-      const allAssignments = data.assignments || [];
-      setAssignments(allAssignments);
+      const allAssignments = await res.json();
+      setAssignments(Array.isArray(allAssignments) ? allAssignments : []);
 
       // Extract unique items
-      const items = [...new Set(allAssignments.map(a => a.item).filter(Boolean))];
+      const items = [...new Set((Array.isArray(allAssignments) ? allAssignments : []).map(a => a.item).filter(Boolean))];
       setSampleItems(items);
     } catch (err) {
       console.error("Error fetching assignments:", err);

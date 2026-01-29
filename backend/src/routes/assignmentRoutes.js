@@ -6,6 +6,7 @@ import {
 
   // 🔹 Regional Manager
   getRegionalStock,
+  getRegionalTeamAssignments,
   allocateRegional,
 
   // 🔹 Branch Manager
@@ -48,8 +49,11 @@ router.get("/history/admin", protect, adminOnly, getAdminHistory);
  🔵 REGIONAL MANAGER ROUTES
 ------------------------------------------------------------------ */
 
-// ✅ RM stock fetch (RM’s own assigned items)
+// ✅ RM stock fetch (RM's own assigned items)
 router.get("/regional/stock", protect, getRegionalStock);
+
+// ✅ RM team assignments (for Assignment Table)
+router.get("/regional/team", protect, getRegionalTeamAssignments);
 
 // ✅ RM allocates to BMs
 router.post("/allocate/rm", protect, allocateRegional);
