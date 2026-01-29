@@ -51,16 +51,13 @@ export default function RegionalAssets() {
   async function fetchAssignments() {
     try {
       setLoading(true);
-      // ✅ Use new endpoint that fetches all team member assignments
+      // ✅ Fetch all assignments (like admin does)
       const res = await fetch(`${API_BASE}/api/assignments/regional/team`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const allAssignments = await res.json();
+      console.log("📊 All assignments fetched:", Array.isArray(allAssignments) ? allAssignments.length : 0);
       setAssignments(Array.isArray(allAssignments) ? allAssignments : []);
-
-      // Extract unique items
-      const items = [...new Set((Array.isArray(allAssignments) ? allAssignments : []).map(a => a.item).filter(Boolean))];
-      setSampleItems(items);
     } catch (err) {
       console.error("Error fetching assignments:", err);
     } finally {
@@ -68,8 +65,38 @@ export default function RegionalAssets() {
     }
   }
 
+  // ✅ Also fetch stock items (like Admin does)
+  async function fetchStockItems() {
+    try {
+      const res = await fetch(`${API_BASE}/api/stock`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.items && Array.isArray(data.items)) {
+        const stockItemNames = data.items.map(item => item.name);
+        setSampleItems(stockItemNames);
+      }
+    } catch (err) {
+      console.error("Error fetching stock items:", err);
+    }
+  }
+
+  // ✅ Also include items from assignments that might not be in stock
   useEffect(() => {
-    if (token) fetchAssignments();
+    if (assignments.length > 0) {
+      const assignmentItems = [...new Set(assignments.map(a => a.item).filter(Boolean))];
+      setSampleItems(prev => {
+        const merged = [...new Set([...prev, ...assignmentItems])];
+        return merged;
+      });
+    }
+  }, [assignments]);
+
+  useEffect(() => {
+    if (token) {
+      fetchStockItems();
+      fetchAssignments();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 

@@ -86,25 +86,13 @@ export const getRegionalStock = async (req, res) => {
 /* ---------- Regional Manager Team Assignments (for Assignment Table) ---------- */
 export const getRegionalTeamAssignments = async (req, res) => {
   try {
-    const userRegion = req.user.region;
+    console.log("🔍 Regional Team Assignments - User:", req.user.empCode, "Region:", req.user.region);
     
-    if (!userRegion) {
-      return res.status(400).json({ message: "User region not found" });
-    }
-
-    // 🔹 Get all team members in this region
-    const teamMembers = await User.find({ 
-      region: userRegion,
-      role: { $in: ["Employee", "Manager", "BranchManager", "Branch Manager"] }
-    }).select("empCode name");
-
-    const teamEmpCodes = teamMembers.map(u => u.empCode);
-
-    // 🔹 Fetch all assignments where any team member is involved
-    const assignments = await Assignment.find({
-      "employees.empCode": { $in: teamEmpCodes }
-    }).sort({ date: -1 });
-
+    // 🔹 Fetch ALL assignments (same as admin) - let frontend filter by team
+    const assignments = await Assignment.find().sort({ date: -1 });
+    
+    console.log("📊 Total assignments found:", assignments.length);
+    
     res.json(assignments);
   } catch (err) {
     console.error("Regional team assignments fetch error:", err);
