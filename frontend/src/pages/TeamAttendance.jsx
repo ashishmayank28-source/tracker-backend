@@ -41,9 +41,9 @@ export default function TeamAttendance() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      // Filter only employees (not managers/BMs unless needed)
+      // ✅ Filter ONLY Employees (they fill DSR for attendance)
       const emps = (Array.isArray(data) ? data : []).filter(
-        (u) => ["Employee", "Manager", "BranchManager", "Branch Manager"].includes(u.role)
+        (u) => u.role === "Employee"
       );
       setEmployees(emps);
       return emps;
