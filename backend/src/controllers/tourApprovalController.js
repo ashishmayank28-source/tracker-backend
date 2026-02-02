@@ -360,9 +360,7 @@ export const verifyTourExpenses = async (req, res) => {
 
     if (tourRequest.status !== "ExpenseSubmitted") {
       return res.status(400).json({ message: "Expenses not submitted yet" });
-    }
-
-    const updated = await TourApproval.findByIdAndUpdate(
+    }    const updated = await TourApproval.findByIdAndUpdate(
       id,
       {
         expenseVerified: true,
