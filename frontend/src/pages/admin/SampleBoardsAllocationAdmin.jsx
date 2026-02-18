@@ -528,30 +528,39 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
         </button>
       </div>
 
-      {/* ✅ Assignment Mode Toggle - Always visible at top (Admin only) */}
-      <div style={{ 
-        marginBottom: 25, 
-        marginTop: 20,
-        padding: 20, 
-        background: "linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)", 
-        borderRadius: 12, 
-        border: "3px solid #0ea5e9",
-        boxShadow: "0 4px 12px rgba(14, 165, 233, 0.15)"
-      }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#0c4a6e", marginBottom: 12 }}>
-          📋 Assignment Mode:
+      {/* ✅ Assignment Mode Toggle - Always visible at top */}
+      <div 
+        id="assignment-mode-toggle"
+        style={{ 
+          marginBottom: 30, 
+          marginTop: 25,
+          padding: 25, 
+          background: "#0ea5e9",
+          borderRadius: 12, 
+          border: "4px solid #0284c7",
+          boxShadow: "0 6px 20px rgba(14, 165, 233, 0.3)",
+          position: "relative",
+          zIndex: 10,
+          width: "100%",
+          boxSizing: "border-box"
+        }}
+      >
+        <div style={{ fontSize: 18, fontWeight: 800, color: "white", marginBottom: 15, textAlign: "center" }}>
+          📋 ASSIGNMENT MODE SELECTION
         </div>
-        <div style={{ display: "flex", gap: 20, marginTop: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 20, marginTop: 15, flexWrap: "wrap", justifyContent: "center" }}>
             <label style={{ 
               display: "flex", 
               alignItems: "center", 
-              gap: 10, 
+              gap: 12, 
               cursor: "pointer",
-              padding: "12px 16px",
-              background: assignmentMode === "itemToEmp" ? "#dbeafe" : "white",
-              borderRadius: 8,
-              border: assignmentMode === "itemToEmp" ? "2px solid #0ea5e9" : "2px solid #e2e8f0",
-              transition: "all 0.2s"
+              padding: "16px 20px",
+              background: assignmentMode === "itemToEmp" ? "#ffffff" : "rgba(255,255,255,0.2)",
+              borderRadius: 10,
+              border: assignmentMode === "itemToEmp" ? "3px solid #ffffff" : "3px solid rgba(255,255,255,0.5)",
+              transition: "all 0.2s",
+              minWidth: 280,
+              flex: "1 1 300px"
             }}>
               <input
                 type="radio"
@@ -566,13 +575,13 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
                   setSelectedItems([]);
                   setItemQuantities({});
                 }}
-                style={{ width: 18, height: 18, cursor: "pointer" }}
+                style={{ width: 22, height: 22, cursor: "pointer", accentColor: "#0ea5e9" }}
               />
               <div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: assignmentMode === "itemToEmp" ? "#0ea5e9" : "#64748b" }}>
+                <div style={{ fontWeight: 800, fontSize: 16, color: assignmentMode === "itemToEmp" ? "#0ea5e9" : "white" }}>
                   📦 Item → Multi Employees
                 </div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                <div style={{ fontSize: 13, color: assignmentMode === "itemToEmp" ? "#64748b" : "rgba(255,255,255,0.9)", marginTop: 4 }}>
                   (Separate Assignment ID per employee)
                 </div>
               </div>
@@ -580,13 +589,15 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
             <label style={{ 
               display: "flex", 
               alignItems: "center", 
-              gap: 10, 
+              gap: 12, 
               cursor: "pointer",
-              padding: "12px 16px",
-              background: assignmentMode === "empToItems" ? "#dbeafe" : "white",
-              borderRadius: 8,
-              border: assignmentMode === "empToItems" ? "2px solid #0ea5e9" : "2px solid #e2e8f0",
-              transition: "all 0.2s"
+              padding: "16px 20px",
+              background: assignmentMode === "empToItems" ? "#ffffff" : "rgba(255,255,255,0.2)",
+              borderRadius: 10,
+              border: assignmentMode === "empToItems" ? "3px solid #ffffff" : "3px solid rgba(255,255,255,0.5)",
+              transition: "all 0.2s",
+              minWidth: 280,
+              flex: "1 1 300px"
             }}>
               <input
                 type="radio"
@@ -601,13 +612,13 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
                   setSelectedItems([]);
                   setItemQuantities({});
                 }}
-                style={{ width: 18, height: 18, cursor: "pointer" }}
+                style={{ width: 22, height: 22, cursor: "pointer", accentColor: "#0ea5e9" }}
               />
               <div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: assignmentMode === "empToItems" ? "#0ea5e9" : "#64748b" }}>
+                <div style={{ fontWeight: 800, fontSize: 16, color: assignmentMode === "empToItems" ? "#0ea5e9" : "white" }}>
                   👤 Employee → Multi Items
                 </div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                <div style={{ fontSize: 13, color: assignmentMode === "empToItems" ? "#64748b" : "rgba(255,255,255,0.9)", marginTop: 4 }}>
                   (Same Assignment ID for all items - LR update convenience)
                 </div>
               </div>
