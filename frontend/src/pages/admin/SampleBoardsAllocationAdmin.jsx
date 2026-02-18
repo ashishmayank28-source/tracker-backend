@@ -144,6 +144,12 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
   const [assignments, setAssignments] = useState([]);
   const [columns, setColumns] = useState(["Qty"]);
   const [showHistory, setShowHistory] = useState(false);
+  
+  // ✅ NEW: Assignment Mode (Item→Employees OR Employee→Items)
+  const [assignmentMode, setAssignmentMode] = useState("itemToEmp"); // "itemToEmp" or "empToItems"
+  const [selectedEmp, setSelectedEmp] = useState(null); // Single employee for empToItems mode
+  const [selectedItems, setSelectedItems] = useState([]); // Multi items for empToItems mode
+  const [itemQuantities, setItemQuantities] = useState({}); // { itemName: qty } for empToItems mode
   const [filters, setFilters] = useState({
     rootId: "",
     rmId: "",
@@ -179,6 +185,24 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
     }
   };
 
+  /* ✅ NEW: Toggle item for empToItems mode */
+  const toggleItem = (itemName) => {
+    if (selectedItems.includes(itemName)) {
+      setSelectedItems(selectedItems.filter(i => i !== itemName));
+      const newQty = { ...itemQuantities };
+      delete newQty[itemName];
+      setItemQuantities(newQty);
+    } else {
+      setSelectedItems([...selectedItems, itemName]);
+      setItemQuantities({ ...itemQuantities, [itemName]: 0 });
+    }
+  };
+
+  /* ✅ NEW: Update item quantity for empToItems mode */
+  const updateItemQty = (itemName, qty) => {
+    setItemQuantities({ ...itemQuantities, [itemName]: Number(qty) || 0 });
+  };
+
   /* 🔹 Update allocation table values */
   const updateValue = (empCode, field, value) => {
     setSelectedEmps((prev) =>
@@ -192,94 +216,178 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
     );
   };
 
-  /* 🔹 Save assignment - Generate SEPARATE ID for EACH employee */
+  /* 🔹 Save assignment - Supports TWO modes */
   const handleAllot = async () => {
-    if (!selectedItem) {
-      alert("❌ Please select an item first!");
-      return;
-    }
     if (!purpose) {
       alert("❌ Please select a purpose!");
       return;
     }
 
-    const totalQty = selectedEmps.reduce((sum, e) => sum + (e.qty || 0), 0);
-    const found = items.find((i) => i.name === selectedItem);
-    
-    // ✅ Calculate available stock (Opening - Issued) if Balance not set
-    const availableStock = found ? (found.Balance || (found.Opening - (found.Issued || 0))) : 0;
-    
-    console.log("📦 Stock check:", { item: selectedItem, found, availableStock, totalQty });
-    
-    if (found && totalQty > availableStock) {
-      alert(`❌ Not enough stock available!\n\nItem: ${selectedItem}\nAvailable: ${availableStock}\nRequested: ${totalQty}`);
-      return;
-    }
-    
-    if (totalQty === 0) {
-      alert("❌ Please enter quantity for at least one employee!");
-      return;
-    }
-
     const timestamp = Date.now();
     const createdIds = [];
+    const stockUpdates = {};
 
     try {
-      // ✅ Get year and lot from selected item
-      const selectedItemData = items.find(i => i.name === selectedItem);
-      const itemYear = selectedItemData?.year || new Date().getFullYear().toString();
-      const itemLot = selectedItemData?.lot || "Lot 1";
-      
-      // Create SEPARATE assignment for EACH selected employee
-      for (let i = 0; i < selectedEmps.length; i++) {
-        const emp = selectedEmps[i];
-        const rootId = `A${timestamp}-${i + 1}`; // Unique ID for each
+      if (assignmentMode === "itemToEmp") {
+        // ✅ MODE 1: Item → Multi Employees (separate IDs)
+        if (!selectedItem) {
+          alert("❌ Please select an item first!");
+          return;
+        }
+
+        const totalQty = selectedEmps.reduce((sum, e) => sum + (e.qty || 0), 0);
+        const found = items.find((i) => i.name === selectedItem);
         
-        const newAssignment = {
-          rootId,
-          item: selectedItem,
-          year: itemYear,           // ✅ Include year
-          lot: itemLot,             // ✅ Include lot
-          employees: [emp], // Single employee per assignment
-          purpose,
-          assignedBy: user.name,
-          role: "Admin",
-          region: emp.region || user.region || "Unknown",
-          date: new Date().toLocaleString(),
-          toVendor: false,
-        };
+        const availableStock = found ? (found.Balance || (found.Opening - (found.Issued || 0))) : 0;
+        
+        if (found && totalQty > availableStock) {
+          alert(`❌ Not enough stock available!\n\nItem: ${selectedItem}\nAvailable: ${availableStock}\nRequested: ${totalQty}`);
+          return;
+        }
+        
+        if (totalQty === 0) {
+          alert("❌ Please enter quantity for at least one employee!");
+          return;
+        }
 
-        const res = await fetch(`${API_BASE}/api/assignments/admin`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(newAssignment),
-        });
+        const selectedItemData = items.find(i => i.name === selectedItem);
+        const itemYear = selectedItemData?.year || new Date().getFullYear().toString();
+        const itemLot = selectedItemData?.lot || "Lot 1";
+        
+        // Create SEPARATE assignment for EACH selected employee
+        for (let i = 0; i < selectedEmps.length; i++) {
+          const emp = selectedEmps[i];
+          const rootId = `A${timestamp}-${i + 1}`; // Unique ID for each
+          
+          const newAssignment = {
+            rootId,
+            item: selectedItem,
+            year: itemYear,
+            lot: itemLot,
+            employees: [emp],
+            purpose,
+            assignedBy: user.name,
+            role: "Admin",
+            region: emp.region || user.region || "Unknown",
+            date: new Date().toLocaleString(),
+            toVendor: false,
+          };
 
-        if (!res.ok) throw new Error(`Failed to save assignment for ${emp.name}`);
-        createdIds.push(rootId);
+          const res = await fetch(`${API_BASE}/api/assignments/admin`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(newAssignment),
+          });
+
+          if (!res.ok) throw new Error(`Failed to save assignment for ${emp.name}`);
+          createdIds.push(rootId);
+        }
+
+        // Update stock for this item
+        stockUpdates[selectedItem] = totalQty;
+
+      } else {
+        // ✅ MODE 2: Employee → Multi Items (SAME ID for all items)
+        if (!selectedEmp) {
+          alert("❌ Please select an employee first!");
+          return;
+        }
+        if (selectedItems.length === 0) {
+          alert("❌ Please select at least one item!");
+          return;
+        }
+
+        // Check stock availability for all items
+        for (const itemName of selectedItems) {
+          const qty = itemQuantities[itemName] || 0;
+          if (qty <= 0) {
+            alert(`❌ Please enter quantity for item: ${itemName}`);
+            return;
+          }
+          const found = items.find((i) => i.name === itemName);
+          const availableStock = found ? (found.Balance || (found.Opening - (found.Issued || 0))) : 0;
+          if (found && qty > availableStock) {
+            alert(`❌ Not enough stock available!\n\nItem: ${itemName}\nAvailable: ${availableStock}\nRequested: ${qty}`);
+            return;
+          }
+        }
+
+        // ✅ Generate SAME rootId for ALL items
+        const rootId = `A${timestamp}`; // Same ID for all items
+
+        // Create ONE assignment per item, but with SAME rootId
+        for (const itemName of selectedItems) {
+          const qty = itemQuantities[itemName] || 0;
+          const selectedItemData = items.find(i => i.name === itemName);
+          const itemYear = selectedItemData?.year || new Date().getFullYear().toString();
+          const itemLot = selectedItemData?.lot || "Lot 1";
+
+          const newAssignment = {
+            rootId, // ✅ SAME ID for all items
+            item: itemName,
+            year: itemYear,
+            lot: itemLot,
+            employees: [{ ...selectedEmp, qty, extra: {} }],
+            purpose,
+            assignedBy: user.name,
+            role: "Admin",
+            region: selectedEmp.region || user.region || "Unknown",
+            date: new Date().toLocaleString(),
+            toVendor: false,
+          };
+
+          const res = await fetch(`${API_BASE}/api/assignments/admin`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(newAssignment),
+          });
+
+          if (!res.ok) throw new Error(`Failed to save assignment for item ${itemName}`);
+          
+          // Track stock update
+          stockUpdates[itemName] = qty;
+        }
+
+        createdIds.push(rootId); // Single ID for all items
       }
 
       fetchHistory();
 
-      // ✅ Update stock in DB - add issued quantity
+      // ✅ Update stock in DB for all affected items
       const newItems = items.map((i) => {
-        if (i.name !== selectedItem) return i;
-        const newIssued = (i.Issued || 0) + totalQty;
-        const newBalance = (i.Opening || 0) - newIssued;
-        console.log(`📦 Stock update for ${i.name}: Issued ${i.Issued || 0} → ${newIssued}, Balance → ${newBalance}`);
-        return { ...i, Issued: newIssued, Balance: newBalance };
+        if (stockUpdates[i.name]) {
+          const newIssued = (i.Issued || 0) + stockUpdates[i.name];
+          const newBalance = (i.Opening || 0) - newIssued;
+          console.log(`📦 Stock update for ${i.name}: Issued ${i.Issued || 0} → ${newIssued}, Balance → ${newBalance}`);
+          return { ...i, Issued: newIssued, Balance: newBalance };
+        }
+        return i;
       });
       
-      // ✅ Save to DB and wait for completion
       await saveStock(newItems);
 
-      setSelectedEmps([]);
+      // Reset form
+      if (assignmentMode === "itemToEmp") {
+        setSelectedEmps([]);
+        setSelectedItem("");
+      } else {
+        setSelectedEmp(null);
+        setSelectedItems([]);
+        setItemQuantities({});
+      }
       setPurpose("");
-      setSelectedItem("");
-      alert(`✅ Stock assigned!\n${createdIds.length} separate IDs created:\n${createdIds.join("\n")}`);
+
+      const modeMsg = assignmentMode === "itemToEmp" 
+        ? `${createdIds.length} separate IDs created:\n${createdIds.join("\n")}`
+        : `✅ Single Assignment ID: ${createdIds[0]}\nAll ${selectedItems.length} items share this ID for LR update convenience.`;
+      
+      alert(`✅ Stock assigned!\n${modeMsg}`);
     } catch (err) {
       console.error("Save error:", err);
       alert("❌ Failed to save assignment in DB!");
@@ -658,11 +766,91 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
       {/* ✅ Hide for Guest users */}
       {!isGuest && (
         <div style={{ marginTop: 30 }}>
-          <b>Assign To:</b>
-          <p style={{ fontSize: 12, color: "#666", margin: "5px 0" }}>
-            ℹ️ Flow: Admin → BM → Manager → Employee
-          </p>
-          {(() => {
+          {/* ✅ NEW: Assignment Mode Toggle */}
+          <div style={{ marginBottom: 20, padding: 15, background: "#f0f9ff", borderRadius: 8, border: "2px solid #0ea5e9" }}>
+            <b style={{ fontSize: 14, color: "#0c4a6e" }}>📋 Assignment Mode:</b>
+            <div style={{ display: "flex", gap: 20, marginTop: 10, flexWrap: "wrap" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="assignmentMode"
+                  value="itemToEmp"
+                  checked={assignmentMode === "itemToEmp"}
+                  onChange={(e) => {
+                    setAssignmentMode(e.target.value);
+                    setSelectedEmps([]);
+                    setSelectedItem("");
+                    setSelectedEmp(null);
+                    setSelectedItems([]);
+                    setItemQuantities({});
+                  }}
+                />
+                <span style={{ fontWeight: 600, color: assignmentMode === "itemToEmp" ? "#0ea5e9" : "#64748b" }}>
+                  📦 Item → Multi Employees
+                </span>
+                <span style={{ fontSize: 12, color: "#64748b", marginLeft: 5 }}>
+                  (Separate Assignment ID per employee)
+                </span>
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="assignmentMode"
+                  value="empToItems"
+                  checked={assignmentMode === "empToItems"}
+                  onChange={(e) => {
+                    setAssignmentMode(e.target.value);
+                    setSelectedEmps([]);
+                    setSelectedItem("");
+                    setSelectedEmp(null);
+                    setSelectedItems([]);
+                    setItemQuantities({});
+                  }}
+                />
+                <span style={{ fontWeight: 600, color: assignmentMode === "empToItems" ? "#0ea5e9" : "#64748b" }}>
+                  👤 Employee → Multi Items
+                </span>
+                <span style={{ fontSize: 12, color: "#64748b", marginLeft: 5 }}>
+                  (Same Assignment ID for all items - LR update convenience)
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {assignmentMode === "itemToEmp" ? (
+            <>
+              <b>Assign To:</b>
+              <p style={{ fontSize: 12, color: "#666", margin: "5px 0" }}>
+                ℹ️ Flow: Admin → BM → Manager → Employee
+              </p>
+            </>
+          ) : (
+            <>
+              <b>Select Employee:</b>
+              <p style={{ fontSize: 12, color: "#666", margin: "5px 0" }}>
+                ℹ️ Select one employee, then select multiple items. All items will share the same Assignment ID.
+              </p>
+              <select
+                value={selectedEmp?.empCode || ""}
+                onChange={(e) => {
+                  const emp = employees.find(em => em.empCode === e.target.value);
+                  setSelectedEmp(emp || null);
+                  setSelectedItems([]);
+                  setItemQuantities({});
+                }}
+                style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd", minWidth: 300, marginTop: 10 }}
+              >
+                <option value="">-- Select Employee --</option>
+                {employees.map((emp) => (
+                  <option key={emp.empCode} value={emp.empCode}>
+                    {emp.name} ({emp.empCode}) - {emp.role || "Employee"}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+          {/* ✅ Employee multi-select (only for itemToEmp mode) */}
+          {assignmentMode === "itemToEmp" && (() => {
             // Group employees by region, then by role (excluding RM)
             const grouped = employees.reduce((acc, emp) => {
               const region = emp.region || "Unknown Region";
@@ -730,8 +918,65 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
         </div>
       )}
 
-      {/* 🔹 Allocation Table */}
-      {selectedEmps.length > 0 && (
+      {/* ✅ NEW: Employee → Items Mode: Item Selection */}
+      {!isGuest && assignmentMode === "empToItems" && selectedEmp && (
+        <div style={{ marginTop: 20, padding: 15, background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+          <b style={{ fontSize: 14 }}>Select Items (Multi-select):</b>
+          <p style={{ fontSize: 12, color: "#666", margin: "5px 0" }}>
+            ✅ All selected items will share the same Assignment ID: <code style={{ background: "#e0e7ff", padding: "2px 6px", borderRadius: 3 }}>A{Date.now()}</code>
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+            {items.map((item) => (
+              <label
+                key={item.name}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 12px",
+                  border: selectedItems.includes(item.name) ? "2px solid #3b82f6" : "1px solid #d1d5db",
+                  borderRadius: 6,
+                  background: selectedItems.includes(item.name) ? "#dbeafe" : "white",
+                  cursor: "pointer",
+                  minWidth: 200,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedItems.includes(item.name)}
+                  onChange={() => toggleItem(item.name)}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600 }}>{item.name}</div>
+                  <div style={{ fontSize: 11, color: "#64748b" }}>
+                    Year: {item.year} | Lot: {item.lot} | Balance: {item.Balance || (item.Opening - (item.Issued || 0))}
+                  </div>
+                </div>
+                {selectedItems.includes(item.name) && (
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Qty"
+                    value={itemQuantities[item.name] || ""}
+                    onChange={(e) => updateItemQty(item.name, e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      width: 60,
+                      padding: "4px 6px",
+                      border: "1px solid #3b82f6",
+                      borderRadius: 4,
+                      textAlign: "center",
+                    }}
+                  />
+                )}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 🔹 Allocation Table - Mode 1: Item → Employees */}
+      {assignmentMode === "itemToEmp" && selectedEmps.length > 0 && (
         <>
           <h3 style={{ marginTop: 20 }}>Allocate Stock</h3>
           <select value={selectedItem} onChange={(e) => setSelectedItem(e.target.value)}>
@@ -779,51 +1024,124 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
           <div style={{ marginTop: 10 }}>
             <button onClick={() => setColumns([...columns, "Extra" + Date.now()])}>➕ Add Column</button>
           </div>
+        </>
+      )}
 
-          <div style={{ marginTop: 15 }}>
-            <label>
-              <b>Purpose:</b>{" "}
-              {(() => {
-                // Auto-detect purpose based on selected employee roles (RM removed)
-                const hasBM = selectedEmps.some(e => (e.role || "").includes("Branch"));
-                const hasOnlyBM = selectedEmps.every(e => (e.role || "").includes("Branch"));
-                
-                // If only BM selected → Team Bifurcation
-                // If Emp/Manager selected → Project/Marketing
-                const autoPurpose = hasOnlyBM && hasBM ? "Team Bifurcation" : "Project/Marketing";
-                
-                // Auto-set purpose if not manually changed
-                if (!purpose && autoPurpose) {
-                  setTimeout(() => setPurpose(autoPurpose), 0);
-                }
-                
-                return (
-                  <select value={purpose} onChange={(e) => setPurpose(e.target.value)}>
-                    <option value="">-- Select Purpose --</option>
-                    <option value="Team Bifurcation">Team Bifurcation (for BM)</option>
-                    <option value="Project/Marketing">Project/Marketing (for Emp/Manager)</option>
-                  </select>
-                );
-              })()}
-            </label>
-            <span style={{ marginLeft: 10, fontSize: 12, color: "#666" }}>
-              {purpose === "Project/Marketing" && "✅ Will have 'Submit to Vendor' option"}
-              {purpose === "Team Bifurcation" && "ℹ️ BM will further distribute to Manager/Emp"}
-            </span>
+      {/* ✅ NEW: Allocation Table - Mode 2: Employee → Items */}
+      {assignmentMode === "empToItems" && selectedEmp && selectedItems.length > 0 && (
+        <div style={{ marginTop: 20 }}>
+          <h3>Allocation Summary</h3>
+          <div style={{ padding: 15, background: "#f0fdf4", borderRadius: 8, border: "1px solid #86efac", marginBottom: 15 }}>
+            <div style={{ fontWeight: 600, color: "#166534" }}>
+              👤 Employee: <span style={{ color: "#0ea5e9" }}>{selectedEmp.name} ({selectedEmp.empCode})</span>
+            </div>
+            <div style={{ fontSize: 12, color: "#64748b", marginTop: 5 }}>
+              ✅ All items below will share the same Assignment ID for LR update convenience
+            </div>
           </div>
+          <table border="1" cellPadding="6" style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead style={{ background: "#f5f5f5" }}>
+              <tr>
+                <th>Item Name</th>
+                <th>Year</th>
+                <th>Lot</th>
+                <th>Available Stock</th>
+                <th>Quantity</th>
+              </tr>
+            </thead>
+            <tbody>
+              {selectedItems.map((itemName) => {
+                const item = items.find(i => i.name === itemName);
+                const availableStock = item ? (item.Balance || (item.Opening - (item.Issued || 0))) : 0;
+                return (
+                  <tr key={itemName}>
+                    <td style={{ fontWeight: 600 }}>{itemName}</td>
+                    <td>{item?.year || "-"}</td>
+                    <td>{item?.lot || "-"}</td>
+                    <td style={{ color: availableStock > 0 ? "#22c55e" : "#ef4444", fontWeight: 600 }}>
+                      {availableStock}
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="1"
+                        max={availableStock}
+                        value={itemQuantities[itemName] || ""}
+                        onChange={(e) => updateItemQty(itemName, e.target.value)}
+                        style={{ width: 80, padding: "6px", border: "1px solid #ddd", borderRadius: 4 }}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-          <button
-            onClick={handleAllot}
-            style={{
-              marginTop: 15,
-              background: "#4caf50",
-              color: "white",
-              padding: "6px 12px",
-              borderRadius: 4,
-            }}
-          >
-            ✅ Allot Stock
-          </button>
+          {/* Purpose Selection - Show for both modes */}
+          {((assignmentMode === "itemToEmp" && selectedEmps.length > 0) || 
+            (assignmentMode === "empToItems" && selectedEmp && selectedItems.length > 0)) && (
+            <div style={{ marginTop: 15 }}>
+              <label>
+                <b>Purpose:</b>{" "}
+                {(() => {
+                  if (assignmentMode === "itemToEmp") {
+                    // Auto-detect purpose based on selected employee roles (RM removed)
+                    const hasBM = selectedEmps.some(e => (e.role || "").includes("Branch"));
+                    const hasOnlyBM = selectedEmps.every(e => (e.role || "").includes("Branch"));
+                    
+                    // If only BM selected → Team Bifurcation
+                    // If Emp/Manager selected → Project/Marketing
+                    const autoPurpose = hasOnlyBM && hasBM ? "Team Bifurcation" : "Project/Marketing";
+                    
+                    // Auto-set purpose if not manually changed
+                    if (!purpose && autoPurpose) {
+                      setTimeout(() => setPurpose(autoPurpose), 0);
+                    }
+                  } else {
+                    // For empToItems mode, default to Project/Marketing
+                    if (!purpose) {
+                      setTimeout(() => setPurpose("Project/Marketing"), 0);
+                    }
+                  }
+                  
+                  return (
+                    <select value={purpose} onChange={(e) => setPurpose(e.target.value)}>
+                      <option value="">-- Select Purpose --</option>
+                      <option value="Team Bifurcation">Team Bifurcation (for BM)</option>
+                      <option value="Project/Marketing">Project/Marketing (for Emp/Manager)</option>
+                    </select>
+                  );
+                })()}
+              </label>
+              <span style={{ marginLeft: 10, fontSize: 12, color: "#666" }}>
+                {purpose === "Project/Marketing" && "✅ Will have 'Submit to Vendor' option"}
+                {purpose === "Team Bifurcation" && "ℹ️ BM will further distribute to Manager/Emp"}
+              </span>
+            </div>
+          )}
+
+          {/* Allot Button - Show for both modes */}
+          {((assignmentMode === "itemToEmp" && selectedEmps.length > 0 && selectedItem) || 
+            (assignmentMode === "empToItems" && selectedEmp && selectedItems.length > 0)) && (
+            <button
+              onClick={handleAllot}
+              style={{
+                marginTop: 15,
+                background: "#4caf50",
+                color: "white",
+                padding: "10px 20px",
+                borderRadius: 6,
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: "pointer",
+                border: "none",
+              }}
+            >
+              ✅ {assignmentMode === "itemToEmp" ? "Allot Stock" : "Allot Stock (Same ID for All Items)"}
+            </button>
+          )}
         </>
       )}
 
