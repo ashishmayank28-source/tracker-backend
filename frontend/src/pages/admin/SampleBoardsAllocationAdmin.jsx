@@ -528,6 +528,59 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
         </button>
       </div>
 
+      {/* ✅ Assignment Mode Toggle - Always visible at top (Admin only) */}
+      {!isGuest && (
+        <div style={{ marginBottom: 25, padding: 15, background: "#f0f9ff", borderRadius: 8, border: "2px solid #0ea5e9" }}>
+          <b style={{ fontSize: 14, color: "#0c4a6e" }}>📋 Assignment Mode:</b>
+          <div style={{ display: "flex", gap: 20, marginTop: 10, flexWrap: "wrap" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+              <input
+                type="radio"
+                name="assignmentMode"
+                value="itemToEmp"
+                checked={assignmentMode === "itemToEmp"}
+                onChange={(e) => {
+                  setAssignmentMode(e.target.value);
+                  setSelectedEmps([]);
+                  setSelectedItem("");
+                  setSelectedEmp(null);
+                  setSelectedItems([]);
+                  setItemQuantities({});
+                }}
+              />
+              <span style={{ fontWeight: 600, color: assignmentMode === "itemToEmp" ? "#0ea5e9" : "#64748b" }}>
+                📦 Item → Multi Employees
+              </span>
+              <span style={{ fontSize: 12, color: "#64748b", marginLeft: 5 }}>
+                (Separate Assignment ID per employee)
+              </span>
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+              <input
+                type="radio"
+                name="assignmentMode"
+                value="empToItems"
+                checked={assignmentMode === "empToItems"}
+                onChange={(e) => {
+                  setAssignmentMode(e.target.value);
+                  setSelectedEmps([]);
+                  setSelectedItem("");
+                  setSelectedEmp(null);
+                  setSelectedItems([]);
+                  setItemQuantities({});
+                }}
+              />
+              <span style={{ fontWeight: 600, color: assignmentMode === "empToItems" ? "#0ea5e9" : "#64748b" }}>
+                👤 Employee → Multi Items
+              </span>
+              <span style={{ fontSize: 12, color: "#64748b", marginLeft: 5 }}>
+                (Same Assignment ID for all items - LR update convenience)
+              </span>
+            </label>
+          </div>
+        </div>
+      )}
+
       {/* 🔹 Main Stock Table - Year & Lot Wise */}
       <h3>📊 Main Stock Table</h3>
       {stockLoading ? (
@@ -766,57 +819,6 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
       {/* ✅ Hide for Guest users */}
       {!isGuest && (
         <div style={{ marginTop: 30 }}>
-          {/* ✅ NEW: Assignment Mode Toggle */}
-          <div style={{ marginBottom: 20, padding: 15, background: "#f0f9ff", borderRadius: 8, border: "2px solid #0ea5e9" }}>
-            <b style={{ fontSize: 14, color: "#0c4a6e" }}>📋 Assignment Mode:</b>
-            <div style={{ display: "flex", gap: 20, marginTop: 10, flexWrap: "wrap" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                <input
-                  type="radio"
-                  name="assignmentMode"
-                  value="itemToEmp"
-                  checked={assignmentMode === "itemToEmp"}
-                  onChange={(e) => {
-                    setAssignmentMode(e.target.value);
-                    setSelectedEmps([]);
-                    setSelectedItem("");
-                    setSelectedEmp(null);
-                    setSelectedItems([]);
-                    setItemQuantities({});
-                  }}
-                />
-                <span style={{ fontWeight: 600, color: assignmentMode === "itemToEmp" ? "#0ea5e9" : "#64748b" }}>
-                  📦 Item → Multi Employees
-                </span>
-                <span style={{ fontSize: 12, color: "#64748b", marginLeft: 5 }}>
-                  (Separate Assignment ID per employee)
-                </span>
-              </label>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                <input
-                  type="radio"
-                  name="assignmentMode"
-                  value="empToItems"
-                  checked={assignmentMode === "empToItems"}
-                  onChange={(e) => {
-                    setAssignmentMode(e.target.value);
-                    setSelectedEmps([]);
-                    setSelectedItem("");
-                    setSelectedEmp(null);
-                    setSelectedItems([]);
-                    setItemQuantities({});
-                  }}
-                />
-                <span style={{ fontWeight: 600, color: assignmentMode === "empToItems" ? "#0ea5e9" : "#64748b" }}>
-                  👤 Employee → Multi Items
-                </span>
-                <span style={{ fontSize: 12, color: "#64748b", marginLeft: 5 }}>
-                  (Same Assignment ID for all items - LR update convenience)
-                </span>
-              </label>
-            </div>
-          </div>
-
           {assignmentMode === "itemToEmp" ? (
             <>
               <b>Assign To:</b>
