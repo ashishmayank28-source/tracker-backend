@@ -76,7 +76,8 @@ export default function AdminAttendance() {
             (r.createdAt ? dayjs(r.createdAt).format("YYYY-MM-DD") : "");
           if (!d) return;
           if (!byDate[d]) byDate[d] = { external: 0, internal: 0, leave: 0 };
-          if (r.meetingType === "External") byDate[d].external++;
+          // ✅ Count both "External" and "Revisit" as external visits for attendance
+          if (r.meetingType === "External" || r.meetingType === "Revisit") byDate[d].external++;
           if (r.meetingType === "Internal") byDate[d].internal++;
           if (r.meetingType === "Leave") byDate[d].leave++;
         });

@@ -345,9 +345,7 @@ export const verifyTourExpenses = async (req, res) => {
     const { verificationRemarks } = req.body;
     const verifier = req.user;
 
-    const tourRequest = await TourApproval.findById(id);
-
-    if (!tourRequest) {
+    const tourRequest = await TourApproval.findById(id);    if (!tourRequest) {
       return res.status(404).json({ message: "Tour request not found" });
     }
 
