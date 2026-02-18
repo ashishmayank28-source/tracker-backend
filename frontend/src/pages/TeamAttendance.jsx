@@ -71,8 +71,14 @@ export default function TeamAttendance() {
         // Group by date
         const byDate = {};
         (Array.isArray(reports) ? reports : []).forEach((r) => {
-          const d = (r.date && String(r.date).slice(0, 10)) ||
-            (r.createdAt ? dayjs(r.createdAt).format("YYYY-MM-DD") : "");
+          // ✅ Use LOCAL timezone date key (avoid UTC slice shifting days)
+          let d = "";
+          if (r.date) {
+            const dateObj = new Date(r.date);
+            d = dayjs(dateObj).format("YYYY-MM-DD");
+          } else if (r.createdAt) {
+            d = dayjs(r.createdAt).format("YYYY-MM-DD");
+          }
           if (!d) return;
           if (!byDate[d]) byDate[d] = { external: 0, internal: 0, leave: 0 };
           if (r.meetingType === "External" || r.meetingType === "Revisit") byDate[d].external++;
