@@ -72,21 +72,15 @@ router.get("/reports-by-emp/:empCode", protect, async (req, res) => {
     const { empCode } = req.params;
     const { from, to } = req.query;
 
-    // Build date filter
-    let dateFilter = {};
-    if (from && to) {
-      const fromDate = new Date(from);
-      const toDate = new Date(to);
-      toDate.setHours(23, 59, 59, 999);
-      dateFilter = { $gte: fromDate, $lte: toDate };
-    }
-
-    // Find customers where employee is creator OR has visits
+    // Find customers where this employee has interacted (match myReports endpoint behavior)
     const query = {
       $or: [
+        { empCode: empCode },
         { "createdBy.empCode": empCode },
-        { "visits.createdBy": empCode },
-        { "visits.empCode": empCode },
+        { "visits.empCode": empCode }, // string
+        { "visits.empCode": { $in: [empCode] } }, // array
+        { "visits.createdBy": empCode }, // string
+        { "visits.createdBy.empCode": empCode }, // object
       ],
     };
 
@@ -95,38 +89,32 @@ router.get("/reports-by-emp/:empCode", protect, async (req, res) => {
     // Flatten to reports array
     const reports = [];
     customers.forEach((c) => {
-      // Check if main customer was created by this employee
-      if (c.createdBy?.empCode === empCode) {
-        const reportDate = c.createdAt || c.date;
-        
-        // Apply date filter
-        if (dateFilter.$gte && dateFilter.$lte) {
-          const d = new Date(reportDate);
-          if (d < dateFilter.$gte || d > dateFilter.$lte) return;
-        }
-        
-        reports.push({
-          customerId: c.customerId,
-          name: c.name,
-          meetingType: c.meetingType || "External",
-          date: reportDate,
-          createdAt: c.createdAt,
-        });
-      }
-
-      // Check visits
+      // ✅ Only count visit entries (same as /api/customers/my-reports attendance source)
       (c.visits || []).forEach((v) => {
-        const isEmpVisit = v.createdBy === empCode || v.empCode === empCode;
-        if (!isEmpVisit) return;
-        
-        const reportDate = v.date || v.createdAt;
-        
-        // Apply date filter
-        if (dateFilter.$gte && dateFilter.$lte) {
-          const d = new Date(reportDate);
-          if (d < dateFilter.$gte || d > dateFilter.$lte) return;
+        const vEmp = v.empCode;
+        let isMatch = false;
+
+        if (typeof vEmp === "string" && vEmp === empCode) {
+          isMatch = true;
+        } else if (Array.isArray(vEmp) && vEmp.includes(empCode)) {
+          isMatch = true;
+        } else if (v.createdBy === empCode) {
+          isMatch = true;
+        } else if (v.createdBy?.empCode === empCode) {
+          isMatch = true;
         }
-        
+
+        if (!isMatch) return;
+
+        const reportDate = v.date || v.visitDate || v.createdAt || c.createdAt;
+
+        // ✅ Date filter (match myReports): compare by local YYYY-MM-DD to avoid timezone issues
+        if (from && to) {
+          if (!reportDate) return;
+          const recordDateStr = new Date(reportDate).toLocaleDateString("en-CA"); // YYYY-MM-DD
+          if (!(recordDateStr >= from && recordDateStr <= to)) return;
+        }
+
         reports.push({
           customerId: c.customerId,
           name: v.name || c.name,
