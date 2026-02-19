@@ -147,10 +147,6 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
   
   // ✅ NEW: Assignment Mode (Item→Employees OR Employee→Items)
   const [assignmentMode, setAssignmentMode] = useState("itemToEmp"); // "itemToEmp" or "empToItems"
-  
-  // 🚨 DEBUG: Log to verify component is rendering - ALWAYS RUN
-  console.log("🚨🚨🚨 SampleBoardsAllocationAdmin component RENDERING NOW! 🚨🚨🚨");
-  console.log("🚨 Assignment Mode state:", assignmentMode);
   const [selectedEmp, setSelectedEmp] = useState(null); // Single employee for empToItems mode
   const [selectedItems, setSelectedItems] = useState([]); // Multi items for empToItems mode
   const [itemQuantities, setItemQuantities] = useState({}); // { itemName: qty } for empToItems mode
@@ -512,13 +508,9 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
     );
   });
 
-  // 🚨 DEBUG: Log right before return
-  console.log("🚨 About to render JSX, assignmentMode =", assignmentMode);
-  console.log("🚨 Toggle should be visible with z-index 9999");
-
   return (
     <div style={{ padding: 20 }}>
-      {/* 🚨🚨🚨 ASSIGNMENT MODE TOGGLE - MUST BE VISIBLE 🚨🚨🚨 */}
+      {/* ✅ Assignment Mode Toggle - Always visible at top */}
       <div 
         id="assignment-mode-toggle"
         style={{ 
@@ -1198,8 +1190,6 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
               ✅ {assignmentMode === "itemToEmp" ? "Allot Stock" : "Allot Stock (Same ID for All Items)"}
             </button>
           )}
-        </>
-      )}
 
       {/* 🔹 Assignment History */}
 {showHistory && (
