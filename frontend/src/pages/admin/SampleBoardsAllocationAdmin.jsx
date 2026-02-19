@@ -510,6 +510,20 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
 
   return (
     <div style={{ padding: 20 }}>
+      {/* 🚨 TEST: Very visible test element */}
+      <div style={{ 
+        background: "red", 
+        color: "white", 
+        padding: 15, 
+        marginBottom: 10, 
+        fontSize: 20, 
+        fontWeight: "bold",
+        textAlign: "center",
+        border: "5px solid yellow"
+      }}>
+        🚨 ASSIGNMENT MODE TOGGLE SHOULD BE BELOW THIS 🚨
+      </div>
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15 }}>
         <h2 style={{ margin: 0 }}>📦 Sample Allocation (Admin)</h2>
         <button
@@ -542,7 +556,10 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
           position: "relative",
           zIndex: 10,
           width: "100%",
-          boxSizing: "border-box"
+          boxSizing: "border-box",
+          display: "block !important",
+          visibility: "visible !important",
+          opacity: "1 !important"
         }}
       >
         <div style={{ fontSize: 18, fontWeight: 800, color: "white", marginBottom: 15, textAlign: "center" }}>
