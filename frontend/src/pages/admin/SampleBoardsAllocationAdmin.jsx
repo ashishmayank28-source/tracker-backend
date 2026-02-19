@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../../auth.jsx";
+import dayjs from "dayjs";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
@@ -158,6 +159,7 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
     empName: "",
     purpose: "",
     role: "",
+    date: "", // ✅ Date filter
   });
 
   /* 🔹 Fetch all employees */
@@ -491,6 +493,19 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
 
   /* 🔹 Filtered assignments */
   const filteredAssignments = assignments.filter((a) => {
+    // ✅ Date filter - match date in YYYY-MM-DD format
+    let dateMatch = true;
+    if (filters.date) {
+      try {
+        const filterDate = dayjs(filters.date).format("YYYY-MM-DD");
+        const assignmentDate = a.date ? dayjs(new Date(a.date)).format("YYYY-MM-DD") : "";
+        dateMatch = assignmentDate === filterDate;
+      } catch (err) {
+        // If date parsing fails, don't filter by date
+        dateMatch = true;
+      }
+    }
+    
     return (
       (!filters.rootId || (a.rootId || "").toLowerCase().includes(filters.rootId.toLowerCase())) &&
       (!filters.rmId || (a.rmId || "").toLowerCase().includes(filters.rmId.toLowerCase())) &&
@@ -504,7 +519,8 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
           (e.name || "").toLowerCase().includes(filters.empName.toLowerCase())
         )) &&
       (!filters.purpose || (a.purpose || "").toLowerCase().includes(filters.purpose.toLowerCase())) &&
-      (!filters.role || (a.role || "").toLowerCase().includes(filters.role.toLowerCase()))
+      (!filters.role || (a.role || "").toLowerCase().includes(filters.role.toLowerCase())) &&
+      dateMatch // ✅ Date filter
     );
   });
 
@@ -1240,8 +1256,15 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
         onChange={(e) => setFilters((p) => ({ ...p, role: e.target.value }))} 
         style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid #d1d5db" }}
       />
+      <input 
+        type="date" 
+        placeholder="Filter by Date" 
+        value={filters.date}
+        onChange={(e) => setFilters((p) => ({ ...p, date: e.target.value }))} 
+        style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid #d1d5db" }}
+      />
       <button
-        onClick={() => setFilters({ rootId: "", rmId: "", bmId: "", empCode: "", empName: "", purpose: "", role: "" })}
+        onClick={() => setFilters({ rootId: "", rmId: "", bmId: "", empCode: "", empName: "", purpose: "", role: "", date: "" })}
         style={{
           padding: "6px 14px",
           background: "#ef4444",
