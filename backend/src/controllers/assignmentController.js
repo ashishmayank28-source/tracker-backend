@@ -349,7 +349,7 @@ export const submitToVendor = async (req, res) => {
       return res.status(400).json({ success: false, message: "ID missing" });
     }
 
-    // 🔍 Find the SPECIFIC assignment - Priority: bmId > rootId
+    // 🔍 Find the assignment - Priority: bmId > rootId
     let assignment = await Assignment.findOne({ bmId: rootId });
     let query = { bmId: rootId };
 
@@ -372,17 +372,22 @@ export const submitToVendor = async (req, res) => {
       });
     }
 
-    // ✅ Mark ONLY this specific entry as sent to vendor (use _id for precision)
-    await Assignment.updateOne(
-      { _id: assignment._id },
+    // ✅ Update ALL assignments with the same rootId (for Employee → Multi Items mode)
+    // If bmId exists, update by bmId; otherwise update all with same rootId
+    const updateQuery = assignment.bmId 
+      ? { bmId: assignment.bmId } 
+      : { rootId: assignment.rootId };
+    
+    const result = await Assignment.updateMany(
+      { ...updateQuery, toVendor: { $ne: true } }, // Only update if not already sent
       { $set: { toVendor: true, dispatchedAt: new Date() } }
     );
 
-    console.log(`✅ Sent to Vendor: ${assignment.bmId || assignment.rootId} (ID: ${assignment._id})`);
+    console.log(`✅ Sent to Vendor: ${assignment.bmId || assignment.rootId} - Updated ${result.modifiedCount} assignment(s)`);
 
     res.json({
       success: true,
-      message: "✅ Sent to Vendor Successfully",
+      message: `✅ Sent to Vendor Successfully (${result.modifiedCount} assignment(s) updated)`,
     });
   } catch (err) {
     console.error("Dispatch to Vendor Error:", err);
@@ -394,7 +399,7 @@ export const submitToVendor = async (req, res) => {
   }
 };
 /* ---------- LR UPDATE ---------- */
-// ✅ FIXED: Use _id for precision - Priority: bmId > rootId
+// ✅ FIXED: Update ALL assignments with same rootId (for Employee → Multi Items mode)
 export const updateLRNo = async (req, res) => {
   try {
     const { rootId } = req.params; // This can be bmId or rootId
@@ -417,17 +422,22 @@ export const updateLRNo = async (req, res) => {
       return res.status(404).json({ success: false, message: "Assignment not found" });
     }
 
-    // 3️⃣ Update LR No ONLY for this SPECIFIC record using _id
-    await Assignment.updateOne(
-      { _id: assignment._id },
+    // 3️⃣ Update LR No for ALL assignments with the same rootId (for Employee → Multi Items mode)
+    // If bmId exists, update by bmId; otherwise update all with same rootId
+    const updateQuery = assignment.bmId 
+      ? { bmId: assignment.bmId } 
+      : { rootId: assignment.rootId };
+    
+    const result = await Assignment.updateMany(
+      updateQuery,
       { $set: { lrNo, lrUpdatedAt: new Date().toLocaleString() } }
     );
 
-    console.log(`🔹 LR Update: ${assignment.bmId || assignment.rootId} → ${lrNo} (ID: ${assignment._id})`);
+    console.log(`🔹 LR Update: ${assignment.bmId || assignment.rootId} → ${lrNo} - Updated ${result.modifiedCount} assignment(s)`);
 
     res.json({
       success: true,
-      message: `✅ LR No "${lrNo}" updated successfully`,
+      message: `✅ LR No "${lrNo}" updated successfully (${result.modifiedCount} assignment(s) updated)`,
     });
   } catch (err) {
     console.error("LR update error:", err);
