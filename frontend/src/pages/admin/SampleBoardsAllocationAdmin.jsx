@@ -148,11 +148,9 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
   // ✅ NEW: Assignment Mode (Item→Employees OR Employee→Items)
   const [assignmentMode, setAssignmentMode] = useState("itemToEmp"); // "itemToEmp" or "empToItems"
   
-  // 🚨 DEBUG: Log to verify component is rendering
-  useEffect(() => {
-    console.log("🚨 SampleBoardsAllocationAdmin component rendered!");
-    console.log("🚨 Assignment Mode:", assignmentMode);
-  }, [assignmentMode]);
+  // 🚨 DEBUG: Log to verify component is rendering - ALWAYS RUN
+  console.log("🚨🚨🚨 SampleBoardsAllocationAdmin component RENDERING NOW! 🚨🚨🚨");
+  console.log("🚨 Assignment Mode state:", assignmentMode);
   const [selectedEmp, setSelectedEmp] = useState(null); // Single employee for empToItems mode
   const [selectedItems, setSelectedItems] = useState([]); // Multi items for empToItems mode
   const [itemQuantities, setItemQuantities] = useState({}); // { itemName: qty } for empToItems mode
