@@ -147,6 +147,12 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
   
   // ✅ NEW: Assignment Mode (Item→Employees OR Employee→Items)
   const [assignmentMode, setAssignmentMode] = useState("itemToEmp"); // "itemToEmp" or "empToItems"
+  
+  // 🚨 DEBUG: Log to verify component is rendering
+  useEffect(() => {
+    console.log("🚨 SampleBoardsAllocationAdmin component rendered!");
+    console.log("🚨 Assignment Mode:", assignmentMode);
+  }, [assignmentMode]);
   const [selectedEmp, setSelectedEmp] = useState(null); // Single employee for empToItems mode
   const [selectedItems, setSelectedItems] = useState([]); // Multi items for empToItems mode
   const [itemQuantities, setItemQuantities] = useState({}); // { itemName: qty } for empToItems mode
@@ -510,56 +516,21 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
 
   return (
     <div style={{ padding: 20 }}>
-      {/* 🚨 TEST: Very visible test element */}
-      <div style={{ 
-        background: "red", 
-        color: "white", 
-        padding: 15, 
-        marginBottom: 10, 
-        fontSize: 20, 
-        fontWeight: "bold",
-        textAlign: "center",
-        border: "5px solid yellow"
-      }}>
-        🚨 ASSIGNMENT MODE TOGGLE SHOULD BE BELOW THIS 🚨
-      </div>
-
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15 }}>
-        <h2 style={{ margin: 0 }}>📦 Sample Allocation (Admin)</h2>
-        <button
-          onClick={fetchHistory}
-          style={{
-            padding: "8px 16px",
-            background: "#3b82f6",
-            color: "white",
-            border: "none",
-            borderRadius: 6,
-            cursor: "pointer",
-            fontWeight: 500,
-          }}
-        >
-          🔄 Refresh
-        </button>
-      </div>
-
-      {/* ✅ Assignment Mode Toggle - Always visible at top */}
+      {/* ✅ Assignment Mode Toggle - AT THE VERY TOP, BEFORE EVERYTHING */}
       <div 
         id="assignment-mode-toggle"
         style={{ 
           marginBottom: 30, 
-          marginTop: 25,
-          padding: 25, 
+          marginTop: 0,
+          padding: 30, 
           background: "#0ea5e9",
           borderRadius: 12, 
-          border: "4px solid #0284c7",
-          boxShadow: "0 6px 20px rgba(14, 165, 233, 0.3)",
+          border: "5px solid #0284c7",
+          boxShadow: "0 8px 24px rgba(14, 165, 233, 0.4)",
           position: "relative",
-          zIndex: 10,
+          zIndex: 9999,
           width: "100%",
-          boxSizing: "border-box",
-          display: "block !important",
-          visibility: "visible !important",
-          opacity: "1 !important"
+          boxSizing: "border-box"
         }}
       >
         <div style={{ fontSize: 18, fontWeight: 800, color: "white", marginBottom: 15, textAlign: "center" }}>
@@ -641,6 +612,24 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
               </div>
             </label>
         </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15, marginTop: 20 }}>
+        <h2 style={{ margin: 0 }}>📦 Sample Allocation (Admin)</h2>
+        <button
+          onClick={fetchHistory}
+          style={{
+            padding: "8px 16px",
+            background: "#3b82f6",
+            color: "white",
+            border: "none",
+            borderRadius: 6,
+            cursor: "pointer",
+            fontWeight: 500,
+          }}
+        >
+          🔄 Refresh
+        </button>
       </div>
 
       {/* 🔹 Main Stock Table - Year & Lot Wise */}
