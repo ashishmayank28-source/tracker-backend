@@ -518,7 +518,7 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
 
   return (
     <div style={{ padding: 20 }}>
-      {/* ✅ Assignment Mode Toggle - AT THE VERY TOP, BEFORE EVERYTHING */}
+      {/* 🚨🚨🚨 ASSIGNMENT MODE TOGGLE - MUST BE VISIBLE 🚨🚨🚨 */}
       <div 
         id="assignment-mode-toggle"
         style={{ 
@@ -530,9 +530,10 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
           border: "5px solid #0284c7",
           boxShadow: "0 8px 24px rgba(14, 165, 233, 0.4)",
           position: "relative",
-          zIndex: 9999,
+          zIndex: 99999,
           width: "100%",
-          boxSizing: "border-box"
+          boxSizing: "border-box",
+          minHeight: "150px"
         }}
       >
         <div style={{ fontSize: 18, fontWeight: 800, color: "white", marginBottom: 15, textAlign: "center" }}>
