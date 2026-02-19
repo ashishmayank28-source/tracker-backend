@@ -1320,7 +1320,7 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
         <td>{a.assignedBy}</td>
         <td>{a.role}</td>
 
-        {/* ✅ Submit to Vendor - Use bmId if exists, otherwise rootId */}
+        {/* ✅ Submit to Vendor - Use rootId to update all items in group (Employee → Multi Items mode) */}
         <td>
           {(a.purpose || "").toLowerCase().includes("project") ||
            (a.purpose || "").toLowerCase().includes("marketing") ? (
@@ -1329,7 +1329,7 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
             ) : (
               <button
                 onClick={() =>
-                  handleSubmitToVendor(a.bmId || a.rootId, a.purpose)
+                  handleSubmitToVendor(a.rootId, a.purpose)
                 }
                 style={{
                   background: "#00ccff",
@@ -1348,7 +1348,7 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
           )}
         </td>
 
-        {/* ✅ LR No. - Combined display & update */}
+        {/* ✅ LR No. - Combined display & update - Use rootId to update all items in group */}
         <td>
           {a.lrNo ? (
             <span style={{ color: "green", fontWeight: "bold" }}>{a.lrNo}</span>
@@ -1358,14 +1358,13 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
                 type="text"
                 placeholder="LR No"
                 style={{ width: "70px", padding: "4px", fontSize: 12 }}
-                id={`lr-${a.bmId || a.rootId}`}
+                id={`lr-${a.rootId}`}
               />
               <button
                 onClick={() => {
-                  const updateId = a.bmId || a.rootId;
-                  const val = document.getElementById(`lr-${updateId}`).value;
+                  const val = document.getElementById(`lr-${a.rootId}`).value;
                   if (!val.trim()) return alert("Please enter LR No. first");
-                  handleLRUpdate(updateId, val);
+                  handleLRUpdate(a.rootId, val);
                 }}
                 style={{
                   background: "#4caf50",
