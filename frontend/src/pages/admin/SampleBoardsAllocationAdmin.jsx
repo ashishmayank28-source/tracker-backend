@@ -512,6 +512,10 @@ export default function SampleBoardsAllocationAdmin({ isGuest = false }) {
     );
   });
 
+  // 🚨 DEBUG: Log right before return
+  console.log("🚨 About to render JSX, assignmentMode =", assignmentMode);
+  console.log("🚨 Toggle should be visible with z-index 9999");
+
   return (
     <div style={{ padding: 20 }}>
       {/* ✅ Assignment Mode Toggle - AT THE VERY TOP, BEFORE EVERYTHING */}
