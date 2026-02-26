@@ -20,11 +20,17 @@ import {
 const router = express.Router();
 
 // ✅ Multer config for expense file uploads
+import { fileURLToPath } from "url";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const year = new Date().getFullYear();
     const month = String(new Date().getMonth() + 1).padStart(2, "0");
-    const dir = path.join("uploads", `${year}`, `${month}`);
+    // ✅ Use absolute path for uploads directory
+    const uploadsBase = path.join(__dirname, "../../uploads");
+    const dir = path.join(uploadsBase, `${year}`, `${month}`);
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },

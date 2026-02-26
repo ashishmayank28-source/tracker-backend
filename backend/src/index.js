@@ -71,12 +71,15 @@ async function start() {
   app.use("/api/guest", guestRoutes); // ✅ Guest routes
   app.use("/api/customer-database", customerDatabaseRoutes); // ✅ Customer Database routes
   app.use("/api/asset-requests", assetRequestRoutes); // ✅ Asset Request routes
-  app.use("/uploads", express.static("uploads"));
+  
+  // ✅ Serve uploaded files with absolute path
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const uploadsDir = path.join(__dirname, '../../uploads');
+  app.use("/uploads", express.static(uploadsDir));
 
   // Serve frontend static files if built (Vite build outputs to frontend/dist)
   try {
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
     const clientDist = path.join(__dirname, '../../frontend/dist');
     app.use(express.static(clientDist));
 
