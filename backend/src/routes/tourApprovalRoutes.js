@@ -14,6 +14,7 @@ import {
   submitTourExpenses,
   verifyTourExpenses,
   rejectTourExpenses,
+  markAsReimbursed,
 } from "../controllers/tourApprovalController.js";
 
 const router = express.Router();
@@ -55,6 +56,7 @@ router.put("/reject-expense/:id", authMiddleware, requireRole(["Manager", "Branc
 
 // Admin Routes
 router.get("/all-requests", authMiddleware, requireRole(["Admin", "RegionalManager"]), getAllTourRequests);
+router.put("/reimburse/:id", authMiddleware, requireRole(["Admin"]), markAsReimbursed);
 
 export default router;
 

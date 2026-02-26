@@ -50,6 +50,11 @@ const tourApprovalSchema = new mongoose.Schema(
     verifiedByCode: { type: String, default: null },
     verifiedDate: { type: Date },
     verificationRemarks: { type: String, default: "" },
+
+    /* 🔹 Reimbursement Status (by Admin after salary payment) */
+    reimbursed: { type: Boolean, default: false },
+    reimbursedBy: { type: String, default: null },
+    reimbursedDate: { type: Date },
   },
   {
     timestamps: true,

@@ -347,9 +347,7 @@ export const verifyTourExpenses = async (req, res) => {
 
     const tourRequest = await TourApproval.findById(id);    if (!tourRequest) {
       return res.status(404).json({ message: "Tour request not found" });
-    }
-
-    // ✅ Only the same manager who approved can verify
+    }    // ✅ Only the same manager who approved can verify
     if (tourRequest.approvedByCode !== verifier.empCode) {
       return res.status(403).json({ 
         message: `Only the approving manager (${tourRequest.approvedBy}) can verify expenses` 

@@ -154,6 +154,30 @@ export default function TravelRequests({ isAdmin = false }) {
     }
   };
 
+  // ✅ Mark as Reimbursed (Admin only)
+  const handleMarkReimbursed = async (id) => {
+    if (!window.confirm("Mark this tour as reimbursed? (Already paid with salary)")) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/tour/reimburse/${id}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setMessage("✅ Tour marked as reimbursed!");
+        loadRequests();
+      } else {
+        setMessage(`❌ ${data.message || "Failed to mark as reimbursed"}`);
+      }
+    } catch (err) {
+      setMessage("❌ Error marking as reimbursed");
+    }
+  };
+
   // Filter requests
   const filteredRequests = requests.filter((r) => {
     if (filter === "all") return true;
@@ -171,7 +195,23 @@ export default function TravelRequests({ isAdmin = false }) {
     completed: requests.filter(r => r.status === "Completed").length,
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status, reimbursed) => {
+    // ✅ Show reimbursed badge if reimbursed
+    if (reimbursed) {
+      return (
+        <span style={{
+          padding: "4px 10px",
+          borderRadius: 12,
+          fontSize: 11,
+          fontWeight: 600,
+          background: "#f0fdf4",
+          color: "#15803d",
+        }}>
+          💰 Reimbursed
+        </span>
+      );
+    }
+
     const styles = {
       Pending: { bg: "#fef3c7", color: "#d97706", icon: "⏳", label: "Pending" },
       Approved: { bg: "#dcfce7", color: "#16a34a", icon: "✅", label: "Approved" },
@@ -284,7 +324,7 @@ export default function TravelRequests({ isAdmin = false }) {
                   <div style={{ fontWeight: 600, fontSize: 15 }}>{req.empName}</div>
                   <div style={{ fontSize: 11, color: "#6b7280" }}>{req.empCode} • {req.branch || "-"}</div>
                 </div>
-                {getStatusBadge(req.status)}
+                {getStatusBadge(req.status, req.reimbursed)}
               </div>
 
               {/* Destination & Purpose */}
@@ -379,6 +419,22 @@ export default function TravelRequests({ isAdmin = false }) {
               {req.expenseVerified && (
                 <div style={{ padding: "8px 12px", background: "#d1fae5", borderRadius: 6, fontSize: 12, color: "#065f46", marginTop: 8 }}>
                   ✓ Verified by: {req.verifiedBy} on {new Date(req.verifiedDate).toLocaleDateString()}
+                </div>
+              )}
+
+              {/* Reimbursed Info */}
+              {req.reimbursed && (
+                <div style={{ padding: "8px 12px", background: "#f0fdf4", borderRadius: 6, fontSize: 12, color: "#15803d", marginTop: 8 }}>
+                  💰 Reimbursed by: {req.reimbursedBy} on {new Date(req.reimbursedDate).toLocaleDateString()}
+                </div>
+              )}
+
+              {/* ✅ Admin: Mark as Reimbursed (only for Completed tours) */}
+              {isAdmin && req.status === "Completed" && !req.reimbursed && (
+                <div style={cardActions}>
+                  <button onClick={() => handleMarkReimbursed(req._id)} style={reimburseBtn}>
+                    💰 Mark as Reimbursed
+                  </button>
                 </div>
               )}
 
@@ -613,6 +669,17 @@ const cancelBtn = {
   borderRadius: 6,
   cursor: "pointer",
   fontSize: 12,
+};
+
+const reimburseBtn = {
+  padding: "6px 12px",
+  background: "#15803d",
+  color: "#fff",
+  border: "none",
+  borderRadius: 6,
+  cursor: "pointer",
+  fontSize: 12,
+  fontWeight: 500,
 };
 
 const emptyState = {
