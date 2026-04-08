@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import { connectDB } from './config/db.js';
+import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -47,7 +48,21 @@ async function start() {
   app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
   // 🔹 Health & Root
-  app.get('/api/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
+  app.get('/api/health', (_req, res) => {
+    const db = mongoose.connection;
+    const readyState = db?.readyState ?? 0; // 0=disconnected,1=connected,2=connecting,3=disconnecting
+
+    res.json({
+      ok: true,
+      ts: Date.now(),
+      db: {
+        readyState,
+        connected: readyState === 1,
+        name: db?.name || null,
+        host: db?.host || null,
+      },
+    });
+  });
   app.get('/', (_req, res) => res.send('tracker API is up'));
 
   // 🔹 Routes
