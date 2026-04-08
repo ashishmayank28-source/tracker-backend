@@ -3,9 +3,11 @@ import { createContext, useContext, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { roleToDashboardPath } from "./utils/roleToPath.js";
 
-const API_BASE =
-  (import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000")
-    .replace(/\/+$/, "") || "";
+// If VITE_API_BASE is not set, default to same-origin requests.
+// This prevents production builds from accidentally calling 127.0.0.1.
+const API_BASE = String(import.meta.env.VITE_API_BASE || "")
+  .trim()
+  .replace(/\/+$/, "");
 
 const Ctx = createContext(null);
 export const useAuth = () => useContext(Ctx);
