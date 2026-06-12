@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../auth.jsx";
 import imageCompression from "browser-image-compression";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_API_BASE || "";
 
 export default function VisitForm() {
   const { user, token } = useAuth();
+  const [itemNames, setItemNames] = useState([]);
 
   const [step, setStep] = useState(1);
   const [msg, setMsg] = useState("");
@@ -58,6 +59,16 @@ export default function VisitForm() {
     borderRadius: "6px",
     cursor: "pointer",
   };
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API_BASE}/api/item-names`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => setItemNames(Array.isArray(data) ? data : []))
+      .catch(() => setItemNames([]));
+  }, [token]);
 
   const handleChange = (f, v) => setForm((p) => ({ ...p, [f]: v }));
   const handleRevChange = (e) =>
@@ -291,6 +302,7 @@ const res = await fetch(`${API_BASE}/api/customers/new`, {
           handleRevChange={handleRevChange}
           handlePOFile={handlePOFile}
           revForm={revForm}
+          itemNames={itemNames}
         />
       )}
 
@@ -426,6 +438,7 @@ function CustomerForm({
   handleRevChange,
   handlePOFile,
   revForm,
+  itemNames = [],
 }) {
   // ✅ Mobile validation - only allow digits and max 10 characters
   const handleMobileChange = (e) => {
@@ -579,13 +592,26 @@ function CustomerForm({
             <option value="Project">Project</option>
             <option value="Retail">Retail</option>
           </select>
-          <input
+          <label style={label}>Item Name *</label>
+          <select
             name="itemName"
-            placeholder="Item Name"
             style={input}
+            value={revForm.itemName}
             onChange={handleRevChange}
             required
-          />
+          >
+            <option value="">-- Select Item --</option>
+            {itemNames.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+          {itemNames.length === 0 && (
+            <p style={{ color: "#f59e0b", fontSize: 12, margin: "-8px 0 8px 0" }}>
+              No items in list. Please ask admin to add item names.
+            </p>
+          )}
           <input
             type="number"
             name="orderValue"

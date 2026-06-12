@@ -14,6 +14,7 @@ import PerformanceReview from "./admin/PerformanceReview.jsx";
 import RetailerDatabaseTeam from "./RetailerDatabaseTeam.jsx";
 import TravelRequests from "./TravelRequests.jsx";
 import CustomerDatabase from "./customerDatabase/CustomerDatabase.jsx"; // ✅ Customer Database
+import ItemNamesManager from "./admin/ItemNamesManager.jsx";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -44,6 +45,7 @@ export default function AdminDashboard() {
           <Tile label="⭐ Performance" onClick={() => setActiveTile("performance")} color="#f59e0b" />
           <Tile label="📝 Daily Tracker" onClick={() => setActiveTile("daily")} color="#06b6d4" />
           <Tile label="💰 Revenue" onClick={() => setActiveTile("revenue")} color="#22c55e" />
+          <Tile label="📦 Item Names" onClick={() => setActiveTile("item-names")} color="#84cc16" />
           <Tile label="🎁 Assets" onClick={() => setActiveTile("assets")} color="#ec4899" />
           <Tile label="📋 Customer DB" onClick={() => setActiveTile("customerDB")} color="#6366f1" />
           <Tile label="🗂 Dump Management" onClick={() => setActiveTile("dump")} color="#ef4444" />
@@ -99,6 +101,13 @@ export default function AdminDashboard() {
       {activeTile === "revenue" && (
         <TileWrapper title="💰 Revenue Tracker" onBack={() => setActiveTile("dashboard")}>
           <AdminRevenueTracker />
+        </TileWrapper>
+      )}
+
+      {/* Item Names */}
+      {activeTile === "item-names" && (
+        <TileWrapper title="📦 Order Won Item Names" onBack={() => setActiveTile("dashboard")}>
+          <ItemNamesManager />
         </TileWrapper>
       )}
 

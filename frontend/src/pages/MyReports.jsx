@@ -5,7 +5,7 @@ import NewVisitForm from "./NewVisitForm.jsx";
 import TourApprovalForm from "./TourApprovalForm.jsx";
 import imageCompression from "browser-image-compression";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
+const API_BASE = import.meta.env.VITE_API_BASE || "";
 
 export default function MyReports() {
   const { user, token } = useAuth();
@@ -114,6 +114,17 @@ function Revisit({ token, user, setHistoryCustomer }) {
     poNumber: "",
     poFile: null,
   });
+  const [itemNames, setItemNames] = useState([]);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API_BASE}/api/item-names`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => setItemNames(Array.isArray(data) ? data : []))
+      .catch(() => setItemNames([]));
+  }, [token]);
 
   useEffect(() => {
     if (q.length < 2) return;
@@ -367,13 +378,26 @@ function Revisit({ token, user, setHistoryCustomer }) {
                   <option value="Project">Project</option>
                   <option value="Retail">Retail</option>
                 </select>
-                <input
+                <label>Item Name *</label>
+                <select
                   name="itemName"
-                  placeholder="Item Name"
                   style={inputStyle}
+                  value={revForm.itemName}
                   onChange={handleRevChange}
                   required
-                />
+                >
+                  <option value="">-- Select Item --</option>
+                  {itemNames.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+                {itemNames.length === 0 && (
+                  <p style={{ color: "#f59e0b", fontSize: 12 }}>
+                    No items in list. Please ask admin to add item names.
+                  </p>
+                )}
                 <input
                   type="number"
                   name="orderValue"
