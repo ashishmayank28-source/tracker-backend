@@ -7,6 +7,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || "";
 export default function VisitForm() {
   const { user, token } = useAuth();
   const [itemNames, setItemNames] = useState([]);
+  const [channelPartners, setChannelPartners] = useState([]);
 
   const [step, setStep] = useState(1);
   const [msg, setMsg] = useState("");
@@ -71,8 +72,30 @@ export default function VisitForm() {
   }, [token]);
 
   const handleChange = (f, v) => setForm((p) => ({ ...p, [f]: v }));
-  const handleRevChange = (e) =>
-    setRevForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API_BASE}/api/channel-partners`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => setChannelPartners(Array.isArray(data) ? data : []))
+      .catch(() => setChannelPartners([]));
+  }, [token]);
+
+  const handleRevChange = (e) => {
+    const { name, value } = e.target;
+
+    if (name === "distributorCode") {
+      const match = channelPartners.find((p) => p.distributorCode === value);
+      return setRevForm((p) => ({
+        ...p,
+        distributorCode: value,
+        distributorName: match ? match.distributorName : "",
+      }));
+    }
+
+    setRevForm((p) => ({ ...p, [name]: value }));
+  };
 
   // 🔹 Compress + set PO file
   const handlePOFile = async (e) => {
@@ -303,6 +326,7 @@ const res = await fetch(`${API_BASE}/api/customers/new`, {
           handlePOFile={handlePOFile}
           revForm={revForm}
           itemNames={itemNames}
+          channelPartners={channelPartners}
         />
       )}
 
@@ -439,6 +463,7 @@ function CustomerForm({
   handlePOFile,
   revForm,
   itemNames = [],
+  channelPartners = [],
 }) {
   // ✅ Mobile validation - only allow digits and max 10 characters
   const handleMobileChange = (e) => {
@@ -570,17 +595,28 @@ function CustomerForm({
         >
           <h4>💰 Order Won Details</h4>
           <input
-            name="distributorName"
-            placeholder="Distributor Name"
-            style={input}
-            onChange={handleRevChange}
-            required
-          />
-          <input
             name="distributorCode"
             placeholder="Distributor Code"
             style={input}
+            value={revForm.distributorCode}
             onChange={handleRevChange}
+            list="channel-partner-codes"
+            required
+          />
+          <datalist id="channel-partner-codes">
+            {channelPartners.map((p) => (
+              <option key={p._id || p.distributorCode} value={p.distributorCode}>
+                {p.distributorCode}
+              </option>
+            ))}
+          </datalist>
+
+          <input
+            name="distributorName"
+            placeholder="Distributor Name"
+            style={input}
+            value={revForm.distributorName}
+            readOnly
             required
           />
           <select

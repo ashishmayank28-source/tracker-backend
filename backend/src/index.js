@@ -29,6 +29,7 @@ import guestRoutes from "./routes/guestRoutes.js"; // ✅ Guest routes
 import customerDatabaseRoutes from "./routes/customerDatabaseRoutes.js"; // ✅ Customer Database routes
 import assetRequestRoutes from "./routes/assetRequestRoutes.js"; // ✅ Asset Request routes
 import itemNameRoutes from "./routes/itemNameRoutes.js";
+import channelPartnerRoutes from "./routes/channelPartnerRoutes.js";
 
 
 async function start() {
@@ -88,6 +89,7 @@ async function start() {
   app.use("/api/customer-database", customerDatabaseRoutes); // ✅ Customer Database routes
   app.use("/api/asset-requests", assetRequestRoutes); // ✅ Asset Request routes
   app.use("/api/item-names", itemNameRoutes);
+  app.use("/api/channel-partners", channelPartnerRoutes);
   
   // ✅ Serve uploaded files with absolute path
   const __filename = fileURLToPath(import.meta.url);

@@ -115,6 +115,7 @@ function Revisit({ token, user, setHistoryCustomer }) {
     poFile: null,
   });
   const [itemNames, setItemNames] = useState([]);
+  const [channelPartners, setChannelPartners] = useState([]);
 
   useEffect(() => {
     if (!token) return;
@@ -124,6 +125,16 @@ function Revisit({ token, user, setHistoryCustomer }) {
       .then((r) => r.json())
       .then((data) => setItemNames(Array.isArray(data) ? data : []))
       .catch(() => setItemNames([]));
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API_BASE}/api/channel-partners`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => setChannelPartners(Array.isArray(data) ? data : []))
+      .catch(() => setChannelPartners([]));
   }, [token]);
 
   useEffect(() => {
@@ -241,8 +252,20 @@ function Revisit({ token, user, setHistoryCustomer }) {
     }
   }
 
-  const handleRevChange = (e) =>
-    setRevForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+  const handleRevChange = (e) => {
+    const { name, value } = e.target;
+
+    if (name === "distributorCode") {
+      const match = channelPartners.find((p) => p.distributorCode === value);
+      return setRevForm((p) => ({
+        ...p,
+        distributorCode: value,
+        distributorName: match ? match.distributorName : "",
+      }));
+    }
+
+    setRevForm((p) => ({ ...p, [name]: value }));
+  };
 
   return (
     <div>
@@ -356,17 +379,28 @@ function Revisit({ token, user, setHistoryCustomer }) {
               >
                 <h4>💰 Order Won Details</h4>
                 <input
-                  name="distributorName"
-                  placeholder="Distributor Name"
-                  style={inputStyle}
-                  onChange={handleRevChange}
-                  required
-                />
-                <input
                   name="distributorCode"
                   placeholder="Distributor Code"
                   style={inputStyle}
+                  value={revForm.distributorCode}
                   onChange={handleRevChange}
+                  list="channel-partner-codes"
+                  required
+                />
+                <datalist id="channel-partner-codes">
+                  {channelPartners.map((p) => (
+                    <option key={p._id || p.distributorCode} value={p.distributorCode}>
+                      {p.distributorCode}
+                    </option>
+                  ))}
+                </datalist>
+
+                <input
+                  name="distributorName"
+                  placeholder="Distributor Name"
+                  style={inputStyle}
+                  value={revForm.distributorName}
+                  readOnly
                   required
                 />
                 <select
