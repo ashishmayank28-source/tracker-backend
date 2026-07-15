@@ -11,6 +11,9 @@ export default function RevenueTrackerEmp() {
   const [selectedRejectReason, setSelectedRejectReason] = useState(null); // For viewing rejection reason
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [branch, setBranch] = useState("");
+  const [region, setRegion] = useState("");
+  const [empName, setEmpName] = useState("");
 
   async function fetchRevenue() {
     setLoading(true);
@@ -35,7 +38,9 @@ export default function RevenueTrackerEmp() {
           distributorName: r.distributorName || r.visits?.[0]?.distributorName || "-",
           orderType: r.orderType || r.visits?.[0]?.orderType || "-",
           empCode: r.empCode || r.createdBy?.empCode || r.createdBy || r.emp_code || user?.empCode || "-",
-          empName: r.createdByName || r.createdBy?.name || user?.name || "-",
+          empName: r.empName || r.createdByName || r.createdBy?.name || user?.name || "-",
+          branch: r.branch || user?.branch || "-",
+          region: r.region || user?.region || "-",
           orderValue: r.orderValue || "-",
           itemName: r.itemName || "-",
           poNumber: r.poNumber || "-",
@@ -68,15 +73,23 @@ export default function RevenueTrackerEmp() {
     if (token) fetchRevenue();
   }, [token]);
 
-  // ✅ Apply date filter
+  // ✅ Apply filters
   const filteredRevenue = revenue.filter((r) => {
-    if (!from && !to) return true;
-    const d = new Date(r.date);
-    const fromDate = from ? new Date(from) : null;
-    const toDate = to ? new Date(to) : null;
-    if (toDate) toDate.setHours(23, 59, 59, 999);
-    if (fromDate && d < fromDate) return false;
-    if (toDate && d > toDate) return false;
+    if (from || to) {
+      const d = new Date(r.date);
+      const fromDate = from ? new Date(from) : null;
+      const toDate = to ? new Date(to) : null;
+      if (fromDate) fromDate.setHours(0, 0, 0, 0);
+      if (toDate) toDate.setHours(23, 59, 59, 999);
+      if (fromDate && d < fromDate) return false;
+      if (toDate && d > toDate) return false;
+    }
+    if (branch && !(r.branch || "").toLowerCase().includes(branch.toLowerCase())) return false;
+    if (region && !(r.region || "").toLowerCase().includes(region.toLowerCase())) return false;
+    if (empName) {
+      const q = empName.toLowerCase();
+      if (!(r.empName || "").toLowerCase().includes(q) && !(r.empCode || "").toLowerCase().includes(q)) return false;
+    }
     return true;
   });
 
@@ -98,7 +111,10 @@ export default function RevenueTrackerEmp() {
       <div style={{ display: "flex", gap: 10, marginBottom: 15, alignItems: "center", flexWrap: "wrap" }}>
         <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={inputStyle} />
         <input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={inputStyle} />
-        <button onClick={() => { setFrom(""); setTo(""); }} style={btnGray}>Clear</button>
+        <input type="text" placeholder="Filter by Branch..." value={branch} onChange={(e) => setBranch(e.target.value)} style={inputStyle} />
+        <input type="text" placeholder="Filter by Region..." value={region} onChange={(e) => setRegion(e.target.value)} style={inputStyle} />
+        <input type="text" placeholder="Filter by Employee..." value={empName} onChange={(e) => setEmpName(e.target.value)} style={inputStyle} />
+        <button onClick={() => { setFrom(""); setTo(""); setBranch(""); setRegion(""); setEmpName(""); }} style={btnGray}>Clear</button>
         <button onClick={fetchRevenue} style={{ ...btnGray, background: "#3b82f6", color: "white" }}>🔄 Refresh</button>
       </div>
 
@@ -124,6 +140,8 @@ export default function RevenueTrackerEmp() {
                 <th style={th}>Distributor Code</th>
                 <th style={th}>Distributor Name</th>
                 <th style={th}>Emp Code</th>
+                <th style={th}>Branch</th>
+                <th style={th}>Region</th>
                 <th style={th}>Emp Name</th>
                 <th style={th}>Total Value (₹)</th>
                 <th style={th}>Item</th>
@@ -152,6 +170,8 @@ export default function RevenueTrackerEmp() {
                   <td style={td}>{r.distributorCode}</td>
                   <td style={td}>{r.distributorName}</td>
                   <td style={td}>{r.empCode}</td>
+                  <td style={td}>{r.branch || "-"}</td>
+                  <td style={td}>{r.region || "-"}</td>
                   <td style={td}>{r.empName}</td>
                   <td style={{ ...td, fontWeight: 600, color: "#2563eb" }}>₹{r.orderValue}</td>
                   <td style={td}>{r.itemName}</td>

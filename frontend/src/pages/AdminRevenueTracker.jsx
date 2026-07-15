@@ -28,10 +28,11 @@ export default function AdminRevenueTracker() {
     try {
       let url = `${API_BASE}/api/revenue/admin`;
       const params = [];
-      if (from && to) params.push(`from=${from}&to=${to}`);
-      if (branch) params.push(`branch=${branch}`);
-      if (region) params.push(`region=${region}`);
-      if (empName) params.push(`empName=${empName}`);
+      if (from) params.push(`from=${from}`);
+      if (to) params.push(`to=${to}`);
+      if (branch) params.push(`branch=${encodeURIComponent(branch)}`);
+      if (region) params.push(`region=${encodeURIComponent(region)}`);
+      if (empName) params.push(`empName=${encodeURIComponent(empName)}`);
       if (params.length) url += "?" + params.join("&");
 
       const res = await fetch(url, {
@@ -108,13 +109,13 @@ export default function AdminRevenueTracker() {
       "Distributor Code": r.distributorCode,
       "Distributor Name": r.distributorName,
       "Emp Code": r.empCode,
+      Branch: r.branch || "-",
+      Region: r.region || "-",
       "Emp Name": r.empName,
       "Total Value (₹)": r.orderValue,
       Item: r.itemName,
       "PO No": r.poNumber,
       Date: new Date(r.date).toLocaleDateString(),
-      Branch: r.branch || "-",
-      Region: r.region || "-",
       "Approved By": r.approvedBy || "-",
       "Submitted By": r.submittedBy || "-",
     }));
@@ -165,6 +166,8 @@ export default function AdminRevenueTracker() {
               <th style={th}>Distributor Code</th>
               <th style={th}>Distributor Name</th>
               <th style={th}>Emp Code</th>
+              <th style={th}>Branch</th>
+              <th style={th}>Region</th>
               <th style={th}>Emp Name</th>
               <th style={th}>Total Value (₹)</th>
               <th style={th}>Item</th>
@@ -179,7 +182,7 @@ export default function AdminRevenueTracker() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="19" style={{ textAlign: "center", padding: 20 }}>
+                <td colSpan="21" style={{ textAlign: "center", padding: 20 }}>
                   ⏳ Loading data...
                 </td>
               </tr>
@@ -196,6 +199,8 @@ export default function AdminRevenueTracker() {
                   <td style={td}>{r.distributorCode || "-"}</td>
                   <td style={td}>{r.distributorName || "-"}</td>
                   <td style={td}>{r.empCode || "-"}</td>
+                  <td style={td}>{r.branch || "-"}</td>
+                  <td style={td}>{r.region || "-"}</td>
                   <td style={td}>{r.empName || "-"}</td>
                   <td style={{ ...td, fontWeight: 600, color: "#16a34a" }}>₹{r.orderValue || "-"}</td>
                   <td style={td}>{r.itemName || "-"}</td>
@@ -245,7 +250,7 @@ export default function AdminRevenueTracker() {
               ))
             ) : (
               <tr>
-                <td colSpan="19" style={{ textAlign: "center", padding: 20 }}>
+                <td colSpan="21" style={{ textAlign: "center", padding: 20 }}>
                   No submitted revenue found. (Only BM-submitted entries appear here - no duplicates)
                 </td>
               </tr>

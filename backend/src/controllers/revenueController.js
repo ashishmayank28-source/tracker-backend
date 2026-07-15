@@ -6,6 +6,57 @@ import path from "path";
 import fs from "fs";
 
 /* =============================================================
+   🔍 Shared revenue list filters (branch, region, employee, date)
+============================================================= */
+function applyRevenueFilters(revenues, query = {}) {
+  let result = [...revenues];
+  const { from, to, branch, region, empName, empCode } = query;
+
+  if (empCode && empCode !== "all") {
+    result = result.filter((r) => r.empCode === empCode);
+  }
+
+  if (from || to) {
+    const fromDate = from ? new Date(from) : null;
+    const toDate = to ? new Date(to) : null;
+    if (fromDate) fromDate.setHours(0, 0, 0, 0);
+    if (toDate) toDate.setHours(23, 59, 59, 999);
+    result = result.filter((r) => {
+      if (!r.date) return false;
+      const d = new Date(r.date);
+      if (fromDate && d < fromDate) return false;
+      if (toDate && d > toDate) return false;
+      return true;
+    });
+  }
+
+  if (branch) {
+    const branchFilter = branch.toLowerCase();
+    result = result.filter((r) =>
+      (r.branch || "").toLowerCase().includes(branchFilter)
+    );
+  }
+
+  if (region) {
+    const regionFilter = region.toLowerCase();
+    result = result.filter((r) =>
+      (r.region || "").toLowerCase().includes(regionFilter)
+    );
+  }
+
+  if (empName) {
+    const nameFilter = empName.toLowerCase();
+    result = result.filter(
+      (r) =>
+        (r.empName || "").toLowerCase().includes(nameFilter) ||
+        (r.empCode || "").toLowerCase().includes(nameFilter)
+    );
+  }
+
+  return result;
+}
+
+/* =============================================================
    📁 Storage Setup for Manager PO Uploads
 ============================================================= */
 const storage = multer.diskStorage({
@@ -104,17 +155,12 @@ export const getManagerRevenue = async (req, res) => {
             empName: emp?.name || c.createdBy?.name || "-",
             branch: v.branch || emp?.branch || "-",
             region: v.region || emp?.region || "-",
-            managerCode,
-            managerName: req.user?.name || "-",
             meetingType: v.meetingType,
             date: v.date || c.createdAt,
-            // ✅ Reported by (who created/reported the entry)
             reportedBy: reporterName,
-            // ✅ BM Approval status (read-only for manager)
             approvedByBM: v.approvedByBM || null,
             approved: v.approved || v.orderStatus === "Approved",
             approvedBy: v.approvedBy || "-",
-            // 🔹 Reject status
             rejected: v.rejected || v.orderStatus === "Rejected",
             rejectedBy: v.rejectedBy || "-",
             rejectedDate: v.rejectedDate || null,
@@ -133,6 +179,7 @@ export const getManagerRevenue = async (req, res) => {
       // Avoid duplicates
       const exists = reports.some(r => r.poNumber === rev.poNumber && r.empCode === rev.empCode);
       if (!exists) {
+        const revEmp = employees.find((e) => e.empCode === rev.empCode);
         reports.push({
           _id: rev._id,
           customerId: rev.customerId || `MANUAL-${rev._id}`,
@@ -149,16 +196,14 @@ export const getManagerRevenue = async (req, res) => {
           poFileUrl: rev.poFileUrl || "-",
           orderValue: rev.orderValue || 0,
           empCode: rev.empCode,
-          empName: employees.find((e) => e.empCode === rev.empCode)?.name || "-",
+          empName: revEmp?.name || "-",
           managerCode: rev.managerCode,
           managerName: rev.managerName,
-          branch: rev.branch || "-",
-          region: rev.region || "-",
+          branch: rev.branch || revEmp?.branch || "-",
+          region: rev.region || revEmp?.region || "-",
           meetingType: "Manager Added",
           date: rev.date,
-          // ✅ Reported by (who created the entry)
           reportedBy: rev.reportedBy || `${rev.managerCode} - ${rev.managerName}`,
-          // ✅ BM Approval status
           approvedByBM: rev.approvedByBM || null,
           approved: rev.approved || false,
           approvedBy: rev.approvedBy || "-",
@@ -169,13 +214,7 @@ export const getManagerRevenue = async (req, res) => {
       }
     });
 
-    if (from && to) {
-      const f = new Date(from);
-      const t = new Date(to);
-      reports = reports.filter(
-        (r) => new Date(r.date) >= f && new Date(r.date) <= t
-      );
-    }
+    reports = applyRevenueFilters(reports, req.query);
 
     reports.sort((a, b) => new Date(b.date) - new Date(a.date));
 
@@ -501,8 +540,8 @@ export const getRevenueTrackerEmployee = async (req, res) => {
             orderValue: v.orderValue || 0,
             empCode: v.createdBy || c.createdBy?.empCode || "-",
             empName: req.user?.name || c.createdBy?.name || "-",
-            branch: v.branch || "-",
-            region: v.region || "-",
+            branch: v.branch || req.user?.branch || "-",
+            region: v.region || req.user?.region || "-",
             meetingType: v.meetingType,
             date: v.date || c.createdAt,
           });
@@ -707,21 +746,7 @@ export const getBMRevenue = async (req, res) => {
 
     console.log("🔍 Total revenues for BM:", revenues.length);
 
-    // Filter by empCode if provided
-    if (empCode && empCode !== "all") {
-      revenues = revenues.filter((r) => r.empCode === empCode);
-    }
-
-    // Date filtering
-    if (from && to) {
-      const fromDate = new Date(from);
-      const toDate = new Date(to);
-      toDate.setHours(23, 59, 59, 999);
-      revenues = revenues.filter((r) => {
-        const d = new Date(r.date);
-        return d >= fromDate && d <= toDate;
-      });
-    }
+    revenues = applyRevenueFilters(revenues, req.query);
 
     revenues.sort((a, b) => new Date(b.date) - new Date(a.date));
     res.json(revenues);
@@ -995,31 +1020,7 @@ export const getRMRevenue = async (req, res) => {
 
     console.log("🔍 Total revenues for RM:", revenues.length);
 
-    // Date filtering
-    if (from && to) {
-      const fromDate = new Date(from);
-      const toDate = new Date(to);
-      toDate.setHours(23, 59, 59, 999);
-      revenues = revenues.filter((r) => {
-        const d = new Date(r.date);
-        return d >= fromDate && d <= toDate;
-      });
-    }
-
-    // Branch filtering
-    if (branch) {
-      revenues = revenues.filter((r) =>
-        (r.branch || "").toLowerCase().includes(branch.toLowerCase())
-      );
-    }
-
-    // Employee name filtering
-    if (req.query.empName) {
-      const empNameFilter = req.query.empName.toLowerCase();
-      revenues = revenues.filter((r) =>
-        (r.empName || "").toLowerCase().includes(empNameFilter)
-      );
-    }
+    revenues = applyRevenueFilters(revenues, req.query);
 
     revenues.sort((a, b) => new Date(b.date) - new Date(a.date));
     res.json(revenues);
@@ -1145,38 +1146,7 @@ export const getAdminRevenue = async (req, res) => {
 
     console.log("🔍 Admin - Total revenues:", revenues.length);
 
-    // Date filtering
-    if (from && to) {
-      const fromDate = new Date(from);
-      const toDate = new Date(to);
-      toDate.setHours(23, 59, 59, 999);
-      revenues = revenues.filter((r) => {
-        const d = new Date(r.date);
-        return d >= fromDate && d <= toDate;
-      });
-    }
-
-    // Branch filtering
-    if (branch) {
-      revenues = revenues.filter((r) =>
-        (r.branch || "").toLowerCase().includes(branch.toLowerCase())
-      );
-    }
-
-    // Region filtering
-    if (region) {
-      revenues = revenues.filter((r) =>
-        (r.region || "").toLowerCase().includes(region.toLowerCase())
-      );
-    }
-
-    // Employee name filtering
-    if (req.query.empName) {
-      const empNameFilter = req.query.empName.toLowerCase();
-      revenues = revenues.filter((r) =>
-        (r.empName || "").toLowerCase().includes(empNameFilter)
-      );
-    }
+    revenues = applyRevenueFilters(revenues, req.query);
 
     revenues.sort((a, b) => new Date(b.date) - new Date(a.date));
     res.json(revenues);

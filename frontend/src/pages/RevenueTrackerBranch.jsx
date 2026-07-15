@@ -14,6 +14,9 @@ export default function RevenueTrackerBranch() {
   const [selectedEmp, setSelectedEmp] = useState("all");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [branch, setBranch] = useState("");
+  const [region, setRegion] = useState("");
+  const [empName, setEmpName] = useState("");
 
   /* 🔹 Fetch Branch Team (direct reportees) */
   useEffect(() => {
@@ -39,7 +42,11 @@ export default function RevenueTrackerBranch() {
       let url = `${API_BASE}/api/revenue/bm`;
       const params = [];
       if (selectedEmp !== "all") params.push(`empCode=${selectedEmp}`);
-      if (from && to) params.push(`from=${from}&to=${to}`);
+      if (from) params.push(`from=${from}`);
+      if (to) params.push(`to=${to}`);
+      if (branch) params.push(`branch=${encodeURIComponent(branch)}`);
+      if (region) params.push(`region=${encodeURIComponent(region)}`);
+      if (empName) params.push(`empName=${encodeURIComponent(empName)}`);
       if (params.length) url += "?" + params.join("&");
 
       const res = await fetch(url, {
@@ -242,6 +249,8 @@ export default function RevenueTrackerBranch() {
       "Distributor Code": r.distributorCode,
       "Distributor Name": r.distributorName,
       "Emp Code": r.empCode,
+      Branch: r.branch || "-",
+      Region: r.region || "-",
       "Emp Name": r.empName,
       "Order Value (₹)": r.orderValue,
       Item: r.itemName,
@@ -283,6 +292,9 @@ export default function RevenueTrackerBranch() {
         </select>
         <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={inputStyle} />
         <input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={inputStyle} />
+        <input type="text" placeholder="Filter by Branch..." value={branch} onChange={(e) => setBranch(e.target.value)} style={inputStyle} />
+        <input type="text" placeholder="Filter by Region..." value={region} onChange={(e) => setRegion(e.target.value)} style={inputStyle} />
+        <input type="text" placeholder="Filter by Employee..." value={empName} onChange={(e) => setEmpName(e.target.value)} style={inputStyle} />
         <button onClick={loadRevenue} style={btnBlue}>🔍 Filter</button>
         <button onClick={loadRevenue} style={{ ...btnBlue, background: "#3b82f6" }}>🔄 Refresh</button>
         <button onClick={exportToExcel} style={btnBlue}>📤 Export</button>
@@ -312,6 +324,8 @@ export default function RevenueTrackerBranch() {
               <th style={th}>Distributor Code</th>
               <th style={th}>Distributor Name</th>
               <th style={th}>Emp Code</th>
+              <th style={th}>Branch</th>
+              <th style={th}>Region</th>
               <th style={th}>Emp Name</th>
               <th style={th}>Total Value (₹)</th>
               <th style={th}>Item</th>
@@ -425,6 +439,12 @@ export default function RevenueTrackerBranch() {
                     ) : (r.empCode || "-")}
                   </td>
 
+                  {/* Branch */}
+                  <td style={td}>{r.branch || "-"}</td>
+
+                  {/* Region */}
+                  <td style={td}>{r.region || "-"}</td>
+
                   {/* Emp Name */}
                   <td style={td}>{r.empName || "-"}</td>
 
@@ -524,7 +544,7 @@ export default function RevenueTrackerBranch() {
               ))
             ) : (
               <tr>
-                <td colSpan="20" style={{ textAlign: "center", padding: 20 }}>
+                <td colSpan="22" style={{ textAlign: "center", padding: 20 }}>
                   No revenue data found. All Order Won entries from branch employees will appear here.
                 </td>
               </tr>
