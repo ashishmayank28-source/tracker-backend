@@ -70,6 +70,46 @@ export default function RegionalRevenueTracker() {
     }
   }, [token, user]);
 
+  async function approveRevenue(id) {
+    try {
+      const res = await fetch(`${API_BASE}/api/revenue/approve/${id}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast("✅ Revenue approved successfully", "success");
+        loadRevenue();
+      } else showToast(data.message || "Failed to approve", "error");
+    } catch (e) {
+      console.error(e);
+      showToast("Error approving revenue", "error");
+    }
+  }
+
+  async function rejectRevenue(id) {
+    const reason = prompt("Enter reason for rejection:");
+    if (!reason) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/revenue/reject/${id}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ reason }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast("❌ Entry rejected", "success");
+        loadRevenue();
+      } else showToast(data.message || "Failed to reject", "error");
+    } catch (e) {
+      console.error(e);
+      showToast("Error rejecting entry", "error");
+    }
+  }
+
   /* 🔹 Export to Excel */
   function exportToExcel() {
     const sheetData = revenue.map((r) => ({
@@ -154,12 +194,13 @@ export default function RegionalRevenueTracker() {
               <th style={thBlue}>Reported by</th>
               <th style={thYellow}>Approved by BM</th>
               <th style={thRed}>Reject</th>
+              <th style={thGreen}>Action</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="21" style={{ textAlign: "center", padding: 20 }}>
+                <td colSpan="22" style={{ textAlign: "center", padding: 20 }}>
                   ⏳ Loading data...
                 </td>
               </tr>
@@ -220,11 +261,25 @@ export default function RegionalRevenueTracker() {
                       <span style={{ color: "#9ca3af" }}>-</span>
                     )}
                   </td>
+                  <td style={tdGreen}>
+                    {r.rejected ? (
+                      <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 11 }}>❌ Rejected</span>
+                    ) : r.canApprove ? (
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <button onClick={() => approveRevenue(r._id)} style={btnApprove}>✓ Approve</button>
+                        <button onClick={() => rejectRevenue(r._id)} style={btnReject}>✗</button>
+                      </div>
+                    ) : (r.approvedByBM || (r.approvedBy && r.approvedBy !== "-")) ? (
+                      <span style={{ color: "#16a34a", fontWeight: 600, fontSize: 11 }}>✅ Approved</span>
+                    ) : (
+                      <span style={{ color: "#9ca3af", fontSize: 11 }}>⏳ Pending</span>
+                    )}
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="21" style={{ textAlign: "center", padding: 20 }}>
+                <td colSpan="22" style={{ textAlign: "center", padding: 20 }}>
                   No submitted revenue found from BMs. (Only BM-submitted entries appear here)
                 </td>
               </tr>
@@ -273,10 +328,14 @@ const th = { padding: "10px", borderBottom: "2px solid #ccc", fontSize: "11px", 
 const thBlue = { ...th, background: "#dbeafe" };
 const thYellow = { ...th, background: "#fef3c7" };
 const thRed = { ...th, background: "#fee2e2" };
+const thGreen = { ...th, background: "#dcfce7" };
 const td = { padding: "8px 10px", fontSize: "11px", whiteSpace: "nowrap" };
 const tdBlue = { ...td, background: "#dbeafe" };
 const tdYellow = { ...td, background: "#fef3c7" };
 const tdRed = { ...td, background: "#fee2e2" };
+const tdGreen = { ...td, background: "#dcfce7" };
+const btnApprove = { background: "#22c55e", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontWeight: 600, fontSize: 10 };
+const btnReject = { background: "#ef4444", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontWeight: 600, fontSize: 10 };
 const inputStyle = { padding: "6px 10px", borderRadius: 6, border: "1px solid #ccc", fontSize: 12 };
 const btnBlue = { background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, padding: "6px 12px", cursor: "pointer", fontSize: 12 };
 const viewBtn = { background: "#0ea5e9", color: "#fff", border: "none", borderRadius: 4, padding: "4px 10px", cursor: "pointer", fontSize: 10 };

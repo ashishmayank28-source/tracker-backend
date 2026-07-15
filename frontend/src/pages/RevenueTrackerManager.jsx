@@ -63,6 +63,46 @@ export default function RevenueTrackerManager() {
     loadRevenue();
   }, [selectedEmp]);
 
+  async function approveRevenue(id) {
+    try {
+      const res = await fetch(`${API_BASE}/api/revenue/approve/${id}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert("✅ Revenue approved successfully");
+        loadRevenue();
+      } else alert(data.message || "Failed to approve");
+    } catch (e) {
+      console.error(e);
+      alert("Error approving revenue");
+    }
+  }
+
+  async function rejectRevenue(id) {
+    const reason = prompt("Enter reason for rejection:");
+    if (!reason) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/revenue/reject/${id}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ reason }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert("❌ Entry rejected");
+        loadRevenue();
+      } else alert(data.message || "Failed to reject");
+    } catch (e) {
+      console.error(e);
+      alert("Error rejecting entry");
+    }
+  }
+
   /* 🔹 Note: Approve function removed - Only BM can approve now */
 
   /* 🔹 Add Manual Row (+ Manual button) */
@@ -441,7 +481,7 @@ export default function RevenueTrackerManager() {
                       <span style={{ color: "#166534", fontSize: 10 }}>by {r.approvedByBM || r.approvedBy}</span>
                     </div>
                   ) : (
-                    <span style={{ color: "#f59e0b", fontWeight: 600, fontSize: 11 }}>⏳ Pending BM</span>
+                      <span style={{ color: "#f59e0b", fontWeight: 600, fontSize: 11 }}>⏳ Pending Approver</span>
                   )}
                 </td>
 
@@ -456,16 +496,21 @@ export default function RevenueTrackerManager() {
                   )}
                 </td>
 
-                {/* Action - Only Save for Manual entries (No Approve button - BM only) */}
+                {/* Action - Approve if assigned approver */}
                 <td style={td}>
                   {r.isManual && !r.saved ? (
                     <button onClick={() => saveManualSale(r)} style={btnSave}>🟢 Save</button>
                   ) : r.rejected ? (
                     <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 11 }}>❌ Rejected</span>
+                  ) : r.canApprove ? (
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button onClick={() => approveRevenue(r._id)} style={btnApprove}>✓ Approve</button>
+                      <button onClick={() => rejectRevenue(r._id)} style={btnReject}>✗</button>
+                    </div>
                   ) : (r.approvedByBM || r.approvedBy !== "-") ? (
                     <span style={{ color: "green", fontWeight: 600, fontSize: 11 }}>✅ Approved</span>
                   ) : (
-                    <span style={{ color: "#9ca3af", fontSize: 11 }}>⏳ Awaiting BM</span>
+                    <span style={{ color: "#9ca3af", fontSize: 11 }}>⏳ Awaiting Approver</span>
                   )}
                 </td>
               </tr>
@@ -506,6 +551,8 @@ const inputSmall = { padding: "4px 6px", border: "1px solid #ccc", borderRadius:
 const btnBlue = { background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, padding: "6px 12px", cursor: "pointer", fontSize: 12 };
 const btnGreen = { background: "#16a34a", color: "#fff", border: "none", borderRadius: 4, padding: "6px 12px", cursor: "pointer", fontSize: 12 };
 const btnSave = { background: "#22c55e", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontWeight: 600, fontSize: 11 };
+const btnApprove = { background: "#22c55e", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontWeight: 600, fontSize: 11 };
+const btnReject = { background: "#ef4444", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontWeight: 600, fontSize: 11 };
 const viewBtn = { background: "#0ea5e9", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontSize: 10 };
 const filterRow = { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, alignItems: "center" };
 const summaryBox = { marginBottom: 15, padding: "12px 20px", background: "#d1fae5", borderRadius: 8, fontWeight: "bold", fontSize: 14, display: "flex", gap: 20, flexWrap: "wrap" };

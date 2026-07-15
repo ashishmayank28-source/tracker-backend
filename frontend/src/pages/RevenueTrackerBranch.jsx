@@ -523,21 +523,21 @@ export default function RevenueTrackerBranch() {
                     )}
                   </td>
 
-                  {/* Action - BM can Approve/Reject */}
+                  {/* Action - assigned revenue approver can approve/reject */}
                   <td style={td}>
                     {r.isManual && !r.saved ? (
                       <button onClick={() => saveManualSale(r)} style={btnSave}>🟢 Save</button>
                     ) : r.rejected ? (
                       <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 11 }}>❌ Rejected</span>
-                    ) : (r.approvedByBM || (r.approved && r.approvedBy && r.approvedBy !== "-")) ? (
-                      <div style={{ display: "flex", gap: 4 }}>
-                        <span style={{ color: "green", fontWeight: 600, fontSize: 11 }}>✅ Approved</span>
-                      </div>
-                    ) : (
+                    ) : r.canApprove ? (
                       <div style={{ display: "flex", gap: 4 }}>
                         <button onClick={() => approveRevenue(r._id)} style={btnApprove}>✓ Approve</button>
                         <button onClick={() => rejectRevenue(r._id)} style={btnReject}>✗</button>
                       </div>
+                    ) : (r.approvedByBM || (r.approved && r.approvedBy && r.approvedBy !== "-")) ? (
+                      <span style={{ color: "green", fontWeight: 600, fontSize: 11 }}>✅ Approved</span>
+                    ) : (
+                      <span style={{ color: "#9ca3af", fontSize: 11 }}>⏳ Awaiting Approver</span>
                     )}
                   </td>
                 </tr>

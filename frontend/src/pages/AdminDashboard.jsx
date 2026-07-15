@@ -9,6 +9,7 @@ import ReportViewer from "../components/ReportsViewer.jsx";
 import AssignmentLedger from "./admin/AssignmentLedger.jsx";
 import AssignmentTable from "./admin/AssignmentTable.jsx";
 import AdminRevenueTracker from "./AdminRevenueTracker.jsx";
+import RevenueApproverManager from "./admin/RevenueApproverManager.jsx";
 import AdminAttendance from "./admin/AdminAttendance.jsx";
 import PerformanceReview from "./admin/PerformanceReview.jsx";
 import RetailerDatabaseTeam from "./RetailerDatabaseTeam.jsx";
@@ -97,10 +98,30 @@ export default function AdminDashboard() {
         </TileWrapper>
       )}
 
-      {/* Revenue */}
+      {/* Revenue sub-menu */}
       {activeTile === "revenue" && (
-        <TileWrapper title="💰 Revenue Tracker" onBack={() => setActiveTile("dashboard")}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+            gap: 20,
+          }}
+        >
+          <Tile label="💰 Revenue Tracker" onClick={() => setActiveTile("revenue-tracker")} color="#22c55e" />
+          <Tile label="✅ Revenue Approver" onClick={() => setActiveTile("revenue-approver")} color="#16a34a" />
+          <Tile label="← Back" onClick={() => setActiveTile("dashboard")} color="#64748b" />
+        </div>
+      )}
+
+      {activeTile === "revenue-tracker" && (
+        <TileWrapper title="💰 Revenue Tracker" onBack={() => setActiveTile("revenue")}>
           <AdminRevenueTracker />
+        </TileWrapper>
+      )}
+
+      {activeTile === "revenue-approver" && (
+        <TileWrapper title="✅ Revenue Approver" onBack={() => setActiveTile("revenue")}>
+          <RevenueApproverManager />
         </TileWrapper>
       )}
 

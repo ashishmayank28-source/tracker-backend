@@ -56,6 +56,87 @@ function applyRevenueFilters(revenues, query = {}) {
   return result;
 }
 
+function buildApproverOptions(employee, userMap) {
+  const options = [];
+  const seen = new Set();
+  const add = (code, roleLabel) => {
+    if (!code || seen.has(code)) return;
+    const u = userMap[code];
+    if (!u) return;
+    seen.add(code);
+    options.push({
+      empCode: code,
+      name: u.name,
+      role: roleLabel,
+      label: `${code} - ${u.name} (${roleLabel})`,
+    });
+  };
+  const mgrCode = employee.managerEmpCode || employee.reportTo?.[0]?.empCode;
+  add(mgrCode, "Immediate Manager");
+  add(employee.branchManagerEmpCode, "Branch Manager");
+  add(employee.regionalManagerEmpCode, "Regional Manager");
+  return options;
+}
+
+function isLegacyBM(role) {
+  return role === "BM" || role === "BranchManager" || role === "Branch Manager";
+}
+
+function computeCanApprove(entry, employeeUser, currentUserEmpCode, currentUserRole) {
+  const approved =
+    entry.approved ||
+    entry.approvedByBM ||
+    (entry.approvedBy && entry.approvedBy !== "-") ||
+    entry.orderStatus === "Approved";
+  if (approved || entry.rejected || entry.orderStatus === "Rejected") return false;
+  if (!employeeUser) return false;
+  if (employeeUser.revenueApproverEmpCode) {
+    return employeeUser.revenueApproverEmpCode === currentUserEmpCode;
+  }
+  return isLegacyBM(currentUserRole);
+}
+
+async function getAssignedApproveeEmpCodes(approverEmpCode) {
+  const users = await User.find({ revenueApproverEmpCode: approverEmpCode })
+    .select("empCode")
+    .lean();
+  return users.map((u) => u.empCode);
+}
+
+async function resolveEntryEmployeeCode(id) {
+  const customer = await Customer.findOne({ "visits._id": id }).lean();
+  if (customer) {
+    const visit = customer.visits?.find((v) => String(v._id) === String(id));
+    if (visit?.createdBy) return visit.createdBy;
+  }
+  const rev = await Revenue.findById(id).lean();
+  return rev?.empCode || null;
+}
+
+async function userCanApproveEntry(approverEmpCode, approverRole, employeeEmpCode) {
+  if (!employeeEmpCode) return false;
+  const employee = await User.findOne({ empCode: employeeEmpCode }).lean();
+  if (!employee) return false;
+  if (employee.revenueApproverEmpCode) {
+    return employee.revenueApproverEmpCode === approverEmpCode;
+  }
+  return isLegacyBM(approverRole);
+}
+
+function enrichRowWithApproverMeta(row, employeeUser, currentUser) {
+  return {
+    ...row,
+    revenueApproverEmpCode: employeeUser?.revenueApproverEmpCode || "",
+    revenueApproverName: employeeUser?.revenueApproverName || "",
+    canApprove: computeCanApprove(
+      row,
+      employeeUser,
+      currentUser?.empCode,
+      currentUser?.role
+    ),
+  };
+}
+
 /* =============================================================
    📁 Storage Setup for Manager PO Uploads
 ============================================================= */
@@ -107,18 +188,31 @@ export const uploadPOForManager = async (req, res) => {
 export const getManagerRevenue = async (req, res) => {
   try {
     const managerCode = req.user?.empCode;
-    const { from, to, empCode } = req.query;
+    const assignedApprovees = await getAssignedApproveeEmpCodes(managerCode);
 
     const employees = await User.find({
-      $or: [{ managerEmpCode: managerCode }, { "reportTo.empCode": managerCode }],
-    });
+      $or: [
+        { managerEmpCode: managerCode },
+        { "reportTo.empCode": managerCode },
+        { empCode: { $in: assignedApprovees } },
+      ],
+    }).lean();
     const empCodes = employees.map((e) => e.empCode);
-    const filterEmpCodes = empCode && empCode !== "all" ? [empCode] : empCodes;
+    const userMap = {};
+    employees.forEach((e) => {
+      userMap[e.empCode] = e;
+    });
+
+    const { empCode } = req.query;
+    const scopeCodes =
+      empCode && empCode !== "all"
+        ? [empCode]
+        : [...new Set([...empCodes, ...assignedApprovees])];
 
     const customers = await Customer.find({
       $or: [
-        { "visits.createdBy": { $in: [...filterEmpCodes, managerCode] } },
-        { "createdBy.empCode": { $in: [...filterEmpCodes, managerCode] } },
+        { "visits.createdBy": { $in: scopeCodes } },
+        { "createdBy.empCode": { $in: scopeCodes } },
       ],
     }).lean();
 
@@ -126,98 +220,108 @@ export const getManagerRevenue = async (req, res) => {
 
     customers.forEach((c) => {
       (c.visits || []).forEach((v) => {
-        // ✅ Show ALL Won/Approved/Rejected entries immediately
         if (
           (v.orderStatus === "Won" || v.orderStatus === "Approved" || v.orderStatus === "Rejected") &&
           v.reportedBy !== "BM" &&
           v.reportedBy !== "Branch Manager"
         ) {
-          const emp = employees.find((e) => e.empCode === v.createdBy);
-          // ✅ Determine who reported this entry
+          const emp = userMap[v.createdBy] || employees.find((e) => e.empCode === v.createdBy);
           const reporterName = v.reportedBy || (emp ? `${emp.empCode} - ${emp.name}` : v.createdBy || "-");
-          
-          reports.push({
-            _id: v._id,
-            customerId: c.customerId || "-",
-            customerMobile: c.customerMobile || "NA",
-            customerName: c.name || "-",
-            company: c.company || "-",
-            customerType: c.customerType || "-",
-            vertical: v.vertical || c.vertical || "-",
-            distributorCode: v.distributorCode || "-",
-            distributorName: v.distributorName || "-",
-            orderType: v.orderType || "-",
-            itemName: v.itemName || "-",
-            poNumber: v.poNumber || "-",
-            poFileUrl: v.poFileUrl || "-",
-            orderValue: v.orderValue || 0,
-            empCode: v.createdBy || c.createdBy?.empCode || "-",
-            empName: emp?.name || c.createdBy?.name || "-",
-            branch: v.branch || emp?.branch || "-",
-            region: v.region || emp?.region || "-",
-            meetingType: v.meetingType,
-            date: v.date || c.createdAt,
-            reportedBy: reporterName,
-            approvedByBM: v.approvedByBM || null,
-            approved: v.approved || v.orderStatus === "Approved",
-            approvedBy: v.approvedBy || "-",
-            rejected: v.rejected || v.orderStatus === "Rejected",
-            rejectedBy: v.rejectedBy || "-",
-            rejectedDate: v.rejectedDate || null,
-          });
+
+          reports.push(
+            enrichRowWithApproverMeta(
+              {
+                _id: v._id,
+                customerId: c.customerId || "-",
+                customerMobile: c.customerMobile || "NA",
+                customerName: c.name || "-",
+                company: c.company || "-",
+                customerType: c.customerType || "-",
+                vertical: v.vertical || c.vertical || "-",
+                distributorCode: v.distributorCode || "-",
+                distributorName: v.distributorName || "-",
+                orderType: v.orderType || "-",
+                itemName: v.itemName || "-",
+                poNumber: v.poNumber || "-",
+                poFileUrl: v.poFileUrl || "-",
+                orderValue: v.orderValue || 0,
+                empCode: v.createdBy || c.createdBy?.empCode || "-",
+                empName: emp?.name || c.createdBy?.name || "-",
+                branch: v.branch || emp?.branch || "-",
+                region: v.region || emp?.region || "-",
+                meetingType: v.meetingType,
+                date: v.date || c.createdAt,
+                orderStatus: v.orderStatus,
+                reportedBy: reporterName,
+                approvedByBM: v.approvedByBM || null,
+                approved: v.approved || v.orderStatus === "Approved",
+                approvedBy: v.approvedBy || "-",
+                rejected: v.rejected || v.orderStatus === "Rejected",
+                rejectedBy: v.rejectedBy || "-",
+                rejectedDate: v.rejectedDate || null,
+              },
+              emp,
+              req.user
+            )
+          );
         }
       });
     });
 
-    // 🔹 Add Manual Revenues from Revenue collection
     const manualRevenues = await Revenue.find({
-      managerCode,
+      $or: [{ managerCode }, { empCode: { $in: scopeCodes } }],
       ...(empCode && empCode !== "all" ? { empCode } : {}),
     }).lean();
 
     manualRevenues.forEach((rev) => {
-      // Avoid duplicates
-      const exists = reports.some(r => r.poNumber === rev.poNumber && r.empCode === rev.empCode);
+      const exists = reports.some(
+        (r) => r.poNumber === rev.poNumber && r.empCode === rev.empCode
+      );
       if (!exists) {
-        const revEmp = employees.find((e) => e.empCode === rev.empCode);
-        reports.push({
-          _id: rev._id,
-          customerId: rev.customerId || `MANUAL-${rev._id}`,
-          customerMobile: rev.customerMobile || "NA",
-          customerName: rev.customerName || "-",
-          company: rev.company || "-",
-          customerType: rev.customerType || "-",
-          vertical: rev.verticalType || "-",
-          distributorCode: rev.distributorCode || "-",
-          distributorName: rev.distributorName || "-",
-          orderType: rev.orderType || "-",
-          itemName: rev.itemName || "-",
-          poNumber: rev.poNumber || "-",
-          poFileUrl: rev.poFileUrl || "-",
-          orderValue: rev.orderValue || 0,
-          empCode: rev.empCode,
-          empName: revEmp?.name || "-",
-          managerCode: rev.managerCode,
-          managerName: rev.managerName,
-          branch: rev.branch || revEmp?.branch || "-",
-          region: rev.region || revEmp?.region || "-",
-          meetingType: "Manager Added",
-          date: rev.date,
-          reportedBy: rev.reportedBy || `${rev.managerCode} - ${rev.managerName}`,
-          approvedByBM: rev.approvedByBM || null,
-          approved: rev.approved || false,
-          approvedBy: rev.approvedBy || "-",
-          isSubmitted: rev.isSubmitted || false,
-          rejected: rev.rejected || false,
-          rejectedBy: rev.rejectedBy || "-",
-        });
+        const revEmp = userMap[rev.empCode] || employees.find((e) => e.empCode === rev.empCode);
+        reports.push(
+          enrichRowWithApproverMeta(
+            {
+              _id: rev._id,
+              customerId: rev.customerId || `MANUAL-${rev._id}`,
+              customerMobile: rev.customerMobile || "NA",
+              customerName: rev.customerName || "-",
+              company: rev.company || "-",
+              customerType: rev.customerType || "-",
+              vertical: rev.verticalType || "-",
+              distributorCode: rev.distributorCode || "-",
+              distributorName: rev.distributorName || "-",
+              orderType: rev.orderType || "-",
+              itemName: rev.itemName || "-",
+              poNumber: rev.poNumber || "-",
+              poFileUrl: rev.poFileUrl || "-",
+              orderValue: rev.orderValue || 0,
+              empCode: rev.empCode,
+              empName: revEmp?.name || "-",
+              managerCode: rev.managerCode,
+              managerName: rev.managerName,
+              branch: rev.branch || revEmp?.branch || "-",
+              region: rev.region || revEmp?.region || "-",
+              meetingType: "Manager Added",
+              date: rev.date,
+              orderStatus: rev.orderStatus,
+              reportedBy: rev.reportedBy || `${rev.managerCode} - ${rev.managerName}`,
+              approvedByBM: rev.approvedByBM || null,
+              approved: rev.approved || false,
+              approvedBy: rev.approvedBy || "-",
+              isSubmitted: rev.isSubmitted || false,
+              rejected: rev.rejected || false,
+              rejectedBy: rev.rejectedBy || "-",
+            },
+            revEmp,
+            req.user
+          )
+        );
       }
     });
 
     reports = applyRevenueFilters(reports, req.query);
-
     reports.sort((a, b) => new Date(b.date) - new Date(a.date));
-
     res.json(reports);
   } catch (err) {
     console.error("Manager Revenue Error:", err);
@@ -233,28 +337,27 @@ export const approveRevenue = async (req, res) => {
   try {
     const { id } = req.params;
     const userRole = req.user?.role;
-    const bmName = req.user?.name || "BM";
-    const bmCode = req.user?.empCode;
+    const approverName = req.user?.name || "Approver";
+    const approverCode = req.user?.empCode;
     const now = new Date();
 
-    // ✅ STRICT: Only BM can approve (check all possible role names)
-    const isBM = userRole === "BM" || userRole === "BranchManager" || userRole === "Branch Manager";
-    if (!isBM) {
-      return res.status(403).json({ 
+    const employeeEmpCode = await resolveEntryEmployeeCode(id);
+    const allowed = await userCanApproveEntry(approverCode, userRole, employeeEmpCode);
+    if (!allowed) {
+      return res.status(403).json({
         success: false,
-        message: "❌ Only Branch Manager can approve revenue entries" 
+        message: "❌ You are not the assigned revenue approver for this employee",
       });
     }
 
-    // 🔹 Step 1: Update the visit directly and permanently inside Customer
-    const approvedByBMName = `${bmCode} - ${bmName}`;
+    const approvedByName = `${approverCode} - ${approverName}`;
     const updatedCustomer = await Customer.findOneAndUpdate(
       { "visits._id": id },
       {
         $set: {
           "visits.$.approved": true,
-          "visits.$.approvedBy": approvedByBMName,
-          "visits.$.approvedByBM": approvedByBMName, // ✅ New field for BM approval
+          "visits.$.approvedBy": approvedByName,
+          "visits.$.approvedByBM": approvedByName,
           "visits.$.approvedDate": now,
           "visits.$.orderStatus": "Approved",
         },
@@ -269,8 +372,8 @@ export const approveRevenue = async (req, res) => {
         {
           $set: {
             approved: true,
-            approvedBy: approvedByBMName,
-            approvedByBM: approvedByBMName,
+            approvedBy: approvedByName,
+            approvedByBM: approvedByName,
             approvedDate: now,
             orderStatus: "Approved",
           },
@@ -281,8 +384,8 @@ export const approveRevenue = async (req, res) => {
       if (updatedRevenue) {
         return res.json({
           success: true,
-          message: `✅ Revenue approved by BM: ${bmName}`,
-          approvedBy: approvedByBMName,
+          message: `✅ Revenue approved by ${approverName}`,
+          approvedBy: approvedByName,
         });
       }
 
@@ -304,8 +407,8 @@ export const approveRevenue = async (req, res) => {
       empName: employee?.name || "-",
       branch: employee?.branch || "-",
       region: employee?.region || "-",
-      managerCode: bmCode,
-      managerName: bmName,
+      managerCode: approverCode,
+      managerName: approverName,
       customerId: updatedCustomer.customerId,
       customerName: updatedCustomer.name || "Unknown",
       customerMobile: updatedCustomer.customerMobile || "NA",
@@ -321,8 +424,8 @@ export const approveRevenue = async (req, res) => {
       orderValue: Number(visit.orderValue) || 0,
       orderStatus: "Approved",
       approved: true,
-      approvedBy: approvedByBMName,
-      approvedByBM: approvedByBMName, // ✅ New field for BM approval
+      approvedBy: approvedByName,
+      approvedByBM: approvedByName,
       approvedDate: now,
       isManual: false,
       date: visit.date || now,
@@ -339,8 +442,8 @@ export const approveRevenue = async (req, res) => {
 
     res.json({
       success: true,
-      message: `✅ Revenue approved by BM: ${bmName}`,
-      approvedBy: approvedByBMName,
+      message: `✅ Revenue approved by ${approverName}`,
+      approvedBy: approvedByName,
     });
   } catch (err) {
     console.error("Approve Revenue Error:", err);
@@ -618,21 +721,20 @@ export const getBMRevenue = async (req, res) => {
   try {
     const bmCode = req.user?.empCode;
     const bmBranch = req.user?.branch;
-    const { from, to, empCode } = req.query;
+    const assignedApprovees = await getAssignedApproveeEmpCodes(bmCode);
 
     console.log("🔍 BM Revenue - Code:", bmCode, "Branch:", bmBranch);
 
-    // 1️⃣ Find all managers and employees in this branch
     const branchUsers = await User.find({
       $or: [
         { "reportTo.empCode": bmCode },
         { managerEmpCode: bmCode },
         { branch: bmBranch },
+        { empCode: { $in: assignedApprovees } },
       ],
     }).lean();
 
-    const branchEmpCodes = branchUsers.map((r) => r.empCode);
-    branchEmpCodes.push(bmCode); // Include BM's own code
+    const branchEmpCodes = [...new Set([...branchUsers.map((r) => r.empCode), bmCode, ...assignedApprovees])];
 
     console.log("🔍 BM Branch Users:", branchEmpCodes.length);
 
@@ -746,6 +848,17 @@ export const getBMRevenue = async (req, res) => {
 
     console.log("🔍 Total revenues for BM:", revenues.length);
 
+    const empUsers = await User.find({
+      empCode: { $in: [...new Set(revenues.map((r) => r.empCode).filter(Boolean))] },
+    }).lean();
+    const userMap = {};
+    empUsers.forEach((u) => {
+      userMap[u.empCode] = u;
+    });
+    revenues = revenues.map((r) =>
+      enrichRowWithApproverMeta(r, userMap[r.empCode], req.user)
+    );
+
     revenues = applyRevenueFilters(revenues, req.query);
 
     revenues.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -763,10 +876,21 @@ export const rejectRevenue = async (req, res) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
-    const bmName = req.user?.name || "BM";
-    const bmCode = req.user?.empCode;
+    const rejecterName = req.user?.name || "Approver";
+    const rejecterCode = req.user?.empCode;
+    const userRole = req.user?.role;
     const now = new Date();
-    const rejectedByName = `${bmCode} - ${bmName}`;
+
+    const employeeEmpCode = await resolveEntryEmployeeCode(id);
+    const allowed = await userCanApproveEntry(rejecterCode, userRole, employeeEmpCode);
+    if (!allowed) {
+      return res.status(403).json({
+        success: false,
+        message: "❌ You are not the assigned revenue approver for this employee",
+      });
+    }
+
+    const rejectedByName = `${rejecterCode} - ${rejecterName}`;
 
     // 1️⃣ Update Customer visit
     const updatedCustomer = await Customer.findOneAndUpdate(
@@ -897,20 +1021,19 @@ export const getRMRevenue = async (req, res) => {
   try {
     const rmCode = req.user?.empCode;
     const rmRegion = req.user?.region;
-    const { from, to, branch } = req.query;
+    const assignedApprovees = await getAssignedApproveeEmpCodes(rmCode);
 
     console.log("🔍 RM Revenue - Region:", rmRegion, "Code:", rmCode);
 
-    // Find ALL users in this region (BMs, Managers, Employees)
     const regionUsers = await User.find({
       $or: [
         { region: rmRegion },
         { "reportTo.empCode": rmCode },
+        { empCode: { $in: assignedApprovees } },
       ],
     }).lean();
     
-    const regionEmpCodes = regionUsers.map(u => u.empCode);
-    regionEmpCodes.push(rmCode); // Include RM's own code
+    const regionEmpCodes = [...new Set([...regionUsers.map(u => u.empCode), rmCode, ...assignedApprovees])];
     console.log("🔍 Region users count:", regionEmpCodes.length);
 
     let revenues = [];
@@ -1019,6 +1142,17 @@ export const getRMRevenue = async (req, res) => {
     });
 
     console.log("🔍 Total revenues for RM:", revenues.length);
+
+    const empUsers = await User.find({
+      empCode: { $in: [...new Set(revenues.map((r) => r.empCode).filter(Boolean))] },
+    }).lean();
+    const userMap = {};
+    empUsers.forEach((u) => {
+      userMap[u.empCode] = u;
+    });
+    revenues = revenues.map((r) =>
+      enrichRowWithApproverMeta(r, userMap[r.empCode], req.user)
+    );
 
     revenues = applyRevenueFilters(revenues, req.query);
 
@@ -1255,5 +1389,85 @@ export const adminRejectRevenue = async (req, res) => {
   } catch (err) {
     console.error("Admin Reject Revenue Error:", err);
     res.status(500).json({ message: "Failed to remove entry" });
+  }
+};
+
+/* =============================================================
+   ✅ Admin: Revenue Approver Assignments
+============================================================= */
+export const getRevenueApproverAssignments = async (req, res) => {
+  try {
+    const allUsers = await User.find({ isActive: { $ne: false } }).lean();
+    const userMap = {};
+    allUsers.forEach((u) => {
+      userMap[u.empCode] = u;
+    });
+
+    const employees = allUsers.filter((u) =>
+      ["Employee", "Manager"].includes(u.role)
+    );
+
+    const rows = employees
+      .map((emp) => ({
+        empCode: emp.empCode,
+        empName: emp.name,
+        branch: emp.branch || "-",
+        region: emp.region || "-",
+        revenueApproverEmpCode: emp.revenueApproverEmpCode || "",
+        revenueApproverName: emp.revenueApproverName || "",
+        approverOptions: buildApproverOptions(emp, userMap),
+      }))
+      .sort((a, b) => a.empName.localeCompare(b.empName));
+
+    res.json(rows);
+  } catch (err) {
+    console.error("Get Revenue Approver Assignments Error:", err);
+    res.status(500).json({ message: "Failed to fetch revenue approver assignments" });
+  }
+};
+
+export const setRevenueApproverAssignment = async (req, res) => {
+  try {
+    const { empCode } = req.params;
+    const { approverEmpCode } = req.body;
+
+    const employee = await User.findOne({ empCode });
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found" });
+    }
+
+    if (!approverEmpCode) {
+      await User.updateOne(
+        { empCode },
+        { $set: { revenueApproverEmpCode: "", revenueApproverName: "" } }
+      );
+      return res.json({ success: true, message: "Revenue approver cleared" });
+    }
+
+    const approver = await User.findOne({ empCode: approverEmpCode });
+    if (!approver) {
+      return res.status(404).json({ message: "Approver not found" });
+    }
+
+    const revenueApproverName = `${approver.empCode} - ${approver.name}`;
+    await User.updateOne(
+      { empCode },
+      {
+        $set: {
+          revenueApproverEmpCode: approver.empCode,
+          revenueApproverName,
+        },
+      }
+    );
+
+    res.json({
+      success: true,
+      message: "Revenue approver assigned successfully",
+      revenueApproverEmpCode: approver.empCode,
+      revenueApproverName,
+    });
+  } catch (err) {
+    console.error("Set Revenue Approver Assignment Error:", err);
+    res.status(500).json({ message: "Failed to set revenue approver" });
   }
 };

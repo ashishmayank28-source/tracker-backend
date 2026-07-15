@@ -44,6 +44,10 @@ const userSchema = new mongoose.Schema(
     profilePhoto: { type: String, default: "" },
 
     isActive: { type: Boolean, default: true },
+
+    // Revenue approval assignment (set by Admin)
+    revenueApproverEmpCode: { type: String, default: "" },
+    revenueApproverName: { type: String, default: "" },
   },
   { timestamps: true }
 );

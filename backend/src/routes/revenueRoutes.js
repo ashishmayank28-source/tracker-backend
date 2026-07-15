@@ -14,6 +14,8 @@ import {
   getBMRevenue,
   adminAcceptRevenue,
   adminRejectRevenue,
+  getRevenueApproverAssignments,
+  setRevenueApproverAssignment,
 } from "../controllers/revenueController.js";
 
 const router = express.Router();
@@ -37,6 +39,10 @@ router.post("/reject/:id", protect, rejectRevenue);
 // ✅ Admin Accept & Permanent Reject
 router.post("/admin/accept/:id", protect, adminOnly, adminAcceptRevenue);
 router.post("/admin/reject/:id", protect, adminOnly, adminRejectRevenue);
+
+// ✅ Admin Revenue Approver assignments
+router.get("/approver-assignments", protect, adminOnly, getRevenueApproverAssignments);
+router.put("/approver-assignments/:empCode", protect, adminOnly, setRevenueApproverAssignment);
 
 // ✅ Other routes
 router.post("/manual", protect, addManualSale);
