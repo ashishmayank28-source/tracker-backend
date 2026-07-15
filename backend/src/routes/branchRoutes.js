@@ -1,28 +1,18 @@
 import express from "express";
-import { protect } from "../middleware/authMiddleware.js";
-import User from "../models/userModel.js";
+import { protect, requireRole } from "../middleware/authMiddleware.js";
+import { getScopedUsers } from "../utils/scopeUtils.js";
 
 const router = express.Router();
 
-/**
- * GET /api/branch/reportees/:empCode
- * List all employees in branch of this Branch Manager
- */
-router.get("/reportees/:empCode", protect, async (req, res) => {
+router.get("/reportees/:empCode", protect, requireRole("BranchManager", "Admin"), async (req, res) => {
   try {
     const { empCode } = req.params;
 
-    // Branch Manager
-    const branchManager = await User.findOne({ empCode }).lean();
-    if (!branchManager)
-      return res.status(404).json({ message: "Branch Manager not found" });
+    if (req.user.role !== "Admin" && req.user.empCode !== empCode) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
 
-    // All users in same branch (excluding self)
-    const reportees = await User.find({
-      branch: branchManager.branch,
-      empCode: { $ne: empCode },
-    }).lean();
-
+    const reportees = await getScopedUsers(req.user);
     res.json(reportees);
   } catch (err) {
     console.error("Branch reportees error:", err);

@@ -1,6 +1,7 @@
 import Customer from "../models/customerModel.js";
 import User from "../models/userModel.js";
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
+import { getScopedEmpCodes, isEmpInScope } from "../utils/scopeUtils.js";
 
 /* ---------- Admin Report Dump ---------- */
 export const getReportsDump = async (req, res) => {
@@ -65,37 +66,10 @@ export const getReportsDump = async (req, res) => {
 /* ---------- Helper: Get reportees ---------- */
 async function getReportees(currentUser) {
   if (!currentUser) return [];
-  const { role, empCode } = currentUser;
-
-  console.log("🔍 getReportees called for:", { role, empCode });
-
-  let reportees = [];
-  
-  switch (role) {
-    case "Manager":
-    case "BranchManager":
-    case "RegionalManager":
-      // Find users who report to this manager - same query as /reportees/:empCode endpoint
-      const users = await User.find({ "reportTo.empCode": empCode }).lean();
-      reportees = users.map(u => u.empCode);
-      console.log("🔍 Found users by reportTo:", users.map(u => ({ empCode: u.empCode, name: u.name })));
-      
-      // Also try searching by managerEmpCode field (legacy support)
-      if (!reportees.length) {
-        const legacyUsers = await User.find({ managerEmpCode: empCode }).lean();
-        reportees = legacyUsers.map(u => u.empCode);
-        console.log("🔍 Found users by managerEmpCode:", legacyUsers.map(u => ({ empCode: u.empCode, name: u.name })));
-      }
-      break;
-    case "Admin":
-      reportees = await User.find().distinct("empCode");
-      break;
-    default:
-      reportees = [];
+  if (currentUser.role === "Admin") {
+    return User.find().distinct("empCode");
   }
-
-  console.log("🔍 Final reportee empCodes:", reportees);
-  return reportees;
+  return getScopedEmpCodes(currentUser);
 }
 
 /* ---------- Hierarchy Reports ---------- */
@@ -104,6 +78,9 @@ export const getHierarchyReports = async (req, res) => {
     const { from, to, empCode } = req.query;
     const match = {};
     if (empCode) {
+      if (req.user.role !== "Admin" && !(await isEmpInScope(req.user, empCode))) {
+        return res.status(403).json({ message: "Not authorized to view this employee's reports" });
+      }
       match["createdBy.empCode"] = empCode.toString();
     } else {
       const reportees = await getReportees(req.user);
@@ -239,6 +216,10 @@ export const getUpcomingOrders = async (req, res) => {
     if (!empCode)
       return res.status(400).json({ message: "empCode is required" });
 
+    if (req.user.role !== "Admin" && !(await isEmpInScope(req.user, empCode))) {
+      return res.status(403).json({ message: "Not authorized to view this employee's orders" });
+    }
+
     let rangeStart, rangeEnd;
     if (from && to) {
       rangeStart = new Date(from);
@@ -303,6 +284,9 @@ export const getSubmittedReports = async (req, res) => {
 
     let allowedEmpCodes = [];
     if (empCode) {
+      if (req.user.role !== "Admin" && !(await isEmpInScope(req.user, empCode))) {
+        return res.status(403).json({ message: "Not authorized to view this employee's reports" });
+      }
       allowedEmpCodes = [String(empCode)];
     } else if (req.user.role === "Admin") {
       allowedEmpCodes = await User.find().distinct("empCode");

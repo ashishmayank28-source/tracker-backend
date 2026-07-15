@@ -1,5 +1,5 @@
 import express from "express";
-import { protect, adminOnly } from "../middleware/authMiddleware.js";
+import { protect, adminOnly, requireRole } from "../middleware/authMiddleware.js";
 import {
   getManagerRevenue,
   approveRevenue,
@@ -21,13 +21,13 @@ import {
 const router = express.Router();
 
 // ✅ Manager Revenue route
-router.get("/manager", protect, getManagerRevenue);
+router.get("/manager", protect, requireRole("Manager"), getManagerRevenue);
 
 // ✅ Branch Manager Revenue route (Manager submitted + direct reportees)
-router.get("/bm", protect, getBMRevenue);
+router.get("/bm", protect, requireRole("BranchManager"), getBMRevenue);
 
 // ✅ Regional Manager Revenue route (BM submitted)
-router.get("/rm", protect, getRMRevenue);
+router.get("/rm", protect, requireRole("RegionalManager"), getRMRevenue);
 
 // ✅ Admin Revenue route (All BM submitted)
 router.get("/admin", protect, adminOnly, getAdminRevenue);

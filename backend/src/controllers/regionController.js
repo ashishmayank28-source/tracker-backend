@@ -1,25 +1,22 @@
-import User from "../models/userModel.js";
+import { getScopedUsers } from "../utils/scopeUtils.js";
 
-// ✅ Get all users under a regional manager
+// ✅ Get all users under a regional manager (scoped by region)
 export async function getRegionTeam(req, res) {
   try {
-    const rmEmpCode = req.user?.empCode; // logged in RM
-    if (!rmEmpCode) {
-      return res.status(400).json({ message: "No Regional Manager empCode" });
+    if (req.user?.role !== "RegionalManager") {
+      return res.status(403).json({ message: "Not authorized" });
     }
 
-    // 🟢 Sabhi users jinka regionalManagerEmpCode = current RM
-    const users = await User.find({ regionalManagerEmpCode: rmEmpCode }).lean();
+    const users = await getScopedUsers(req.user);
 
-    // group by role
-    const branchManagers = users.filter(u => u.role === "BranchManager");
-    const managers       = users.filter(u => u.role === "Manager");
-    const employees      = users.filter(u => u.role === "Employee");
+    const branchManagers = users.filter((u) => u.role === "BranchManager");
+    const managers = users.filter((u) => u.role === "Manager");
+    const employees = users.filter((u) => u.role === "Employee");
 
     res.json({
       branchManagers,
       managers,
-      employees
+      employees,
     });
   } catch (e) {
     console.error("getRegionTeam error:", e);

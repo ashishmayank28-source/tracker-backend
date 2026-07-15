@@ -1,4 +1,5 @@
 import Retailer from "../models/retailerModel.js";
+import { getScopedEmpCodes } from "../utils/scopeUtils.js";
 
 // Create a new retailer
 export const createRetailer = async (req, res) => {
@@ -232,24 +233,19 @@ export const getTeamRetailers = async (req, res) => {
     const userRole = req.user.role;
     const filter = {};
 
-    // Role-based filtering
-    if (userRole === "Manager") {
-      // Manager sees retailers from their branch
-      if (req.user.branch) filter.branch = req.user.branch;
-    } else if (userRole === "BranchManager") {
-      // BM sees all retailers from their branch
-      if (req.user.branch) filter.branch = req.user.branch;
-    } else if (userRole === "RegionalManager") {
-      // RM sees all retailers from their region
-      if (req.user.region) filter.region = req.user.region;
+    if (userRole === "Admin") {
+      if (branch) filter.branch = new RegExp(branch, "i");
+      if (region) filter.region = new RegExp(region, "i");
+    } else if (["Manager", "BranchManager", "RegionalManager"].includes(userRole)) {
+      const scopedCodes = await getScopedEmpCodes(req.user);
+      if (!scopedCodes.length) {
+        return res.json({ success: true, count: 0, data: [] });
+      }
+      filter.createdBy = { $in: scopedCodes };
+    } else {
+      return res.status(403).json({ success: false, message: "Not authorized" });
     }
-    // Admin sees all retailers (no filter)
 
-    // Apply additional filters from query
-    if (branch && userRole === "Admin") filter.branch = new RegExp(branch, "i");
-    if (region && (userRole === "Admin" || userRole === "RegionalManager")) {
-      filter.region = new RegExp(region, "i");
-    }
     if (city) filter.city = new RegExp(city, "i");
 
     // Text search

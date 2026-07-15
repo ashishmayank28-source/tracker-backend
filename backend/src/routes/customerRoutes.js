@@ -11,6 +11,7 @@ import {
 } from "../controllers/customerController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import Customer from "../models/customerModel.js";
+import { isEmpInScope } from "../utils/scopeUtils.js";
 
 
 
@@ -45,6 +46,9 @@ router.get("/my-reports", protect, myReports);
 router.get("/by-emp/:empCode", protect, async (req, res) => {
   try {
     const { empCode } = req.params;
+    if (req.user.role !== "Admin" && !(await isEmpInScope(req.user, empCode))) {
+      return res.status(403).json({ message: "Not authorized to view this employee's data" });
+    }
     const { from, to } = req.query;
 
     // Base query
@@ -70,6 +74,9 @@ router.get("/by-emp/:empCode", protect, async (req, res) => {
 router.get("/reports-by-emp/:empCode", protect, async (req, res) => {
   try {
     const { empCode } = req.params;
+    if (req.user.role !== "Admin" && !(await isEmpInScope(req.user, empCode))) {
+      return res.status(403).json({ message: "Not authorized to view this employee's attendance" });
+    }
     const { from, to } = req.query;
 
     // Find customers where this employee has interacted (match myReports endpoint behavior)

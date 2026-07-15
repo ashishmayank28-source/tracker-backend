@@ -2,6 +2,7 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import { protect, adminOnly } from "../middleware/authMiddleware.js";
 import User from "../models/userModel.js";
+import { getScopedUsers, isEmpInScope } from "../utils/scopeUtils.js";
 
 const router = express.Router();
 
@@ -45,18 +46,12 @@ router.post("/", protect, adminOnly, async (req, res) => {
 /* ---------- Role-based Users Fetch ---------- */
 router.get("/", protect, async (req, res) => {
   try {
-    const { role, empCode, branch, region } = req.user;
-    let filter = {};
-
-    if (role === "RegionalManager") {
-      filter.region = region;
-    } else if (role === "BranchManager") {
-      filter.branch = branch;
-    } else if (role === "Manager") {
-      filter.managerEmpCode = empCode;  // ✅ fix: correct field name
+    const { role } = req.user;
+    if (role === "Admin") {
+      const users = await User.find().select("-passwordHash");
+      return res.json(users);
     }
-
-    const users = await User.find(filter, "-passwordHash");
+    const users = await getScopedUsers(req.user);
     res.json(users);
   } catch (err) {
     console.error("Error fetching users:", err);
@@ -88,7 +83,7 @@ router.get("/team", protect, async (req, res) => {
       return res.status(403).json({ message: "Not authorized to view team" });
     }
 
-    const team = await User.find({ "reportTo.empCode": empCode }).select("-passwordHash");
+    const team = await getScopedUsers(req.user);
     res.json(team);
   } catch (err) {
     console.error("Team fetch error:", err);
@@ -98,7 +93,15 @@ router.get("/team", protect, async (req, res) => {
 // Get single user by empCode (omit passwordHash)
 router.get("/:empCode", protect, async (req, res) => {
   try {
-    const user = await User.findOne({ empCode: req.params.empCode }).select("-passwordHash").lean();
+    const { empCode } = req.params;
+    if (
+      req.user.role !== "Admin" &&
+      req.user.empCode !== empCode &&
+      !(await isEmpInScope(req.user, empCode))
+    ) {
+      return res.status(403).json({ message: "Not authorized to view this user" });
+    }
+    const user = await User.findOne({ empCode }).select("-passwordHash").lean();
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json(user);
   } catch (err) {

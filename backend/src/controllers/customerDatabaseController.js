@@ -1,4 +1,5 @@
 import CustomerDB from "../models/customerDBModel.js";
+import { getScopedEmpCodes, isEmpInScope } from "../utils/scopeUtils.js";
 
 // ✅ Create new customer
 export const createCustomer = async (req, res) => {
@@ -163,6 +164,13 @@ export const getCustomerById = async (req, res) => {
     if (!customer) {
       return res.status(404).json({ success: false, message: "Customer not found" });
     }
+    if (
+      req.user.role !== "Admin" &&
+      customer.createdBy !== req.user.empCode &&
+      !(await isEmpInScope(req.user, customer.createdBy))
+    ) {
+      return res.status(403).json({ success: false, message: "Not authorized" });
+    }
 
     res.json({ success: true, data: customer });
   } catch (err) {
@@ -175,6 +183,18 @@ export const getCustomerById = async (req, res) => {
 export const updateCustomer = async (req, res) => {
   try {
     const { id } = req.params;
+    const existing = await CustomerDB.findById(id);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: "Customer not found" });
+    }
+    if (
+      req.user.role !== "Admin" &&
+      existing.createdBy !== req.user.empCode &&
+      !(await isEmpInScope(req.user, existing.createdBy))
+    ) {
+      return res.status(403).json({ success: false, message: "Not authorized" });
+    }
+
     const updates = req.body;
 
     // Prevent changing customerType and customerUID
@@ -203,11 +223,19 @@ export const updateCustomer = async (req, res) => {
 export const deleteCustomer = async (req, res) => {
   try {
     const { id } = req.params;
-    const customer = await CustomerDB.findByIdAndDelete(id);
-    
-    if (!customer) {
+    const existing = await CustomerDB.findById(id);
+    if (!existing) {
       return res.status(404).json({ success: false, message: "Customer not found" });
     }
+    if (
+      req.user.role !== "Admin" &&
+      existing.createdBy !== req.user.empCode &&
+      !(await isEmpInScope(req.user, existing.createdBy))
+    ) {
+      return res.status(403).json({ success: false, message: "Not authorized" });
+    }
+
+    await CustomerDB.findByIdAndDelete(id);
 
     res.json({ success: true, message: "Customer deleted successfully" });
   } catch (err) {
@@ -233,18 +261,20 @@ export const checkMobile = async (req, res) => {
 export const getTeamCustomers = async (req, res) => {
   try {
     const { type } = req.query;
-    const { role, branch, region } = req.user;
-    
     const filter = {};
     if (type) filter.customerType = type;
-    
-    // Filter by branch/region based on role
-    if (role === "BranchManager" || role === "Manager") {
-      filter.branch = branch;
-    } else if (role === "RegionalManager") {
-      filter.region = region;
+
+    if (req.user.role === "Admin") {
+      // Admin sees all
+    } else if (["Manager", "BranchManager", "RegionalManager"].includes(req.user.role)) {
+      const scopedCodes = await getScopedEmpCodes(req.user);
+      if (!scopedCodes.length) {
+        return res.json({ success: true, count: 0, data: [] });
+      }
+      filter.createdBy = { $in: scopedCodes };
+    } else {
+      return res.status(403).json({ success: false, message: "Not authorized" });
     }
-    // Admin sees all
 
     const customers = await CustomerDB.find(filter).sort({ createdAt: -1 });
 

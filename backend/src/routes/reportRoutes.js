@@ -7,6 +7,7 @@ import {
 } from "../controllers/reportController.js";
 import { protect, adminOnly } from "../middleware/authMiddleware.js";
 import User from "../models/userModel.js";
+import { getScopedUsers, isEmpInScope } from "../utils/scopeUtils.js";
 
 const router = express.Router();
 
@@ -25,19 +26,11 @@ router.get("/submitted", protect, getSubmittedReports);   // ✅ NEW
 // 🔹 Users list (role-based)
 router.get("/users", protect, async (req, res) => {
   try {
-    const { role, empCode, branch, region } = req.user;
-    let filter = {};
-
-    if (role === "RegionalManager") {
-      filter.region = region;
-    } else if (role === "BranchManager") {
-      filter.branch = branch;
-    } else if (role === "Manager") {
-      // ✅ use reportTo array instead of managerEmpCode field
-      filter = { "reportTo.empCode": empCode };
+    if (req.user.role === "Admin") {
+      const users = await User.find().lean();
+      return res.json(users);
     }
-
-    const users = await User.find(filter).lean();
+    const users = await getScopedUsers(req.user);
     res.json(users);
   } catch (err) {
     console.error("User fetch error:", err);
@@ -45,11 +38,13 @@ router.get("/users", protect, async (req, res) => {
   }
 });
 
-// 🔹 Direct reportees for any user (reusable for dashboards)
 router.get("/reportees/:empCode", protect, async (req, res) => {
   try {
     const { empCode } = req.params;
-    const reportees = await User.find({ "reportTo.empCode": empCode }).lean();
+    if (req.user.role !== "Admin" && empCode !== req.user.empCode) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+    const reportees = await getScopedUsers(req.user);
     res.json(reportees || []);
   } catch (err) {
     console.error("Reportees fetch error:", err);

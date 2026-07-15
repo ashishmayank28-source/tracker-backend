@@ -1,5 +1,6 @@
 import TourApproval from "../models/tourApprovalModel.js";
 import User from "../models/userModel.js";
+import { getScopedEmpCodes, isEmpInScope } from "../utils/scopeUtils.js";
 
 /* =============================================================
    📤 Create Tour Request (Employee)
@@ -107,63 +108,16 @@ export const getMyTourRequests = async (req, res) => {
 ============================================================= */
 export const getManagerTourRequests = async (req, res) => {
   try {
-    const managerCode = req.user?.empCode;
-    
-    // ✅ Fetch full manager data from database
-    const managerData = await User.findOne({ empCode: managerCode }).lean();
-    const managerBranch = managerData?.branch;
-    const managerRegion = managerData?.region;
-    const managerRole = managerData?.role;
-
-    console.log("🔍 Manager looking for requests:", managerCode, "Branch:", managerBranch, "Role:", managerRole);
-
-    // Get direct reports
-    const directReports = await User.find({
-      $or: [
-        { managerEmpCode: managerCode },
-        { "reportTo.empCode": managerCode },
-      ],
-    }).lean();
-
-    const empCodes = directReports.map(e => e.empCode);
-    console.log("🔍 Direct reports count:", directReports.length, empCodes);
-
-    // ✅ Also get all employees in same branch if BM or Manager
-    let branchEmpCodes = [];
-    if (managerRole === "BranchManager" || managerRole === "Manager") {
-      const branchEmployees = await User.find({ branch: managerBranch }).lean();
-      branchEmpCodes = branchEmployees.map(e => e.empCode);
-      console.log("🔍 Branch employees count:", branchEmployees.length);
+    const scopedCodes = await getScopedEmpCodes(req.user);
+    if (!scopedCodes.length) {
+      return res.json([]);
     }
 
-    // ✅ If Regional Manager, get all from region
-    let regionEmpCodes = [];
-    if (managerRole === "RegionalManager") {
-      const regionEmployees = await User.find({ region: managerRegion }).lean();
-      regionEmpCodes = regionEmployees.map(e => e.empCode);
-      console.log("🔍 Region employees count:", regionEmployees.length);
-    }
-
-    // ✅ Combine all possible employee codes
-    const allEmpCodes = [...new Set([...empCodes, ...branchEmpCodes, ...regionEmpCodes])];
-    console.log("🔍 Total employee codes to search:", allEmpCodes.length);
-
-    // Get all tour requests from direct reports OR where managerCode matches
     const requests = await TourApproval.find({
-      $or: [
-        { managerCode: managerCode },
-        { empCode: { $in: allEmpCodes } },
-        ...(managerBranch ? [{ branch: managerBranch }] : []),
-        ...(managerRegion && managerRole === "RegionalManager" ? [{ region: managerRegion }] : []),
-      ],
+      empCode: { $in: scopedCodes },
     })
       .sort({ createdAt: -1 })
       .lean();
-
-    console.log("✅ Tour requests found for manager:", requests.length);
-    if (requests.length > 0) {
-      console.log("📋 First request:", requests[0].empName, requests[0].toLocation, requests[0].status);
-    }
 
     res.json(requests);
   } catch (err) {
@@ -177,13 +131,22 @@ export const getManagerTourRequests = async (req, res) => {
 ============================================================= */
 export const getAllTourRequests = async (req, res) => {
   try {
-    console.log("🔍 Admin fetching all tour requests...");
-    
+    if (req.user.role === "RegionalManager") {
+      const scopedCodes = await getScopedEmpCodes(req.user);
+      const requests = await TourApproval.find({ empCode: { $in: scopedCodes } })
+        .sort({ createdAt: -1 })
+        .lean();
+      return res.json(requests);
+    }
+
+    if (req.user.role !== "Admin") {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
     const requests = await TourApproval.find()
       .sort({ createdAt: -1 })
       .lean();
 
-    console.log("✅ Found tour requests:", requests.length);
     res.json(requests);
   } catch (err) {
     console.error("Get All Tour Requests Error:", err);
@@ -198,6 +161,15 @@ export const approveTourRequest = async (req, res) => {
   try {
     const { id } = req.params;
     const approver = req.user;
+
+    const existing = await TourApproval.findById(id);
+    if (!existing) {
+      return res.status(404).json({ message: "Tour request not found" });
+    }
+    if (!(await isEmpInScope(approver, existing.empCode))) {
+      return res.status(403).json({ message: "Not authorized to approve this request" });
+    }
+
     const approvedByName = `${approver.empCode} - ${approver.name}`;
 
     const updated = await TourApproval.findByIdAndUpdate(
@@ -234,6 +206,15 @@ export const rejectTourRequest = async (req, res) => {
     const { id } = req.params;
     const { reason } = req.body;
     const rejecter = req.user;
+
+    const existing = await TourApproval.findById(id);
+    if (!existing) {
+      return res.status(404).json({ message: "Tour request not found" });
+    }
+    if (!(await isEmpInScope(rejecter, existing.empCode))) {
+      return res.status(403).json({ message: "Not authorized to reject this request" });
+    }
+
     const rejectedByName = `${rejecter.empCode} - ${rejecter.name}`;
 
     const updated = await TourApproval.findByIdAndUpdate(
@@ -345,9 +326,15 @@ export const verifyTourExpenses = async (req, res) => {
     const { verificationRemarks } = req.body;
     const verifier = req.user;
 
-    const tourRequest = await TourApproval.findById(id);    if (!tourRequest) {
+    const tourRequest = await TourApproval.findById(id);
+    if (!tourRequest) {
       return res.status(404).json({ message: "Tour request not found" });
-    }    // ✅ Only the same manager who approved can verify
+    }
+    if (!(await isEmpInScope(verifier, tourRequest.empCode))) {
+      return res.status(403).json({ message: "Not authorized to verify this request" });
+    }
+
+    // ✅ Only the same manager who approved can verify
     if (tourRequest.approvedByCode !== verifier.empCode) {
       return res.status(403).json({ 
         message: `Only the approving manager (${tourRequest.approvedBy}) can verify expenses` 
@@ -393,6 +380,10 @@ export const rejectTourExpenses = async (req, res) => {
 
     if (!tourRequest) {
       return res.status(404).json({ message: "Tour request not found" });
+    }
+
+    if (!(await isEmpInScope(verifier, tourRequest.empCode))) {
+      return res.status(403).json({ message: "Not authorized to reject this request" });
     }
 
     // ✅ Only the same manager who approved can reject expenses

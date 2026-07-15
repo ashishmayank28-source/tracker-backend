@@ -1,9 +1,9 @@
 import express from "express";
-import { getRegionTeam } from "../controllers/regionController.js";  // <-- yahi import karo
+import { getRegionTeam } from "../controllers/regionController.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// ✅ Region team ke liye route
-router.get("/team", getRegionTeam);
+router.get("/team", protect, getRegionTeam);
 
 export default router;

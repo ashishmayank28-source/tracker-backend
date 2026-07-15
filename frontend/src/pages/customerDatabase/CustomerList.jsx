@@ -4,9 +4,11 @@ import * as XLSX from "xlsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
+const TEAM_ROLES = ["Manager", "BranchManager", "RegionalManager", "Admin"];
+
 // ✅ Customer List Component - Shows customers by type
 export default function CustomerList({ customerType, readOnly = false, onBack }) {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -16,7 +18,10 @@ export default function CustomerList({ customerType, readOnly = false, onBack })
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
     try {
-      const url = `${API_BASE}/api/customer-database/my?type=${customerType}`;
+      const useTeamEndpoint = TEAM_ROLES.includes(user?.role);
+      const url = useTeamEndpoint
+        ? `${API_BASE}/api/customer-database/team?type=${customerType}`
+        : `${API_BASE}/api/customer-database/my?type=${customerType}`;
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -29,7 +34,7 @@ export default function CustomerList({ customerType, readOnly = false, onBack })
     } finally {
       setLoading(false);
     }
-  }, [token, customerType]);
+  }, [token, customerType, user?.role]);
 
   useEffect(() => {
     fetchCustomers();

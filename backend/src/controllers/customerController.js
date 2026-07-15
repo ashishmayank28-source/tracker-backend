@@ -1,6 +1,7 @@
 import Customer from "../models/customerModel.js";
 import User from "../models/userModel.js";
 import generateCustomerId from "../utils/generateCustomerId.js";
+import { getScopedEmpCodes } from "../utils/scopeUtils.js";
 
 /* -------------------------------------------------------------
    🧾 Create New Visit (Employee Daily Tracker)
@@ -259,17 +260,38 @@ export const getHistory = async (req, res) => {
     const customer = await Customer.findOne({ customerId: id });
     if (!customer)
       return res.status(404).json({ message: "Customer not found" });
+
+    let scopedCodes = null;
+    if (req.user.role !== "Admin") {
+      scopedCodes = await getScopedEmpCodes(req.user);
+      if (!scopedCodes.length) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+    }
     
     // ✅ Return full customer object with visits (sorted latest first)
     const sortedVisits = (customer.visits || []).sort(
       (a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)
     );
+
+    const visitEmpCode = (v) => {
+      if (typeof v.empCode === "string") return v.empCode;
+      if (Array.isArray(v.empCode)) return v.empCode[0];
+      if (typeof v.createdBy === "string") return v.createdBy;
+      return v.createdBy?.empCode || null;
+    };
+
+    const visibleVisits =
+      req.user.role === "Admin"
+        ? sortedVisits
+        : sortedVisits.filter((v) => scopedCodes.includes(visitEmpCode(v)));
+
+    if (req.user.role !== "Admin" && visibleVisits.length === 0) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
     
     // ✅ Get unique empCodes from visits for enrichment
-    const empCodes = [...new Set(sortedVisits.map(v => {
-      const ec = v.empCode;
-      return typeof ec === "string" ? ec : Array.isArray(ec) ? ec[0] : null;
-    }).filter(Boolean))];
+    const empCodes = [...new Set(visibleVisits.map(v => visitEmpCode(v)).filter(Boolean))];
     
     // ✅ Fetch user details for enrichment
     const users = await User.find({ empCode: { $in: empCodes } }).lean();
@@ -285,8 +307,8 @@ export const getHistory = async (req, res) => {
     });
     
     // ✅ Enrich visits with employee details
-    const enrichedVisits = sortedVisits.map(v => {
-      const empCode = typeof v.empCode === "string" ? v.empCode : Array.isArray(v.empCode) ? v.empCode[0] : "-";
+    const enrichedVisits = visibleVisits.map(v => {
+      const empCode = visitEmpCode(v) || "-";
       const userInfo = userMap[empCode] || {};
       return {
         ...v.toObject ? v.toObject() : v,

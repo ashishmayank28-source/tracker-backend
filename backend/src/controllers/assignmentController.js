@@ -1,5 +1,6 @@
 import Assignment from "../models/assignmentModel.js";
 import User from "../models/userModel.js";
+import { getScopedEmpCodes, isEmpInScope } from "../utils/scopeUtils.js";
 
 /* ---------- Admin Assignment ---------- */
 export const createAdminAssignment = async (req, res) => {
@@ -86,13 +87,18 @@ export const getRegionalStock = async (req, res) => {
 /* ---------- Regional Manager Team Assignments (for Assignment Table) ---------- */
 export const getRegionalTeamAssignments = async (req, res) => {
   try {
-    console.log("🔍 Regional Team Assignments - User:", req.user.empCode, "Region:", req.user.region);
-    
-    // 🔹 Fetch ALL assignments (same as admin) - let frontend filter by team
-    const assignments = await Assignment.find().sort({ date: -1 });
-    
-    console.log("📊 Total assignments found:", assignments.length);
-    
+    const scopedCodes = await getScopedEmpCodes(req.user);
+    if (!scopedCodes.length) {
+      return res.json([]);
+    }
+
+    const assignments = await Assignment.find({
+      $or: [
+        { "employees.empCode": { $in: scopedCodes } },
+        { assignerEmpCode: req.user.empCode },
+      ],
+    }).sort({ date: -1 });
+
     res.json(assignments);
   } catch (err) {
     console.error("Regional team assignments fetch error:", err);
@@ -104,6 +110,13 @@ export const getRegionalTeamAssignments = async (req, res) => {
 export const allocateRegional = async (req, res) => {
   try {
     const { rootId, item, employees, purpose, assignedBy, region, assignerEmpCode } = req.body;
+
+    for (const emp of employees || []) {
+      if (emp.empCode && !(await isEmpInScope(req.user, emp.empCode))) {
+        return res.status(403).json({ message: `Not authorized to allocate to ${emp.empCode}` });
+      }
+    }
+
     const rmId = "RM" + Date.now();
 
     const assignment = new Assignment({
@@ -191,6 +204,13 @@ export const getBranchStock = async (req, res) => {
 export const createBranchAssignment = async (req, res) => {
   try {
     const { rootId, rmId, item, employees, purpose, assignedBy, region, assignerEmpCode } = req.body;
+
+    for (const emp of employees || []) {
+      if (emp.empCode && !(await isEmpInScope(req.user, emp.empCode))) {
+        return res.status(403).json({ message: `Not authorized to allocate to ${emp.empCode}` });
+      }
+    }
+
     const bmId = "BM" + Date.now();
 
     const assignment = new Assignment({
@@ -279,6 +299,13 @@ export const getManagerStock = async (req, res) => {
 export const allocateManager = async (req, res) => {
   try {
     const { rootId, rmId, bmId, item, employees, purpose, assignedBy, region, assignerEmpCode } = req.body;
+
+    for (const emp of employees || []) {
+      if (emp.empCode && !(await isEmpInScope(req.user, emp.empCode))) {
+        return res.status(403).json({ message: `Not authorized to allocate to ${emp.empCode}` });
+      }
+    }
+
     const managerId = "MGR" + Date.now();
 
     const newAssign = new Assignment({
@@ -308,6 +335,9 @@ export const allocateManager = async (req, res) => {
 export const getEmployeeStock = async (req, res) => {
   try {
     const { empCode } = req.params;
+    if (req.user.role !== "Admin" && !(await isEmpInScope(req.user, empCode))) {
+      return res.status(403).json({ message: "Not authorized to view this employee's stock" });
+    }
     const assignments = await Assignment.find({
       "employees.empCode": empCode,
     }).sort({ date: -1 });
@@ -769,18 +799,27 @@ export const getAssignmentSummary = async (req, res) => {
 ============================================================= */
 export const getRegionUsage = async (req, res) => {
   try {
-    const { region } = req.query;
+    const scopedCodes =
+      req.user.role === "Admin" ? null : await getScopedEmpCodes(req.user);
 
-    // Find all assignments in this region that have used samples
-    const assignments = await Assignment.find({
-      region: region ? new RegExp(region, "i") : { $exists: true },
-    }).lean();
+    if (req.user.role !== "Admin" && !scopedCodes?.length) {
+      return res.json([]);
+    }
 
-    // Extract all used samples
+    const regionFilter =
+      req.user.role === "RegionalManager" && req.user.region
+        ? new RegExp(req.user.region, "i")
+        : req.query.region
+          ? new RegExp(req.query.region, "i")
+          : { $exists: true };
+
+    const assignments = await Assignment.find({ region: regionFilter }).lean();
+
     const usageList = [];
 
     assignments.forEach((a) => {
       (a.employees || []).forEach((emp) => {
+        if (scopedCodes && !scopedCodes.includes(emp.empCode)) return;
         if (emp.usedSamples && emp.usedSamples.length > 0) {
           emp.usedSamples.forEach((us) => {
             usageList.push({
@@ -799,7 +838,6 @@ export const getRegionUsage = async (req, res) => {
       });
     });
 
-    // Sort by date descending
     usageList.sort((a, b) => new Date(b.usedAt) - new Date(a.usedAt));
 
     res.json(usageList);

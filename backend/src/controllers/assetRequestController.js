@@ -1,6 +1,7 @@
 import AssetRequest from "../models/assetRequestModel.js";
 import AssetItem from "../models/assetItemsModel.js";
 import User from "../models/userModel.js";
+import { getScopedEmpCodes, isEmpInScope } from "../utils/scopeUtils.js";
 
 // ============================================
 // 🟢 ASSET ITEMS (Admin Configurable Dropdown)
@@ -146,15 +147,13 @@ export const getMyAssetRequests = async (req, res) => {
 // ✅ Get pending requests for BM approval (Branch Manager)
 export const getBMPendingRequests = async (req, res) => {
   try {
-    const user = req.user;
-    
-    // Get all users under this BM
-    const teamUsers = await User.find({ bmId: user.empCode }).select("empCode");
-    const teamEmpCodes = teamUsers.map((u) => u.empCode);
-    teamEmpCodes.push(user.empCode); // Include BM's own requests if any
+    const scopedCodes = await getScopedEmpCodes(req.user);
+    if (!scopedCodes.length) {
+      return res.json([]);
+    }
 
     const requests = await AssetRequest.find({
-      empCode: { $in: teamEmpCodes },
+      empCode: { $in: scopedCodes },
       status: "Pending",
     }).sort({ createdAt: -1 });
 
@@ -168,15 +167,13 @@ export const getBMPendingRequests = async (req, res) => {
 // ✅ Get all requests for BM (including approved/rejected)
 export const getBMAllRequests = async (req, res) => {
   try {
-    const user = req.user;
-    
-    // Get all users under this BM
-    const teamUsers = await User.find({ bmId: user.empCode }).select("empCode");
-    const teamEmpCodes = teamUsers.map((u) => u.empCode);
-    teamEmpCodes.push(user.empCode);
+    const scopedCodes = await getScopedEmpCodes(req.user);
+    if (!scopedCodes.length) {
+      return res.json([]);
+    }
 
     const requests = await AssetRequest.find({
-      empCode: { $in: teamEmpCodes },
+      empCode: { $in: scopedCodes },
     }).sort({ createdAt: -1 });
 
     res.json(requests);
@@ -196,6 +193,9 @@ export const bmApproveRequest = async (req, res) => {
     const request = await AssetRequest.findById(id);
     if (!request) {
       return res.status(404).json({ message: "Request not found" });
+    }
+    if (!(await isEmpInScope(user, request.empCode))) {
+      return res.status(403).json({ message: "Not authorized to process this request" });
     }
 
     if (request.status !== "Pending") {

@@ -4,6 +4,7 @@ import Revenue from "../models/revenueModel.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { getScopedUsers, getScopedEmpCodes, isEmpInScope } from "../utils/scopeUtils.js";
 
 /* =============================================================
    🔍 Shared revenue list filters (branch, region, employee, date)
@@ -188,15 +189,7 @@ export const uploadPOForManager = async (req, res) => {
 export const getManagerRevenue = async (req, res) => {
   try {
     const managerCode = req.user?.empCode;
-    const assignedApprovees = await getAssignedApproveeEmpCodes(managerCode);
-
-    const employees = await User.find({
-      $or: [
-        { managerEmpCode: managerCode },
-        { "reportTo.empCode": managerCode },
-        { empCode: { $in: assignedApprovees } },
-      ],
-    }).lean();
+    const employees = await getScopedUsers(req.user);
     const empCodes = employees.map((e) => e.empCode);
     const userMap = {};
     employees.forEach((e) => {
@@ -204,10 +197,13 @@ export const getManagerRevenue = async (req, res) => {
     });
 
     const { empCode } = req.query;
-    const scopeCodes =
-      empCode && empCode !== "all"
-        ? [empCode]
-        : [...new Set([...empCodes, ...assignedApprovees])];
+    let scopeCodes = empCodes;
+    if (empCode && empCode !== "all") {
+      if (!(await isEmpInScope(req.user, empCode))) {
+        return res.status(403).json({ message: "Not authorized for this employee" });
+      }
+      scopeCodes = [empCode];
+    }
 
     const customers = await Customer.find({
       $or: [
@@ -342,6 +338,12 @@ export const approveRevenue = async (req, res) => {
     const now = new Date();
 
     const employeeEmpCode = await resolveEntryEmployeeCode(id);
+    if (req.user.role !== "Admin" && !(await isEmpInScope(req.user, employeeEmpCode))) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to approve this employee's entry",
+      });
+    }
     const allowed = await userCanApproveEntry(approverCode, userRole, employeeEmpCode);
     if (!allowed) {
       return res.status(403).json({
@@ -474,6 +476,10 @@ export const addManualSale = async (req, res) => {
       branch,
       region,
     } = req.body;
+
+    if (!empCode || !(await isEmpInScope(manager, empCode))) {
+      return res.status(403).json({ message: "Employee not in your team" });
+    }
 
     // 🔹 Find employee to auto-fill details
     const emp = await User.findOne({ empCode });
@@ -721,20 +727,8 @@ export const getBMRevenue = async (req, res) => {
   try {
     const bmCode = req.user?.empCode;
     const bmBranch = req.user?.branch;
-    const assignedApprovees = await getAssignedApproveeEmpCodes(bmCode);
-
-    console.log("🔍 BM Revenue - Code:", bmCode, "Branch:", bmBranch);
-
-    const branchUsers = await User.find({
-      $or: [
-        { "reportTo.empCode": bmCode },
-        { managerEmpCode: bmCode },
-        { branch: bmBranch },
-        { empCode: { $in: assignedApprovees } },
-      ],
-    }).lean();
-
-    const branchEmpCodes = [...new Set([...branchUsers.map((r) => r.empCode), bmCode, ...assignedApprovees])];
+    const branchUsers = await getScopedUsers(req.user);
+    const branchEmpCodes = branchUsers.map((r) => r.empCode);
 
     console.log("🔍 BM Branch Users:", branchEmpCodes.length);
 
@@ -859,6 +853,10 @@ export const getBMRevenue = async (req, res) => {
       enrichRowWithApproverMeta(r, userMap[r.empCode], req.user)
     );
 
+    if (req.query.empCode && req.query.empCode !== "all" && !(await isEmpInScope(req.user, req.query.empCode))) {
+      return res.status(403).json({ message: "Not authorized for this employee" });
+    }
+
     revenues = applyRevenueFilters(revenues, req.query);
 
     revenues.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -882,6 +880,12 @@ export const rejectRevenue = async (req, res) => {
     const now = new Date();
 
     const employeeEmpCode = await resolveEntryEmployeeCode(id);
+    if (req.user.role !== "Admin" && !(await isEmpInScope(req.user, employeeEmpCode))) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to reject this employee's entry",
+      });
+    }
     const allowed = await userCanApproveEntry(rejecterCode, userRole, employeeEmpCode);
     if (!allowed) {
       return res.status(403).json({
@@ -1021,19 +1025,8 @@ export const getRMRevenue = async (req, res) => {
   try {
     const rmCode = req.user?.empCode;
     const rmRegion = req.user?.region;
-    const assignedApprovees = await getAssignedApproveeEmpCodes(rmCode);
-
-    console.log("🔍 RM Revenue - Region:", rmRegion, "Code:", rmCode);
-
-    const regionUsers = await User.find({
-      $or: [
-        { region: rmRegion },
-        { "reportTo.empCode": rmCode },
-        { empCode: { $in: assignedApprovees } },
-      ],
-    }).lean();
-    
-    const regionEmpCodes = [...new Set([...regionUsers.map(u => u.empCode), rmCode, ...assignedApprovees])];
+    const regionUsers = await getScopedUsers(req.user);
+    const regionEmpCodes = regionUsers.map((u) => u.empCode);
     console.log("🔍 Region users count:", regionEmpCodes.length);
 
     let revenues = [];
@@ -1153,6 +1146,10 @@ export const getRMRevenue = async (req, res) => {
     revenues = revenues.map((r) =>
       enrichRowWithApproverMeta(r, userMap[r.empCode], req.user)
     );
+
+    if (req.query.empCode && req.query.empCode !== "all" && !(await isEmpInScope(req.user, req.query.empCode))) {
+      return res.status(403).json({ message: "Not authorized for this employee" });
+    }
 
     revenues = applyRevenueFilters(revenues, req.query);
 
