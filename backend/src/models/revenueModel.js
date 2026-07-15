@@ -16,6 +16,7 @@ const revenueSchema = new mongoose.Schema(
     customerId: { type: String, default: "" },
     customerName: { type: String, default: "" },
     customerMobile: { type: String, default: "" },
+    company: { type: String, default: "" },
     customerType: { type: String, default: "" },
     verticalType: { type: String, default: "" },
     distributorCode: { type: String, default: "" },
@@ -33,6 +34,9 @@ const revenueSchema = new mongoose.Schema(
     approved: { type: Boolean, default: false },
     approvedBy: { type: String, default: null },
     approvedDate: { type: Date },
+    adminApproved: { type: Boolean, default: false },
+    adminApprovedBy: { type: String, default: null },
+    adminApprovedDate: { type: Date },
     orderStatus: { type: String, default: "Won" },
     
     /* 🔹 Submission */

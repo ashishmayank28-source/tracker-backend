@@ -156,7 +156,7 @@ export default function CustomerHistory() {
           <input placeholder="Vertical" value={vertical} onChange={(e) => setVertical(e.target.value)} style={input} />
           <input placeholder="Distributor Name" value={distributorName} onChange={(e) => setDistributorName(e.target.value)} style={input} />
           <input placeholder="Distributor Code" value={distributorCode} onChange={(e) => setDistributorCode(e.target.value)} style={input} />
-          <input placeholder="Order Type" value={orderType} onChange={(e) => setOrderType(e.target.value)} style={input} />
+          <input placeholder="Sell Type" value={orderType} onChange={(e) => setOrderType(e.target.value)} style={input} />
           <input placeholder="Item Name" value={itemName} onChange={(e) => setItemName(e.target.value)} style={input} />
           <input placeholder="PO Number" value={poNumber} onChange={(e) => setPoNumber(e.target.value)} style={input} />
           <input placeholder="PO File URL (if any)" value={poFileUrl} onChange={(e) => setPoFileUrl(e.target.value)} style={input} />
@@ -189,7 +189,7 @@ export default function CustomerHistory() {
               <th style={th}>Order Value</th>
               <th style={th}>Vertical</th>
               <th style={th}>Distributor</th>
-              <th style={th}>Order Type</th>
+              <th style={th}>Sell Type</th>
               <th style={th}>Item</th>
               <th style={th}>PO No</th>
               <th style={th}>Date</th>

@@ -619,6 +619,7 @@ function CustomerForm({
             readOnly
             required
           />
+          <label style={label}>Sell Type *</label>
           <select
             name="orderType"
             style={input}

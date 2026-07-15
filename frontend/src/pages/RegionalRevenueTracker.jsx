@@ -72,9 +72,11 @@ export default function RegionalRevenueTracker() {
     const sheetData = revenue.map((r) => ({
       "Customer ID": r.customerId,
       "Customer Mob No.": r.customerMobile,
+      "Company Name": r.company || "-",
       "Customer Name": r.customerName,
       "Customer Type": r.customerType,
       Vertical: r.verticalType || r.vertical,
+      "Sell Type": r.orderType || "-",
       "Distributor Code": r.distributorCode,
       "Distributor Name": r.distributorName,
       "Emp Code": r.empCode,
@@ -127,9 +129,11 @@ export default function RegionalRevenueTracker() {
             <tr>
               <th style={th}>Customer ID</th>
               <th style={th}>Customer Mob No.</th>
+              <th style={th}>Company Name</th>
               <th style={th}>Customer Name</th>
               <th style={th}>Customer Type</th>
               <th style={th}>Vertical</th>
+              <th style={th}>Sell Type</th>
               <th style={th}>Distributor Code</th>
               <th style={th}>Distributor Name</th>
               <th style={th}>Emp Code</th>
@@ -147,7 +151,7 @@ export default function RegionalRevenueTracker() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="17" style={{ textAlign: "center", padding: 20 }}>
+                <td colSpan="19" style={{ textAlign: "center", padding: 20 }}>
                   ⏳ Loading data...
                 </td>
               </tr>
@@ -156,9 +160,11 @@ export default function RegionalRevenueTracker() {
                 <tr key={r._id || i} style={{ background: i % 2 === 0 ? "#fff" : "#f9f9f9" }}>
                   <td style={td}>{r.customerId || "-"}</td>
                   <td style={td}>{r.customerMobile || "-"}</td>
+                  <td style={td}>{r.company || "-"}</td>
                   <td style={td}>{r.customerName || "-"}</td>
                   <td style={td}>{r.customerType || "-"}</td>
                   <td style={td}>{r.verticalType || r.vertical || "-"}</td>
+                  <td style={td}>{r.orderType || "-"}</td>
                   <td style={td}>{r.distributorCode || "-"}</td>
                   <td style={td}>{r.distributorName || "-"}</td>
                   <td style={td}>{r.empCode || "-"}</td>
@@ -208,7 +214,7 @@ export default function RegionalRevenueTracker() {
               ))
             ) : (
               <tr>
-                <td colSpan="17" style={{ textAlign: "center", padding: 20 }}>
+                <td colSpan="19" style={{ textAlign: "center", padding: 20 }}>
                   No submitted revenue found from BMs. (Only BM-submitted entries appear here)
                 </td>
               </tr>

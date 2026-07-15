@@ -12,6 +12,8 @@ import {
   getRMRevenue,
   getAdminRevenue,
   getBMRevenue,
+  adminAcceptRevenue,
+  adminRejectRevenue,
 } from "../controllers/revenueController.js";
 
 const router = express.Router();
@@ -31,6 +33,10 @@ router.get("/admin", protect, adminOnly, getAdminRevenue);
 // ✅ Approve & Reject routes
 router.post("/approve/:id", protect, approveRevenue);
 router.post("/reject/:id", protect, rejectRevenue);
+
+// ✅ Admin Accept & Permanent Reject
+router.post("/admin/accept/:id", protect, adminOnly, adminAcceptRevenue);
+router.post("/admin/reject/:id", protect, adminOnly, adminRejectRevenue);
 
 // ✅ Other routes
 router.post("/manual", protect, addManualSale);

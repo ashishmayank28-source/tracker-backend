@@ -65,6 +65,7 @@ export default function RevenueTrackerManager() {
         _id: "temp-" + Date.now(),
         customerId: `MANUAL-${Date.now()}`,
         customerMobile: "",
+        company: "",
         customerName: "",
         customerType: "",
         vertical: "",
@@ -138,6 +139,7 @@ export default function RevenueTrackerManager() {
         poNumber: row.poNumber,
         poFileUrl: row.poFileUrl,
         customerMobile: row.customerMobile?.trim() || "NA",
+        company: row.company?.trim() || "-",
         customerName: row.customerName?.trim() || "Manual Entry",
         customerType: row.customerType?.trim() || "Manual",
         vertical: row.vertical || "-",
@@ -177,7 +179,27 @@ export default function RevenueTrackerManager() {
 
   /* 🔹 Export Excel */
   function exportToExcel() {
-    const ws = XLSX.utils.json_to_sheet(revenue);
+    const exportRows = revenue.map((r) => ({
+      "Customer ID": r.customerId || "-",
+      "Customer Mob No.": r.customerMobile || "-",
+      "Company Name": r.company || "-",
+      "Customer Name": r.customerName || "-",
+      "Customer Type": r.customerType || "-",
+      Vertical: r.verticalType || r.vertical || "-",
+      "Sell Type": r.orderType || "-",
+      "Distributor Code": r.distributorCode || "-",
+      "Distributor Name": r.distributorName || "-",
+      "Emp Code": r.empCode || "-",
+      "Emp Name": r.empName || "-",
+      "Total Value (₹)": r.orderValue || "-",
+      Item: r.itemName || "-",
+      "PO No": r.poNumber || "-",
+      Date: r.date ? new Date(r.date).toLocaleDateString() : "-",
+      "Reported By": r.reportedBy || "-",
+      "Approved By": r.approvedByBM || r.approvedBy || "-",
+      "Rejected By": r.rejectedBy || "-",
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportRows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Revenue");
     XLSX.writeFile(wb, `Manager_Revenue_${user.empCode}.xlsx`);
@@ -224,9 +246,11 @@ export default function RevenueTrackerManager() {
             <tr>
               <th style={th}>Customer ID</th>
               <th style={th}>Customer Mob No.</th>
+              <th style={th}>Company Name</th>
               <th style={th}>Customer Name</th>
               <th style={th}>Customer Type</th>
               <th style={th}>Vertical</th>
+              <th style={th}>Sell Type</th>
               <th style={th}>Distributor Code</th>
               <th style={th}>Distributor Name</th>
               <th style={th}>Emp Code</th>
@@ -258,6 +282,13 @@ export default function RevenueTrackerManager() {
                   ) : (r.customerMobile || "-")}
                 </td>
 
+                {/* Company Name */}
+                <td style={td}>
+                  {r.isManual && !r.saved ? (
+                    <input type="text" value={r.company || ""} onChange={(e) => updateManualRow(r._id, "company", e.target.value)} style={inputSmall} placeholder="Company" />
+                  ) : (r.company || "-")}
+                </td>
+
                 {/* Customer Name */}
                 <td style={td}>
                   {r.isManual && !r.saved ? (
@@ -287,6 +318,16 @@ export default function RevenueTrackerManager() {
                       <option value="GFD">GFD</option>
                     </select>
                   ) : (r.vertical || r.verticalType || "-")}
+                </td>
+
+                {/* Sell Type */}
+                <td style={td}>
+                  {r.isManual && !r.saved ? (
+                    <select value={r.orderType || "Project"} onChange={(e) => updateManualRow(r._id, "orderType", e.target.value)} style={inputSmall}>
+                      <option value="Project">Project</option>
+                      <option value="Retail">Retail</option>
+                    </select>
+                  ) : (r.orderType || "-")}
                 </td>
 
                 {/* Distributor Code */}

@@ -519,7 +519,7 @@ export const myReports = async (req, res) => {
           customerId: rev.customerId || `MANUAL-${rev._id}`,
           name: rev.customerName || "Manual Entry",
           customerMobile: rev.customerMobile || "NA",
-          company: "-",
+          company: rev.company || "-",
           designation: "-",
           customerType: rev.customerType || "Manual",
           discussion: "-",

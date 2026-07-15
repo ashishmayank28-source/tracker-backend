@@ -403,6 +403,7 @@ function Revisit({ token, user, setHistoryCustomer }) {
                   readOnly
                   required
                 />
+                <label>Sell Type *</label>
                 <select
                   name="orderType"
                   style={inputStyle}

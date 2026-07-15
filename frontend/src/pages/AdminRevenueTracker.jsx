@@ -51,14 +51,60 @@ export default function AdminRevenueTracker() {
     if (token) loadRevenue();
   }, [token]);
 
+  /* 🔹 Admin Accept Entry */
+  async function acceptEntry(id) {
+    if (!window.confirm("Accept this revenue entry?")) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/revenue/admin/accept/${id}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setRevenue((prev) =>
+          prev.map((r) =>
+            r._id === id
+              ? { ...r, adminApproved: true, adminApprovedBy: data.adminApprovedBy }
+              : r
+          )
+        );
+        alert("✅ Entry accepted successfully");
+      } else alert(data.message || "Failed to accept");
+    } catch (err) {
+      console.error(err);
+      alert("Error accepting entry");
+    }
+  }
+
+  /* 🔹 Admin Reject Entry (Permanent Delete) */
+  async function rejectEntry(id) {
+    if (!window.confirm("Reject and permanently delete this entry? This cannot be undone.")) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/revenue/admin/reject/${id}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setRevenue((prev) => prev.filter((r) => r._id !== id));
+        alert("❌ Entry permanently removed");
+      } else alert(data.message || "Failed to reject");
+    } catch (err) {
+      console.error(err);
+      alert("Error rejecting entry");
+    }
+  }
+
   /* 🔹 Export to Excel */
   function exportToExcel() {
     const sheetData = revenue.map((r) => ({
       "Customer ID": r.customerId,
       "Customer Mob No.": r.customerMobile,
+      "Company Name": r.company || "-",
       "Customer Name": r.customerName,
       "Customer Type": r.customerType,
       Vertical: r.verticalType || r.vertical,
+      "Sell Type": r.orderType || "-",
       "Distributor Code": r.distributorCode,
       "Distributor Name": r.distributorName,
       "Emp Code": r.empCode,
@@ -111,9 +157,11 @@ export default function AdminRevenueTracker() {
             <tr>
               <th style={th}>Customer ID</th>
               <th style={th}>Customer Mob No.</th>
+              <th style={th}>Company Name</th>
               <th style={th}>Customer Name</th>
               <th style={th}>Customer Type</th>
               <th style={th}>Vertical</th>
+              <th style={th}>Sell Type</th>
               <th style={th}>Distributor Code</th>
               <th style={th}>Distributor Name</th>
               <th style={th}>Emp Code</th>
@@ -125,13 +173,13 @@ export default function AdminRevenueTracker() {
               <th style={th}>Date</th>
               <th style={thBlue}>Reported by</th>
               <th style={thYellow}>Approved by BM</th>
-              <th style={thRed}>Reject</th>
+              <th style={thGreen}>Action</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="17" style={{ textAlign: "center", padding: 20 }}>
+                <td colSpan="19" style={{ textAlign: "center", padding: 20 }}>
                   ⏳ Loading data...
                 </td>
               </tr>
@@ -140,9 +188,11 @@ export default function AdminRevenueTracker() {
                 <tr key={r._id || i} style={{ background: i % 2 === 0 ? "#fff" : "#f9f9f9" }}>
                   <td style={td}>{r.customerId || "-"}</td>
                   <td style={td}>{r.customerMobile || "-"}</td>
+                  <td style={td}>{r.company || "-"}</td>
                   <td style={td}>{r.customerName || "-"}</td>
                   <td style={td}>{r.customerType || "-"}</td>
                   <td style={td}>{r.verticalType || r.vertical || "-"}</td>
+                  <td style={td}>{r.orderType || "-"}</td>
                   <td style={td}>{r.distributorCode || "-"}</td>
                   <td style={td}>{r.distributorName || "-"}</td>
                   <td style={td}>{r.empCode || "-"}</td>
@@ -181,18 +231,21 @@ export default function AdminRevenueTracker() {
                       <span style={{ color: "#f59e0b", fontWeight: 600 }}>⏳ Pending BM</span>
                     )}
                   </td>
-                  <td style={tdRed}>
-                    {r.rejected ? (
-                      <span style={{ color: "#dc2626", fontWeight: 600 }}>❌ {r.rejectedBy || "-"}</span>
+                  <td style={tdGreen}>
+                    {r.adminApproved ? (
+                      <span style={{ color: "#16a34a", fontWeight: 700, fontSize: 11 }}>✅ Accepted</span>
                     ) : (
-                      <span style={{ color: "#9ca3af" }}>-</span>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <button onClick={() => acceptEntry(r._id)} style={btnAccept}>✓ Accept</button>
+                        <button onClick={() => rejectEntry(r._id)} style={btnReject}>✗ Reject</button>
+                      </div>
                     )}
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="17" style={{ textAlign: "center", padding: 20 }}>
+                <td colSpan="19" style={{ textAlign: "center", padding: 20 }}>
                   No submitted revenue found. (Only BM-submitted entries appear here - no duplicates)
                 </td>
               </tr>
@@ -223,11 +276,13 @@ const tableStyle = { width: "100%", borderCollapse: "collapse", minWidth: 1500 }
 const th = { padding: "10px", borderBottom: "2px solid #ccc", fontSize: "11px", fontWeight: 600, background: "#f4f4f4", position: "sticky", top: 0, zIndex: 10, whiteSpace: "nowrap" };
 const thBlue = { ...th, background: "#dbeafe" };
 const thYellow = { ...th, background: "#fef3c7" };
-const thRed = { ...th, background: "#fee2e2" };
+const thGreen = { ...th, background: "#dcfce7" };
 const td = { padding: "8px 10px", fontSize: "11px", whiteSpace: "nowrap" };
+const tdGreen = { ...td, background: "#dcfce7" };
+const btnAccept = { background: "#22c55e", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontWeight: 600, fontSize: 10 };
+const btnReject = { background: "#ef4444", color: "#fff", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontWeight: 600, fontSize: 10 };
 const tdBlue = { ...td, background: "#dbeafe" };
 const tdYellow = { ...td, background: "#fef3c7" };
-const tdRed = { ...td, background: "#fee2e2" };
 const inputStyle = { padding: "6px 10px", borderRadius: 6, border: "1px solid #ccc", fontSize: 12 };
 const btnBlue = { background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, padding: "6px 12px", cursor: "pointer", fontSize: 12 };
 const viewBtn = { background: "#0ea5e9", color: "#fff", border: "none", borderRadius: 4, padding: "4px 10px", cursor: "pointer", fontSize: 10 };

@@ -27,11 +27,13 @@ export default function RevenueTrackerEmp() {
           _id: r._id || "-",
           customerId: r.customerId || "-",
           customerMobile: r.customerMobile || r.mobile || r.visits?.[0]?.customerMobile || "NA",
+          company: r.company || "-",
           customerName: r.customerName || r.name || r.visits?.[0]?.customerName || "-",
           customerType: r.customerType || r.visits?.[0]?.customerType || "Manual",
           vertical: r.vertical || r.visits?.[0]?.vertical || "-",
           distributorCode: r.distributorCode || r.visits?.[0]?.distributorCode || "-",
           distributorName: r.distributorName || r.visits?.[0]?.distributorName || "-",
+          orderType: r.orderType || r.visits?.[0]?.orderType || "-",
           empCode: r.empCode || r.createdBy?.empCode || r.createdBy || r.emp_code || user?.empCode || "-",
           empName: r.createdByName || r.createdBy?.name || user?.name || "-",
           orderValue: r.orderValue || "-",
@@ -114,9 +116,11 @@ export default function RevenueTrackerEmp() {
               <tr>
                 <th style={th}>Customer ID</th>
                 <th style={th}>Customer Mob No.</th>
+                <th style={th}>Company Name</th>
                 <th style={th}>Customer Name</th>
                 <th style={th}>Customer Type</th>
                 <th style={th}>Vertical</th>
+                <th style={th}>Sell Type</th>
                 <th style={th}>Distributor Code</th>
                 <th style={th}>Distributor Name</th>
                 <th style={th}>Emp Code</th>
@@ -140,9 +144,11 @@ export default function RevenueTrackerEmp() {
                 }}>
                   <td style={td}>{r.customerId}</td>
                   <td style={td}>{r.customerMobile}</td>
+                  <td style={td}>{r.company || "-"}</td>
                   <td style={td}>{r.customerName}</td>
                   <td style={td}>{r.customerType}</td>
                   <td style={td}>{r.vertical}</td>
+                  <td style={td}>{r.orderType}</td>
                   <td style={td}>{r.distributorCode}</td>
                   <td style={td}>{r.distributorName}</td>
                   <td style={td}>{r.empCode}</td>

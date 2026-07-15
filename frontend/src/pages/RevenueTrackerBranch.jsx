@@ -120,6 +120,7 @@ export default function RevenueTrackerBranch() {
         _id: manualId,
         customerId: manualId,
         customerMobile: "",
+        company: "",
         customerName: "",
         customerType: "",
         vertical: "",
@@ -187,6 +188,7 @@ export default function RevenueTrackerBranch() {
       const payload = {
         customerId: row.customerId,
         customerMobile: row.customerMobile || "NA",
+        company: row.company || "-",
         empCode: row.empCode,
         empName: row.empName,
         branch: row.branch,
@@ -232,9 +234,11 @@ export default function RevenueTrackerBranch() {
       Date: new Date(r.date).toLocaleDateString(),
       "Customer ID": r.customerId,
       "Customer Mobile": r.customerMobile,
+      "Company Name": r.company || "-",
       "Customer Name": r.customerName,
       "Customer Type": r.customerType,
       Vertical: r.verticalType || r.vertical,
+      "Sell Type": r.orderType || "-",
       "Distributor Code": r.distributorCode,
       "Distributor Name": r.distributorName,
       "Emp Code": r.empCode,
@@ -300,9 +304,11 @@ export default function RevenueTrackerBranch() {
             <tr>
               <th style={th}>Customer ID</th>
               <th style={th}>Customer Mob No.</th>
+              <th style={th}>Company Name</th>
               <th style={th}>Customer Name</th>
               <th style={th}>Customer Type</th>
               <th style={th}>Vertical</th>
+              <th style={th}>Sell Type</th>
               <th style={th}>Distributor Code</th>
               <th style={th}>Distributor Name</th>
               <th style={th}>Emp Code</th>
@@ -335,6 +341,13 @@ export default function RevenueTrackerBranch() {
                     ) : (r.customerMobile || "-")}
                   </td>
 
+                  {/* Company Name */}
+                  <td style={td}>
+                    {r.isManual && !r.saved ? (
+                      <input type="text" value={r.company || ""} onChange={(e) => updateManualRow(r._id, "company", e.target.value)} style={inputSmall} placeholder="Company" />
+                    ) : (r.company || "-")}
+                  </td>
+
                   {/* Customer Name */}
                   <td style={td}>
                     {r.isManual && !r.saved ? (
@@ -364,6 +377,16 @@ export default function RevenueTrackerBranch() {
                         <option value="GFD">GFD</option>
                       </select>
                     ) : (r.verticalType || r.vertical || "-")}
+                  </td>
+
+                  {/* Sell Type */}
+                  <td style={td}>
+                    {r.isManual && !r.saved ? (
+                      <select value={r.orderType || "Project"} onChange={(e) => updateManualRow(r._id, "orderType", e.target.value)} style={inputSmall}>
+                        <option value="Project">Project</option>
+                        <option value="Retail">Retail</option>
+                      </select>
+                    ) : (r.orderType || "-")}
                   </td>
 
                   {/* Distributor Code */}
@@ -501,7 +524,7 @@ export default function RevenueTrackerBranch() {
               ))
             ) : (
               <tr>
-                <td colSpan="17" style={{ textAlign: "center", padding: 20 }}>
+                <td colSpan="20" style={{ textAlign: "center", padding: 20 }}>
                   No revenue data found. All Order Won entries from branch employees will appear here.
                 </td>
               </tr>

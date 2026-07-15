@@ -90,6 +90,7 @@ export const getManagerRevenue = async (req, res) => {
             customerId: c.customerId || "-",
             customerMobile: c.customerMobile || "NA",
             customerName: c.name || "-",
+            company: c.company || "-",
             customerType: c.customerType || "-",
             vertical: v.vertical || c.vertical || "-",
             distributorCode: v.distributorCode || "-",
@@ -137,6 +138,7 @@ export const getManagerRevenue = async (req, res) => {
           customerId: rev.customerId || `MANUAL-${rev._id}`,
           customerMobile: rev.customerMobile || "NA",
           customerName: rev.customerName || "-",
+          company: rev.company || "-",
           customerType: rev.customerType || "-",
           vertical: rev.verticalType || "-",
           distributorCode: rev.distributorCode || "-",
@@ -268,6 +270,7 @@ export const approveRevenue = async (req, res) => {
       customerId: updatedCustomer.customerId,
       customerName: updatedCustomer.name || "Unknown",
       customerMobile: updatedCustomer.customerMobile || "NA",
+      company: updatedCustomer.company || "-",
       customerType: updatedCustomer.customerType || "-",
       verticalType: visit.vertical || "-",
       distributorCode: visit.distributorCode || "-",
@@ -320,6 +323,7 @@ export const addManualSale = async (req, res) => {
       poNumber,
       customerName,
       customerMobile,
+      company,
       customerType,
       vertical,
       distributorCode,
@@ -351,6 +355,7 @@ export const addManualSale = async (req, res) => {
       customerId: manualId,
       customerName: customerName || "Manual Entry",
       customerMobile: customerMobile || "NA",
+      company: company || "-",
       customerType: customerType || "Manual",
       verticalType: vertical || "-",
       distributorCode: distributorCode || "-",
@@ -484,6 +489,7 @@ export const getRevenueTrackerEmployee = async (req, res) => {
             customerId: c.customerId,
             customerMobile: c.customerMobile || "NA",
             customerName: c.name || "-",
+            company: c.company || "-",
             customerType: c.customerType || "-",
             vertical: v.vertical || c.vertical || "-",
             distributorCode: v.distributorCode || "-",
@@ -536,6 +542,7 @@ export const getRevenueTrackerManager = async (req, res) => {
             customerId: c.customerId,
             customerMobile: c.customerMobile || "NA",
             customerName: c.name || "-",
+            company: c.company || "-",
             customerType: c.customerType || "-",
             vertical: v.vertical || c.vertical || "-",
             distributorCode: v.distributorCode || "-",
@@ -616,6 +623,7 @@ export const getBMRevenue = async (req, res) => {
             customerId: c.customerId,
             customerMobile: c.customerMobile || "NA",
             customerName: c.name || "-",
+            company: c.company || "-",
             customerType: c.customerType || "-",
             verticalType: v.vertical || c.vertical || "-",
             vertical: v.vertical || c.vertical || "-",
@@ -667,6 +675,7 @@ export const getBMRevenue = async (req, res) => {
           customerId: rev.customerId || `MANUAL-${rev._id}`,
           customerMobile: rev.customerMobile || "NA",
           customerName: rev.customerName || "-",
+          company: rev.company || "-",
           customerType: rev.customerType || "-",
           verticalType: rev.verticalType || "-",
           vertical: rev.verticalType || "-",
@@ -907,6 +916,7 @@ export const getRMRevenue = async (req, res) => {
             customerId: c.customerId,
             customerMobile: c.customerMobile || "NA",
             customerName: c.name || "-",
+            company: c.company || "-",
             customerType: c.customerType || "-",
             verticalType: v.vertical || c.vertical || "-",
             distributorCode: v.distributorCode || "-",
@@ -956,6 +966,7 @@ export const getRMRevenue = async (req, res) => {
           customerId: rev.customerId || `MANUAL-${rev._id}`,
           customerMobile: rev.customerMobile || "NA",
           customerName: rev.customerName || "-",
+          company: rev.company || "-",
           customerType: rev.customerType || "-",
           verticalType: rev.verticalType || "-",
           distributorCode: rev.distributorCode || "-",
@@ -1056,6 +1067,7 @@ export const getAdminRevenue = async (req, res) => {
             customerId: c.customerId,
             customerMobile: c.customerMobile || "NA",
             customerName: c.name || "-",
+            company: c.company || "-",
             customerType: c.customerType || "-",
             verticalType: v.vertical || c.vertical || "-",
             distributorCode: v.distributorCode || "-",
@@ -1078,6 +1090,8 @@ export const getAdminRevenue = async (req, res) => {
             approvedByBM: v.approvedByBM || null,
             rejected: v.rejected || false,
             rejectedBy: v.rejectedBy || "-",
+            adminApproved: v.adminApproved || false,
+            adminApprovedBy: v.adminApprovedBy || null,
           });
         }
       });
@@ -1100,6 +1114,7 @@ export const getAdminRevenue = async (req, res) => {
           customerId: rev.customerId || `MANUAL-${rev._id}`,
           customerMobile: rev.customerMobile || "NA",
           customerName: rev.customerName || "-",
+          company: rev.company || "-",
           customerType: rev.customerType || "-",
           verticalType: rev.verticalType || "-",
           distributorCode: rev.distributorCode || "-",
@@ -1122,6 +1137,8 @@ export const getAdminRevenue = async (req, res) => {
           approvedByBM: rev.approvedByBM || null,
           rejected: rev.rejected || false,
           rejectedBy: rev.rejectedBy || "-",
+          adminApproved: rev.adminApproved || false,
+          adminApprovedBy: rev.adminApprovedBy || null,
         });
       }
     });
@@ -1166,5 +1183,107 @@ export const getAdminRevenue = async (req, res) => {
   } catch (err) {
     console.error("Admin Revenue Error:", err);
     res.status(500).json({ message: "Failed to fetch admin revenue" });
+  }
+};
+
+/* =============================================================
+   ✅ Admin Accept Revenue Entry
+============================================================= */
+export const adminAcceptRevenue = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminName = `${req.user?.empCode} - ${req.user?.name}`;
+    const now = new Date();
+
+    const updatedCustomer = await Customer.findOneAndUpdate(
+      { "visits._id": id },
+      {
+        $set: {
+          "visits.$.adminApproved": true,
+          "visits.$.adminApprovedBy": adminName,
+          "visits.$.adminApprovedDate": now,
+        },
+      },
+      { new: true }
+    );
+
+    if (updatedCustomer) {
+      const visit = updatedCustomer.visits.find((v) => String(v._id) === id);
+      if (visit?.poNumber && visit?.createdBy) {
+        await Revenue.updateOne(
+          { poNumber: visit.poNumber, empCode: visit.createdBy },
+          {
+            $set: {
+              adminApproved: true,
+              adminApprovedBy: adminName,
+              adminApprovedDate: now,
+            },
+          }
+        );
+      }
+      return res.json({
+        success: true,
+        message: "✅ Entry accepted by Admin",
+        adminApprovedBy: adminName,
+      });
+    }
+
+    const updatedRevenue = await Revenue.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          adminApproved: true,
+          adminApprovedBy: adminName,
+          adminApprovedDate: now,
+        },
+      },
+      { new: true }
+    );
+
+    if (updatedRevenue) {
+      return res.json({
+        success: true,
+        message: "✅ Entry accepted by Admin",
+        adminApprovedBy: adminName,
+      });
+    }
+
+    return res.status(404).json({ message: "Entry not found" });
+  } catch (err) {
+    console.error("Admin Accept Revenue Error:", err);
+    res.status(500).json({ message: "Failed to accept entry" });
+  }
+};
+
+/* =============================================================
+   ❌ Admin Reject Revenue Entry (Permanent Delete)
+============================================================= */
+export const adminRejectRevenue = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const customer = await Customer.findOne({ "visits._id": id });
+    if (customer) {
+      const visit = customer.visits.id(id);
+      const poNumber = visit?.poNumber;
+      const empCode = visit?.createdBy;
+
+      customer.visits.pull(id);
+      await customer.save();
+
+      if (poNumber && empCode) {
+        await Revenue.deleteMany({ poNumber, empCode });
+      }
+    }
+
+    await Revenue.findByIdAndDelete(id);
+
+    res.json({
+      success: true,
+      message: "❌ Entry permanently removed",
+    });
+  } catch (err) {
+    console.error("Admin Reject Revenue Error:", err);
+    res.status(500).json({ message: "Failed to remove entry" });
   }
 };
