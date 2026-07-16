@@ -57,8 +57,17 @@ export default function MyReports() {
       {/* Content */}
       {tab === "new" && <NewVisitForm token={token} user={user} />}
 
-      {tab === "revisit" && !historyCustomer && (
-        <Revisit token={token} user={user} setHistoryCustomer={setHistoryCustomer} />
+      {tab === "revisit" && (
+        <>
+          <Revisit token={token} user={user} setHistoryCustomer={setHistoryCustomer} />
+          {historyCustomer && (
+            <CustomerHistory
+              token={token}
+              id={historyCustomer}
+              onBack={() => setHistoryCustomer(null)}
+            />
+          )}
+        </>
       )}
 
       {tab === "submitted" && !historyCustomer && (
@@ -69,7 +78,7 @@ export default function MyReports() {
         <TourApprovalForm token={token} user={user} />
       )}
 
-      {historyCustomer && (
+      {tab !== "revisit" && historyCustomer && (
         <CustomerHistory
           token={token}
           id={historyCustomer}
@@ -154,11 +163,14 @@ function Revisit({ token, user, setHistoryCustomer }) {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      // API returns { customerId, name, visits: [...] }
-      setHistory(data.visits || data || []);
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to load history");
+      }
+      setHistory(Array.isArray(data.visits) ? data.visits : []);
     } catch (err) {
       console.error("Error loading history:", err);
       setHistory([]);
+      setMsg(`❌ ${err.message || "Could not load customer history"}`);
     }
   }
 
@@ -283,13 +295,18 @@ function Revisit({ token, user, setHistoryCustomer }) {
             style={{ cursor: "pointer" }}
             onClick={() => {
               setSelected(s.customerId);
+              setMsg("");
               loadHistory(s.customerId);
             }}
           >
             {s.name} ({s.mobile}) → {s.customerId}
           </span>
           <button
-            onClick={() => setHistoryCustomer(s.customerId)}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setHistoryCustomer(s.customerId);
+            }}
             style={btnBlueSmall}
           >
             View History
@@ -467,7 +484,7 @@ function Revisit({ token, user, setHistoryCustomer }) {
               </div>
             )}
 
-            <button onClick={submitRevisit} style={btnBlue}>
+            <button type="button" onClick={submitRevisit} style={btnBlue}>
               Submit Revisit
             </button>
             {msg && <p style={{ color: "green", marginTop: "8px" }}>{msg}</p>}
@@ -678,12 +695,15 @@ function CustomerHistory({ token, id, onBack }) {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-        // API returns { customerId, name, visits: [...], ... }
+        if (!res.ok) {
+          throw new Error(data.message || "Failed to load history");
+        }
         setCustomerInfo(data);
-        setHistory(data.visits || []);
+        setHistory(Array.isArray(data.visits) ? data.visits : []);
       } catch (err) {
         console.error("Error loading history:", err);
         setHistory([]);
+        setCustomerInfo(null);
       } finally {
         setLoading(false);
       }

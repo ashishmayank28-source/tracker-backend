@@ -261,15 +261,6 @@ export const getHistory = async (req, res) => {
     if (!customer)
       return res.status(404).json({ message: "Customer not found" });
 
-    let scopedCodes = null;
-    if (req.user.role !== "Admin") {
-      scopedCodes = await getScopedEmpCodes(req.user);
-      if (!scopedCodes.length) {
-        return res.status(403).json({ message: "Not authorized" });
-      }
-    }
-    
-    // ✅ Return full customer object with visits (sorted latest first)
     const sortedVisits = (customer.visits || []).sort(
       (a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)
     );
@@ -281,13 +272,31 @@ export const getHistory = async (req, res) => {
       return v.createdBy?.empCode || null;
     };
 
-    const visibleVisits =
-      req.user.role === "Admin"
-        ? sortedVisits
-        : sortedVisits.filter((v) => scopedCodes.includes(visitEmpCode(v)));
+    const customerCreatorCode =
+      customer.createdBy?.empCode || customer.createdBy || customer.empCode || null;
 
-    if (req.user.role !== "Admin" && visibleVisits.length === 0) {
-      return res.status(403).json({ message: "Not authorized" });
+    let visibleVisits = sortedVisits;
+
+    if (req.user.role === "Employee") {
+      const empCode = req.user.empCode;
+      const hasAccess =
+        customerCreatorCode === empCode ||
+        sortedVisits.some((v) => visitEmpCode(v) === empCode);
+
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      // Employee sees full history for customers they have visited (needed for revisit)
+      visibleVisits = sortedVisits;
+    } else if (req.user.role !== "Admin") {
+      const scopedCodes = await getScopedEmpCodes(req.user);
+      if (!scopedCodes.length) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      visibleVisits = sortedVisits.filter((v) => scopedCodes.includes(visitEmpCode(v)));
+      if (visibleVisits.length === 0) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
     }
     
     // ✅ Get unique empCodes from visits for enrichment
