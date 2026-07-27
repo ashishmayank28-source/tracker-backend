@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../auth.jsx";
+import * as XLSX from "xlsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
@@ -195,6 +196,54 @@ export default function TravelRequests({ isAdmin = false }) {
     completed: requests.filter(r => r.status === "Completed").length,
   };
 
+  const fmtDate = (d) => (d ? new Date(d).toLocaleDateString() : "-");
+
+  const exportToExcel = () => {
+    if (!filteredRequests.length) {
+      setMessage("❌ No travel requests to export");
+      return;
+    }
+
+    const sheetData = filteredRequests.map((r, idx) => ({
+      "Sr. No": idx + 1,
+      "Emp Code": r.empCode || "-",
+      "Emp Name": r.empName || "-",
+      Branch: r.branch || "-",
+      Region: r.region || "-",
+      "Manager Code": r.managerCode || "-",
+      "Manager Name": r.managerName || "-",
+      "To Location": r.toLocation || "-",
+      Purpose: r.purpose || "-",
+      "Request Date": fmtDate(r.requestDate || r.createdAt),
+      Status: r.reimbursed ? "Reimbursed" : r.status || "-",
+      "Approved By": r.approvedBy || "-",
+      "Approved Date": fmtDate(r.approvedDate),
+      "Rejected By": r.rejectedBy || "-",
+      "Reject Reason": r.rejectReason || "-",
+      "Travel Expense (₹)": r.travelExpense || 0,
+      "Food Expense (₹)": r.foodExpense || 0,
+      "Accommodation Expense (₹)": r.accommodationExpense || 0,
+      "Total Expense (₹)": r.totalExpense || 0,
+      "Expense Verified": r.expenseVerified ? "Yes" : "No",
+      "Verified By": r.verifiedBy || "-",
+      "Verified Date": fmtDate(r.verifiedDate),
+      Reimbursed: r.reimbursed ? "Yes" : "No",
+      "Reimbursed By": r.reimbursedBy || "-",
+      "Reimbursed Date": fmtDate(r.reimbursedDate),
+      Bills: r.billsUrl ? `${API_BASE}${r.billsUrl}` : "-",
+      Tickets: r.ticketsUrl ? `${API_BASE}${r.ticketsUrl}` : "-",
+      Invoices: r.invoicesUrl ? `${API_BASE}${r.invoicesUrl}` : "-",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(sheetData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Travel Requests");
+
+    const filterLabel = filter === "all" ? "All" : filter;
+    const dateStr = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `Admin_Travel_Requests_${filterLabel}_${dateStr}.xlsx`);
+  };
+
   const getStatusBadge = (status, reimbursed) => {
     // ✅ Show reimbursed badge if reimbursed
     if (reimbursed) {
@@ -241,9 +290,16 @@ export default function TravelRequests({ isAdmin = false }) {
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
           ✈️ Travel Requests
         </h2>
-        <button onClick={loadRequests} style={refreshBtn}>
-          🔄 Refresh
-        </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {isAdmin && (
+            <button onClick={exportToExcel} style={exportBtn}>
+              📥 Export to Excel
+            </button>
+          )}
+          <button onClick={loadRequests} style={refreshBtn}>
+            🔄 Refresh
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards - Responsive */}
@@ -568,6 +624,17 @@ const refreshBtn = {
   borderRadius: 8,
   cursor: "pointer",
   fontSize: 13,
+};
+
+const exportBtn = {
+  padding: "8px 14px",
+  background: "#22c55e",
+  color: "#fff",
+  border: "none",
+  borderRadius: 8,
+  cursor: "pointer",
+  fontSize: 13,
+  fontWeight: 600,
 };
 
 // ✅ Responsive Stats Grid - Scrollable on Mobile
