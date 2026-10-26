@@ -18,6 +18,9 @@ export default function TravelRequests({ isAdmin = false }) {
   const [verifyRemarks, setVerifyRemarks] = useState("");
   const [rejectExpenseModal, setRejectExpenseModal] = useState(null);
   const [rejectExpenseReason, setRejectExpenseReason] = useState("");
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkConfirm, setBulkConfirm] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   // Load requests
   useEffect(() => {
@@ -46,7 +49,13 @@ export default function TravelRequests({ isAdmin = false }) {
       
       const data = await res.json();
       console.log("✅ Tour requests loaded:", data.length || 0, data);
-      setRequests(Array.isArray(data) ? data : []);
+      const nextRequests = Array.isArray(data) ? data : [];
+      setRequests(nextRequests);
+      setSelectedIds((prev) =>
+        prev.filter((id) =>
+          nextRequests.some((r) => r._id === id && r.status === "Completed" && !r.reimbursed)
+        )
+      );
     } catch (err) {
       console.error("Error loading requests:", err);
       setMessage("❌ Network error loading requests");
@@ -179,6 +188,52 @@ export default function TravelRequests({ isAdmin = false }) {
     }
   };
 
+  const isEligibleForReimburse = (r) => r.status === "Completed" && !r.reimbursed;
+
+  const handleBulkReimburse = async () => {
+    const eligibleSelected = requests.filter(
+      (r) => selectedIds.includes(r._id) && isEligibleForReimburse(r)
+    );
+    if (!eligibleSelected.length) {
+      setMessage("❌ No eligible requests selected");
+      setBulkConfirm(false);
+      return;
+    }
+
+    try {
+      setBulkLoading(true);
+      const res = await fetch(`${API_BASE}/api/tour/reimburse/bulk`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ ids: eligibleSelected.map((r) => r._id) }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(`❌ ${data.message || "Failed to process bulk reimbursement"}`);
+        return;
+      }
+
+      const failed = (data.results || []).filter((r) => !r.success);
+      if (data.failCount === 0) {
+        setMessage(`✅ ${data.message || `${data.successCount} tours marked as reimbursed.`}`);
+      } else if (data.successCount === 0) {
+        setMessage(`❌ ${data.message || "No tours were marked as reimbursed."}${failed[0]?.message ? ` ${failed[0].message}` : ""}`);
+      } else {
+        setMessage(`⚠️ ${data.message} ${failed.map((f) => f.empCode || f.id).join(", ")}`);
+      }
+      setSelectedIds([]);
+      setBulkConfirm(false);
+      loadRequests();
+    } catch (err) {
+      setMessage("❌ Error processing bulk reimbursement");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   // Filter requests
   const filteredRequests = requests.filter((r) => {
     if (filter === "all") return true;
@@ -197,6 +252,26 @@ export default function TravelRequests({ isAdmin = false }) {
   };
 
   const fmtDate = (d) => (d ? new Date(d).toLocaleDateString() : "-");
+  const eligibleInView = isAdmin ? filteredRequests.filter(isEligibleForReimburse) : [];
+  const allEligibleSelected =
+    eligibleInView.length > 0 && eligibleInView.every((r) => selectedIds.includes(r._id));
+  const selectedRecords = requests.filter(
+    (r) => selectedIds.includes(r._id) && isEligibleForReimburse(r)
+  );
+  const selectedTotal = selectedRecords.reduce((sum, r) => sum + (Number(r.totalExpense) || 0), 0);
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+  };
+
+  const toggleSelectAll = () => {
+    const viewIds = eligibleInView.map((r) => r._id);
+    if (allEligibleSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !viewIds.includes(id)));
+      return;
+    }
+    setSelectedIds((prev) => [...new Set([...prev, ...viewIds])]);
+  };
 
   const exportToExcel = () => {
     if (!filteredRequests.length) {
@@ -233,6 +308,7 @@ export default function TravelRequests({ isAdmin = false }) {
       Bills: r.billsUrl ? `${API_BASE}${r.billsUrl}` : "-",
       Tickets: r.ticketsUrl ? `${API_BASE}${r.ticketsUrl}` : "-",
       Invoices: r.invoicesUrl ? `${API_BASE}${r.invoicesUrl}` : "-",
+      "Customer IDs": (r.visitedCustomerIds || []).join(", ") || "-",
     }));
 
     const ws = XLSX.utils.json_to_sheet(sheetData);
@@ -350,13 +426,41 @@ export default function TravelRequests({ isAdmin = false }) {
         ))}
       </div>
 
+      {isAdmin && (
+        <div style={bulkBar}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600 }}>
+            <input
+              type="checkbox"
+              checked={allEligibleSelected}
+              onChange={toggleSelectAll}
+              disabled={!eligibleInView.length}
+            />
+            Select All eligible in this view ({eligibleInView.length})
+          </label>
+          <div style={{ fontSize: 13, color: "#334155" }}>
+            Selected: <strong>{selectedRecords.length}</strong> • Amount: <strong>₹{selectedTotal}</strong>
+          </div>
+          <button
+            onClick={() => setBulkConfirm(true)}
+            disabled={!selectedRecords.length || bulkLoading}
+            style={{
+              ...reimburseBtn,
+              opacity: !selectedRecords.length || bulkLoading ? 0.6 : 1,
+              cursor: !selectedRecords.length || bulkLoading ? "not-allowed" : "pointer",
+            }}
+          >
+            💰 Mark as Reimbursed
+          </button>
+        </div>
+      )}
+
       {message && (
         <div style={{
           padding: "10px 16px",
           marginBottom: 16,
           borderRadius: 8,
-          background: message.includes("✅") ? "#dcfce7" : "#fee2e2",
-          color: message.includes("✅") ? "#166534" : "#dc2626",
+          background: message.includes("✅") ? "#dcfce7" : message.includes("⚠️") ? "#fef3c7" : "#fee2e2",
+          color: message.includes("✅") ? "#166534" : message.includes("⚠️") ? "#92400e" : "#dc2626",
         }}>
           {message}
         </div>
@@ -373,12 +477,25 @@ export default function TravelRequests({ isAdmin = false }) {
       ) : (
         <div style={cardsContainer}>
           {filteredRequests.map((req) => (
-            <div key={req._id} style={requestCard}>
+            <div key={req._id} style={{
+              ...requestCard,
+              border: selectedIds.includes(req._id) ? "1px solid #15803d" : "1px solid #e5e7eb",
+            }}>
               {/* Header - Employee Info + Status */}
               <div style={cardHeader}>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 15 }}>{req.empName}</div>
-                  <div style={{ fontSize: 11, color: "#6b7280" }}>{req.empCode} • {req.branch || "-"}</div>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  {isAdmin && isEligibleForReimburse(req) && (
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(req._id)}
+                      onChange={() => toggleSelect(req._id)}
+                      style={{ marginTop: 4 }}
+                    />
+                  )}
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 15 }}>{req.empName}</div>
+                    <div style={{ fontSize: 11, color: "#6b7280" }}>{req.empCode} • {req.branch || "-"}</div>
+                  </div>
                 </div>
                 {getStatusBadge(req.status, req.reimbursed)}
               </div>
@@ -427,6 +544,12 @@ export default function TravelRequests({ isAdmin = false }) {
               )}
 
               {/* ✅ Uploaded Documents */}
+              {req.visitedCustomerIds?.length > 0 && (
+                <div style={{ marginTop: 10, fontSize: 12, color: "#334155" }}>
+                  🏷️ Customer IDs: {req.visitedCustomerIds.join(", ")}
+                </div>
+              )}
+
               {(req.billsUrl || req.ticketsUrl || req.invoicesUrl) && (
                 <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
                   {req.billsUrl && (
@@ -601,6 +724,31 @@ export default function TravelRequests({ isAdmin = false }) {
           </div>
         </div>
       )}
+
+      {bulkConfirm && (
+        <div style={modalOverlay}>
+          <div style={modalContent}>
+            <h3 style={{ margin: "0 0 16px", color: "#15803d" }}>💰 Confirm Bulk Reimbursement</h3>
+            <p style={{ fontSize: 13, color: "#4b5563", marginBottom: 12 }}>
+              Mark <strong>{selectedRecords.length}</strong> completed tour
+              {selectedRecords.length === 1 ? "" : "s"} as reimbursed for a total of{" "}
+              <strong>₹{selectedTotal}</strong>? Amounts will be taken from the database, not the selected totals shown here.
+            </p>
+            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              <button onClick={handleBulkReimburse} disabled={bulkLoading} style={reimburseBtn}>
+                {bulkLoading ? "Processing..." : "Confirm Reimburse"}
+              </button>
+              <button
+                onClick={() => setBulkConfirm(false)}
+                disabled={bulkLoading}
+                style={cancelBtn}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -624,6 +772,19 @@ const refreshBtn = {
   borderRadius: 8,
   cursor: "pointer",
   fontSize: 13,
+};
+
+const bulkBar = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  flexWrap: "wrap",
+  marginBottom: 16,
+  padding: "10px 14px",
+  background: "#f0fdf4",
+  border: "1px solid #bbf7d0",
+  borderRadius: 8,
 };
 
 const exportBtn = {

@@ -1,11 +1,12 @@
 // frontend/src/components/ReportsViewer.jsx
 import { useEffect, useState } from "react";
+import * as XLSX from "xlsx";
 import { useAuth } from "../auth.jsx";
 
 const API_BASE = (import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000")
   .replace(/\/+$/, "");
 
-export default function ReportsViewer() {
+export default function ReportsViewer({ enableExport = false } = {}) {
   const { token } = useAuth();
 
   // ✅ Empty dates = load ALL reports (no filter)
@@ -14,6 +15,8 @@ export default function ReportsViewer() {
   const [summary, setSummary] = useState([]);
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [exportMessage, setExportMessage] = useState("");
   const [view, setView] = useState("reports"); // reports | summary
 
   // Filters
@@ -31,6 +34,7 @@ export default function ReportsViewer() {
   const thYellow = { ...thBase, background: "#fef08a", color: "#854d0e" };
   const thOrange = { ...thBase, background: "#fed7aa", color: "#9a3412" };
   const thGreen = { ...thBase, background: "#bbf7d0", color: "#166534" };
+  const thBlue = { ...thBase, background: "#bfdbfe", color: "#1e3a8a" };
   const tdStyle = { border: "1px solid #e5e7eb", padding: "6px", fontSize: "11px" };
   const filterInput = { width: "100%", fontSize: "10px", padding: "3px", border: "1px solid #ddd", borderRadius: 3 };
 
@@ -157,25 +161,114 @@ export default function ReportsViewer() {
     }
   }
 
+  function formatExportDate(value) {
+    if (!value || value === "-") return "";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString();
+  }
+
+  /* ---------- Export filtered Daily Tracker rows ---------- */
+  function exportToExcel() {
+    try {
+      setExporting(true);
+      setExportMessage("");
+
+      if (!filteredReports.length) {
+        setExportMessage("No records to export for the current filters.");
+        return;
+      }
+
+      const sheetData = filteredReports.map((r) => ({
+        "Customer ID": r.customerId || "",
+        "Employee Name": r.empName || r.createdBy?.name || "",
+        "Emp Code": r.empCode || "",
+        Location: r.location || r.area || "",
+        "Manager Name": r.managerName || "",
+        Branch: r.branch || "",
+        Region: r.region || "",
+        "Submission Date": formatExportDate(r.date),
+        "Meeting Type": r.meetingType || "",
+        "Internal Meeting Attendees": r.attendees || r.internalAttendees || "",
+        "Customer Type": r.customerType || "",
+        "Customer Name": r.name || r.customerName || "",
+        "Customer Mob No.": r.mobile || r.customerMobile || "",
+        Discussion: r.discussion || "",
+        "Opportunity Type": r.opportunityType || "",
+        "Opportunity Name": r.company || r.opportunityName || "",
+        "Order Status": r.orderStatus || "",
+        "Order Value": r.orderValue || 0,
+        "Next Meeting Date": formatExportDate(r.nextMeeting || r.nextMeetingDate),
+        "Expected Date of Order": formatExportDate(r.expectedOrderDate),
+        "Visit Type": r.visitType || "Unknown",
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(sheetData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Daily Tracker");
+      const fileName = `Admin_Daily_Tracker_${from || "all"}_to_${to || "all"}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      setExportMessage(`Excel exported successfully (${sheetData.length} records).`);
+    } catch (err) {
+      console.error("Excel export error:", err);
+      setExportMessage("Failed to export Excel. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div style={{ padding: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <h3 style={{ margin: 0 }}>📊 Reports Viewer</h3>
-        <button
-          onClick={handleRefresh}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {enableExport && view === "reports" && (
+            <button
+              onClick={exportToExcel}
+              disabled={exporting || loading}
+              style={{
+                padding: "8px 16px",
+                background: exporting || loading ? "#93c5fd" : "#16a34a",
+                color: "white",
+                border: "none",
+                borderRadius: 6,
+                cursor: exporting || loading ? "wait" : "pointer",
+                fontWeight: 500,
+              }}
+            >
+              {exporting ? "⏳ Exporting..." : "⬇️ Export to Excel"}
+            </button>
+          )}
+          <button
+            onClick={handleRefresh}
+            style={{
+              padding: "8px 16px",
+              background: "#3b82f6",
+              color: "white",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontWeight: 500,
+            }}
+          >
+            🔄 Refresh
+          </button>
+        </div>
+      </div>
+      {enableExport && exportMessage && (
+        <div
           style={{
-            padding: "8px 16px",
-            background: "#3b82f6",
-            color: "white",
-            border: "none",
+            marginBottom: 12,
+            padding: "8px 12px",
             borderRadius: 6,
-            cursor: "pointer",
+            background: exportMessage.includes("successfully") ? "#dcfce7" : "#fee2e2",
+            color: exportMessage.includes("successfully") ? "#166534" : "#991b1b",
+            fontSize: 13,
             fontWeight: 500,
           }}
         >
-          🔄 Refresh
-        </button>
-      </div>
+          {exportMessage}
+        </div>
+      )}
 
       {/* Toggle buttons */}
       <div style={{ marginBottom: 15 }}>
@@ -360,6 +453,7 @@ export default function ReportsViewer() {
                   <th style={thGreen}>Order Status</th>
                   <th style={thGreen}>Next Meeting Date</th>
                   <th style={thGreen}>Expected Date of Order</th>
+                  <th style={thBlue}>Visit Type</th>
                 </tr>
                 {/* Filter Row */}
                 <tr style={{ background: "#f9fafb" }}>
@@ -381,6 +475,7 @@ export default function ReportsViewer() {
                   <th><input style={filterInput} placeholder="Filter..." value={filters.orderStatus || ""} onChange={(e) => setFilters({...filters, orderStatus: e.target.value})} /></th>
                   <th><input style={filterInput} placeholder="Filter..." value={filters.nextMeeting || ""} onChange={(e) => setFilters({...filters, nextMeeting: e.target.value})} /></th>
                   <th><input style={filterInput} placeholder="Filter..." value={filters.expectedOrderDate || ""} onChange={(e) => setFilters({...filters, expectedOrderDate: e.target.value})} /></th>
+                  <th><input style={filterInput} placeholder="Filter..." value={filters.visitType || ""} onChange={(e) => setFilters({...filters, visitType: e.target.value})} /></th>
                 </tr>
               </thead>
               <tbody>
@@ -408,11 +503,12 @@ export default function ReportsViewer() {
                       <td style={tdStyle}>{r.orderStatus || "-"}</td>
                       <td style={tdStyle}>{r.nextMeeting ? new Date(r.nextMeeting).toLocaleDateString() : "-"}</td>
                       <td style={tdStyle}>{r.expectedOrderDate ? new Date(r.expectedOrderDate).toLocaleDateString() : "-"}</td>
+                      <td style={tdStyle}>{r.visitType || "Unknown"}</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="18" style={{ textAlign: "center", padding: 20 }}>
+                    <td colSpan="19" style={{ textAlign: "center", padding: 20 }}>
                       No reports found
                     </td>
                   </tr>

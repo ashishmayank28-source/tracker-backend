@@ -94,7 +94,7 @@ export default function AdminDashboard() {
       {/* Daily Tracker */}
       {activeTile === "daily" && (
         <TileWrapper title="📝 Daily Tracker" onBack={() => setActiveTile("dashboard")}>
-          <ReportViewer />
+          <ReportViewer enableExport />
         </TileWrapper>
       )}
 

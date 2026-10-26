@@ -2,6 +2,35 @@ import Customer from "../models/customerModel.js";
 import User from "../models/userModel.js";
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 import { getScopedEmpCodes, isEmpInScope } from "../utils/scopeUtils.js";
+import {
+  classifyVisitType,
+  historyKey,
+  isQualifyingSiteVisit,
+  isSyntheticCustomerId,
+  normalizeCustomerId,
+} from "../utils/visitClassification.js";
+
+function resolveVisitEmpCode(customer, visit, allowedEmpCodes) {
+  const vEmp = visit.empCode;
+
+  if (typeof vEmp === "string" && allowedEmpCodes.includes(vEmp)) {
+    return vEmp;
+  }
+  if (Array.isArray(vEmp)) {
+    const matched = vEmp.find((code) => allowedEmpCodes.includes(String(code)));
+    if (matched) return String(matched);
+  }
+  if (visit.createdBy && allowedEmpCodes.includes(String(visit.createdBy))) {
+    return String(visit.createdBy);
+  }
+  if (visit.createdBy?.empCode && allowedEmpCodes.includes(String(visit.createdBy.empCode))) {
+    return String(visit.createdBy.empCode);
+  }
+  if (customer.createdBy?.empCode && allowedEmpCodes.includes(String(customer.createdBy.empCode))) {
+    return String(customer.createdBy.empCode);
+  }
+  return null;
+}
 
 /* ---------- Admin Report Dump ---------- */
 export const getReportsDump = async (req, res) => {
@@ -326,33 +355,32 @@ export const getSubmittedReports = async (req, res) => {
     };
 
     const reports = [];
+    const visitHistoryByKey = {};
 
     customers.forEach((c) => {
       (c.visits || []).forEach((v) => {
-        // ✅ Check if this visit belongs to allowed employees (same logic as myReports)
-        const vEmp = v.empCode;
-        let visitEmpCode = null;
-        let isMatch = false;
+        const visitEmpCode = resolveVisitEmpCode(c, v, allowedEmpCodes);
+        if (!visitEmpCode) return;
 
-        // Check visit-level empCode
-        if (typeof vEmp === "string" && allowedEmpCodes.includes(vEmp)) {
-          isMatch = true;
-          visitEmpCode = vEmp;
-        } else if (Array.isArray(vEmp) && vEmp.some(e => allowedEmpCodes.includes(String(e)))) {
-          isMatch = true;
-          visitEmpCode = vEmp.find(e => allowedEmpCodes.includes(String(e)));
-        } else if (v.createdBy && allowedEmpCodes.includes(String(v.createdBy))) {
-          isMatch = true;
-          visitEmpCode = v.createdBy;
-        } else if (v.createdBy?.empCode && allowedEmpCodes.includes(String(v.createdBy.empCode))) {
-          isMatch = true;
-          visitEmpCode = v.createdBy.empCode;
-        } else if (c.createdBy?.empCode && allowedEmpCodes.includes(String(c.createdBy.empCode))) {
-          isMatch = true;
-          visitEmpCode = c.createdBy.empCode;
+        const customerId = normalizeCustomerId(c.customerId);
+        if (!isQualifyingSiteVisit(v.meetingType) || isSyntheticCustomerId(customerId)) {
+          return;
         }
 
-        if (!isMatch) return;
+        const key = historyKey(visitEmpCode, customerId);
+        if (!visitHistoryByKey[key]) visitHistoryByKey[key] = [];
+        visitHistoryByKey[key].push({
+          date: v.date || v.createdAt || c.createdAt,
+          visitId: String(v._id || ""),
+          meetingType: v.meetingType,
+        });
+      });
+    });
+
+    customers.forEach((c) => {
+      (c.visits || []).forEach((v) => {
+        const visitEmpCode = resolveVisitEmpCode(c, v, allowedEmpCodes);
+        if (!visitEmpCode) return;
 
         const d = new Date(v.date);
         
@@ -378,6 +406,18 @@ export const getSubmittedReports = async (req, res) => {
           ct.includes("developer")
         )
           typeCounts.EndUser++;
+
+        const visitDate = v.date || c.createdAt;
+        const visitType = classifyVisitType(
+          {
+            empCode: visitEmpCode,
+            customerId: c.customerId,
+            meetingType: v.meetingType,
+            date: visitDate,
+            visitId: String(v._id || ""),
+          },
+          visitHistoryByKey[historyKey(visitEmpCode, c.customerId)] || []
+        );
 
         reports.push({
           customerId: c.customerId || "-",
@@ -410,8 +450,9 @@ export const getSubmittedReports = async (req, res) => {
           attendees: v.attendees || v.internalAttendees || "-",
           internalAttendees: v.attendees || v.internalAttendees || "-",
           purpose: v.purpose || "-",
-          date: v.date || c.createdAt,
+          date: visitDate,
           reportedBy: v.reportedBy || "-",
+          visitType,
           // ✅ Placeholder for user details - will be enriched below
           _tempEmpCode: visitEmpCode,
         });

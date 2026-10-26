@@ -1,6 +1,7 @@
 import TourApproval from "../models/tourApprovalModel.js";
 import User from "../models/userModel.js";
 import { getScopedEmpCodes, isEmpInScope } from "../utils/scopeUtils.js";
+import { verifyCustomerIdsForEmployee } from "../utils/customerIdVerification.js";
 
 /* =============================================================
    📤 Create Tour Request (Employee)
@@ -266,6 +267,18 @@ export const submitTourExpenses = async (req, res) => {
       return res.status(400).json({ message: "Tour must be approved first" });
     }
 
+    const verification = await verifyCustomerIdsForEmployee(
+      empCode,
+      req.body.customerIds ?? req.body.visitedCustomerIds
+    );
+    if (!verification.ok) {
+      return res.status(400).json({
+        success: false,
+        message: verification.message,
+        failedIds: verification.failedIds,
+      });
+    }
+
     const travel = Number(travelExpense) || 0;
     const food = Number(foodExpense) || 0;
     const accommodation = Number(accommodationExpense) || 0;
@@ -298,6 +311,7 @@ export const submitTourExpenses = async (req, res) => {
         totalExpense: total,
         expenseDate: new Date(),
         expenseRemarks: remarks || "",
+        visitedCustomerIds: verification.normalizedIds,
         billsUrl,
         ticketsUrl,
         invoicesUrl,
@@ -435,6 +449,10 @@ export const markAsReimbursed = async (req, res) => {
       });
     }
 
+    if (tourRequest.reimbursed) {
+      return res.status(400).json({ message: "This tour is already reimbursed" });
+    }
+
     const updated = await TourApproval.findByIdAndUpdate(
       id,
       {
@@ -453,5 +471,121 @@ export const markAsReimbursed = async (req, res) => {
   } catch (err) {
     console.error("Mark as Reimbursed Error:", err);
     res.status(500).json({ message: "Failed to mark as reimbursed" });
+  }
+};
+
+/* =============================================================
+   🔍 Verify Customer IDs against the employee's own visit reports
+============================================================= */
+export const verifyCustomerIds = async (req, res) => {
+  try {
+    const empCode = req.user?.empCode;
+    if (!empCode) {
+      return res.status(401).json({ message: "Not authorized" });
+    }
+
+    const verification = await verifyCustomerIdsForEmployee(
+      empCode,
+      req.body.customerIds ?? req.body.visitedCustomerIds
+    );
+
+    return res.status(verification.ok ? 200 : 400).json({
+      success: verification.ok,
+      message: verification.message,
+      customerIds: verification.normalizedIds,
+      failedIds: verification.failedIds,
+    });
+  } catch (err) {
+    console.error("Verify Customer IDs Error:", err);
+    res.status(500).json({ message: "Failed to verify Customer IDs" });
+  }
+};
+
+/* =============================================================
+   💰 Bulk Mark as Reimbursed (Admin only)
+============================================================= */
+export const bulkMarkAsReimbursed = async (req, res) => {
+  try {
+    const admin = req.user;
+    const ids = Array.isArray(req.body.ids) ? req.body.ids.filter(Boolean) : [];
+
+    if (!ids.length) {
+      return res.status(400).json({ message: "No tour request IDs were provided" });
+    }
+
+    const reimbursedBy = `${admin.empCode} - ${admin.name}`;
+    const reimbursedDate = new Date();
+    const results = [];
+    let successCount = 0;
+    let failCount = 0;
+    let totalAmount = 0;
+
+    for (const id of ids) {
+      const tourRequest = await TourApproval.findById(id);
+      if (!tourRequest) {
+        results.push({ id, success: false, message: "Tour request not found" });
+        failCount += 1;
+        continue;
+      }
+
+      if (tourRequest.status !== "Completed") {
+        results.push({
+          id,
+          success: false,
+          empCode: tourRequest.empCode,
+          empName: tourRequest.empName,
+          amount: tourRequest.totalExpense || 0,
+          message: "Tour must be completed (expenses verified) before marking as reimbursed",
+        });
+        failCount += 1;
+        continue;
+      }
+
+      if (tourRequest.reimbursed) {
+        results.push({
+          id,
+          success: false,
+          empCode: tourRequest.empCode,
+          empName: tourRequest.empName,
+          amount: tourRequest.totalExpense || 0,
+          message: "This tour is already reimbursed",
+        });
+        failCount += 1;
+        continue;
+      }
+
+      tourRequest.reimbursed = true;
+      tourRequest.reimbursedBy = reimbursedBy;
+      tourRequest.reimbursedDate = reimbursedDate;
+      await tourRequest.save();
+
+      const amount = tourRequest.totalExpense || 0;
+      results.push({
+        id,
+        success: true,
+        empCode: tourRequest.empCode,
+        empName: tourRequest.empName,
+        amount,
+      });
+      successCount += 1;
+      totalAmount += amount;
+    }
+
+    res.json({
+      success: failCount === 0,
+      successCount,
+      failCount,
+      totalAmount,
+      results,
+      message:
+        failCount === 0
+          ? `${successCount} tour${successCount === 1 ? "" : "s"} marked as reimbursed.`
+          : successCount === 0
+          ? "No tours were marked as reimbursed."
+          : `${successCount} reimbursed, ${failCount} failed.`,
+    });
+  } catch (err) {
+    console.error("Bulk Mark as Reimbursed Error:", err);
+    res.status(500).json({ message: "Failed to process bulk reimbursement" });
   }
 };

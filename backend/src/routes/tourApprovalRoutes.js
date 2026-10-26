@@ -15,6 +15,8 @@ import {
   verifyTourExpenses,
   rejectTourExpenses,
   markAsReimbursed,
+  verifyCustomerIds,
+  bulkMarkAsReimbursed,
 } from "../controllers/tourApprovalController.js";
 
 const router = express.Router();
@@ -49,6 +51,7 @@ const expenseUpload = multer({ storage }).fields([
 // Employee Routes
 router.post("/request", authMiddleware, createTourRequest);
 router.get("/my-requests", authMiddleware, getMyTourRequests);
+router.post("/verify-customer-ids", authMiddleware, verifyCustomerIds);
 router.put("/expenses/:id", authMiddleware, expenseUpload, submitTourExpenses); // ✅ With file upload
 
 // Manager/BM Routes
@@ -62,6 +65,7 @@ router.put("/reject-expense/:id", authMiddleware, requireRole(["Manager", "Branc
 
 // Admin Routes
 router.get("/all-requests", authMiddleware, requireRole(["Admin", "RegionalManager"]), getAllTourRequests);
+router.put("/reimburse/bulk", authMiddleware, requireRole(["Admin"]), bulkMarkAsReimbursed);
 router.put("/reimburse/:id", authMiddleware, requireRole(["Admin"]), markAsReimbursed);
 
 export default router;

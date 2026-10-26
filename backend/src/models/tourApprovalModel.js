@@ -38,6 +38,7 @@ const tourApprovalSchema = new mongoose.Schema(
     totalExpense: { type: Number, default: 0 },
     expenseDate: { type: Date },
     expenseRemarks: { type: String, default: "" },
+    visitedCustomerIds: { type: [String], default: [] },
 
     /* 🔹 Expense Documents (Bills, Tickets, Invoices) */
     billsUrl: { type: String, default: "" },

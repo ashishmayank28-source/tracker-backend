@@ -18,6 +18,10 @@ export default function TourApprovalForm({ token, user }) {
   const [foodExpense, setFoodExpense] = useState("");
   const [accommodationExpense, setAccommodationExpense] = useState("");
   const [expenseRemarks, setExpenseRemarks] = useState("");
+  const [customerIdInput, setCustomerIdInput] = useState("");
+  const [customerIds, setCustomerIds] = useState([]);
+  const [failedIds, setFailedIds] = useState([]);
+  const [idVerifyMessage, setIdVerifyMessage] = useState("");
   
   // ✅ File upload states
   const [billsFile, setBillsFile] = useState(null);
@@ -80,10 +84,64 @@ export default function TourApprovalForm({ token, user }) {
     }
   };
 
+  const addCustomerIds = (rawValue = customerIdInput) => {
+    const nextIds = [...customerIds];
+    const seen = new Set(nextIds.map((id) => id.toUpperCase()));
+    String(rawValue || "")
+      .split(/[\s,;]+/)
+      .map((id) => id.trim())
+      .filter(Boolean)
+      .forEach((id) => {
+        const key = id.toUpperCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        nextIds.push(id);
+      });
+    setCustomerIds(nextIds);
+    setCustomerIdInput("");
+    setFailedIds((prev) => prev.filter((id) => nextIds.map((v) => v.toUpperCase()).includes(id.toUpperCase())));
+  };
+
+  const removeCustomerId = (idToRemove) => {
+    setCustomerIds((prev) => prev.filter((id) => id !== idToRemove));
+    setFailedIds((prev) => prev.filter((id) => id !== idToRemove));
+  };
+
+  const handleVerifyCustomerIds = async () => {
+    if (!customerIds.length) {
+      setIdVerifyMessage("Add at least one Customer ID first.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await fetch(`${API_BASE}/api/tour/verify-customer-ids`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ customerIds }),
+      });
+      const data = await res.json();
+      setFailedIds(data.failedIds || []);
+      setIdVerifyMessage(data.message || (res.ok ? "Customer IDs verified." : "Verification failed."));
+    } catch (err) {
+      setIdVerifyMessage("Failed to verify Customer IDs.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Submit expenses with files
   const handleSubmitExpenses = async (e) => {
     e.preventDefault();
     if (!selectedRequest) return;
+
+    if (!customerIds.length) {
+      setMessage("❌ Customer ID is mandatory. Add the Customer IDs of the sites you visited.");
+      return;
+    }
 
     try {
       setLoading(true);
@@ -94,6 +152,7 @@ export default function TourApprovalForm({ token, user }) {
       formData.append("foodExpense", Number(foodExpense) || 0);
       formData.append("accommodationExpense", Number(accommodationExpense) || 0);
       formData.append("remarks", expenseRemarks);
+      formData.append("customerIds", JSON.stringify(customerIds));
       
       // ✅ Append files if selected
       if (billsFile) formData.append("bills", billsFile);
@@ -116,12 +175,18 @@ export default function TourApprovalForm({ token, user }) {
         setFoodExpense("");
         setAccommodationExpense("");
         setExpenseRemarks("");
+        setCustomerIdInput("");
+        setCustomerIds([]);
+        setFailedIds([]);
+        setIdVerifyMessage("");
         setBillsFile(null);
         setTicketsFile(null);
         setInvoicesFile(null);
         loadMyRequests();
         setActiveView("history");
       } else {
+        setFailedIds(data.failedIds || []);
+        setIdVerifyMessage(data.message || "");
         setMessage(`❌ ${data.message || "Failed to submit expenses"}`);
       }
     } catch (err) {
@@ -134,6 +199,10 @@ export default function TourApprovalForm({ token, user }) {
   // Open expense form for a request
   const openExpenseForm = (request) => {
     setSelectedRequest(request);
+    setCustomerIdInput("");
+    setCustomerIds([]);
+    setFailedIds([]);
+    setIdVerifyMessage("");
     setActiveView("expenses");
   };
 
@@ -310,6 +379,11 @@ export default function TourApprovalForm({ token, user }) {
                         <span style={{ fontWeight: 600 }}>📊 Total: ₹{req.totalExpense}</span>
                       </div>
                     )}
+                    {req.visitedCustomerIds?.length > 0 && (
+                      <div style={{ marginTop: 8, fontSize: 12, color: "#374151" }}>
+                        🏷️ Customer IDs: {req.visitedCustomerIds.join(", ")}
+                      </div>
+                    )}
 
                     {/* ✅ Verification Status */}
                     {req.expenseVerified && (
@@ -365,6 +439,58 @@ export default function TourApprovalForm({ token, user }) {
             </div>
 
             <form onSubmit={handleSubmitExpenses}>
+              <div style={formGroup}>
+                <label style={labelStyle}>🏷️ Customer IDs of sites visited *</label>
+                <p style={{ margin: "0 0 8px", fontSize: 12, color: "#6b7280" }}>
+                  Add every Customer ID from your submitted Daily Tracker visit reports. Expense submission is blocked if an ID is missing or belongs to another employee.
+                </p>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <input
+                    type="text"
+                    value={customerIdInput}
+                    onChange={(e) => setCustomerIdInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === ",") {
+                        e.preventDefault();
+                        addCustomerIds();
+                      }
+                    }}
+                    placeholder="Paste Customer ID and press Enter"
+                    style={{ ...inputStyle, flex: 1, minWidth: 220 }}
+                  />
+                  <button type="button" onClick={() => addCustomerIds()} style={addIdBtn}>
+                    Add ID
+                  </button>
+                  <button type="button" onClick={handleVerifyCustomerIds} disabled={loading} style={verifyIdBtn}>
+                    Verify IDs
+                  </button>
+                </div>
+                {customerIds.length > 0 && (
+                  <div style={chipRow}>
+                    {customerIds.map((id) => {
+                      const failed = failedIds.some((failedId) => failedId.toUpperCase() === id.toUpperCase());
+                      return (
+                        <span key={id} style={failed ? chipFailed : chipOk}>
+                          {id}
+                          <button type="button" onClick={() => removeCustomerId(id)} style={chipRemove}>
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                {idVerifyMessage && (
+                  <p style={{
+                    margin: "8px 0 0",
+                    fontSize: 12,
+                    color: failedIds.length ? "#dc2626" : "#166534",
+                  }}>
+                    {idVerifyMessage}
+                  </p>
+                )}
+              </div>
+
               <div style={formGroup}>
                 <label style={labelStyle}>🚗 Travel Expense (From-To) (₹)</label>
                 <input
@@ -630,6 +756,65 @@ const docLinkStyle = {
   color: "#374151",
   textDecoration: "none",
   fontWeight: 500,
+};
+
+const addIdBtn = {
+  padding: "10px 14px",
+  background: "#2563eb",
+  color: "#fff",
+  border: "none",
+  borderRadius: 8,
+  fontSize: 13,
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const verifyIdBtn = {
+  padding: "10px 14px",
+  background: "#0f766e",
+  color: "#fff",
+  border: "none",
+  borderRadius: 8,
+  fontSize: 13,
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const chipRow = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+  marginTop: 10,
+};
+
+const chipOk = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "4px 8px",
+  background: "#ecfdf5",
+  color: "#065f46",
+  border: "1px solid #a7f3d0",
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 600,
+};
+
+const chipFailed = {
+  ...chipOk,
+  background: "#fef2f2",
+  color: "#991b1b",
+  border: "1px solid #fecaca",
+};
+
+const chipRemove = {
+  border: "none",
+  background: "transparent",
+  color: "inherit",
+  cursor: "pointer",
+  fontSize: 14,
+  lineHeight: 1,
+  padding: 0,
 };
 
 
