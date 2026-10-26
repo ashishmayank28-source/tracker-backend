@@ -1,14 +1,28 @@
 import { useState, useEffect } from "react";
+import dayjs from "dayjs";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+async function readJson(res) {
+  const text = await res.text();
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    return { message: text || "Invalid server response" };
+  }
+}
 
 export default function TourApprovalForm({ token, user }) {
   const [activeView, setActiveView] = useState("request"); // request | history | expenses
   const [myRequests, setMyRequests] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
 
   // Request Form State
+  const [tourDate, setTourDate] = useState("");
+  const [calendarMonth, setCalendarMonth] = useState(dayjs());
   const [toLocation, setToLocation] = useState("");
   const [purpose, setPurpose] = useState("");
 
@@ -51,36 +65,55 @@ export default function TourApprovalForm({ token, user }) {
   // Submit tour request
   const handleSubmitRequest = async (e) => {
     e.preventDefault();
-    if (!toLocation || !purpose) {
-      setMessage("❌ Please fill all required fields");
+    if (!tourDate) {
+      setMessage("❌ Please select a tour date from the calendar");
+      return;
+    }
+    if (!toLocation.trim() || !purpose.trim()) {
+      setMessage("❌ Please fill location and purpose");
       return;
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+
     try {
-      setLoading(true);
+      setSubmitting(true);
+      setMessage("");
       const res = await fetch(`${API_BASE}/api/tour/request`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ toLocation, purpose }),
+        signal: controller.signal,
+        body: JSON.stringify({
+          toLocation: toLocation.trim(),
+          purpose: purpose.trim(),
+          requestDate: tourDate,
+        }),
       });
 
-      const data = await res.json();
+      const data = await readJson(res);
       if (res.ok) {
         setMessage("✅ Tour request submitted successfully!");
+        setTourDate("");
         setToLocation("");
         setPurpose("");
-        loadMyRequests();
-        setTimeout(() => setActiveView("history"), 1500);
+        setActiveView("history");
+        await loadMyRequests();
       } else {
         setMessage(`❌ ${data.message || "Failed to submit request"}`);
       }
     } catch (err) {
-      setMessage("❌ Error submitting request");
+      setMessage(
+        err.name === "AbortError"
+          ? "❌ Request timed out. Please try again."
+          : "❌ Error submitting request"
+      );
     } finally {
-      setLoading(false);
+      clearTimeout(timeoutId);
+      setSubmitting(false);
     }
   };
 
@@ -281,32 +314,54 @@ export default function TourApprovalForm({ token, user }) {
 
             <form onSubmit={handleSubmitRequest}>
               <div style={formGroup}>
-                <label style={labelStyle}>📍 To Location *</label>
-                <input
-                  type="text"
-                  value={toLocation}
-                  onChange={(e) => setToLocation(e.target.value)}
-                  placeholder="Enter destination city/place"
-                  style={inputStyle}
-                  required
+                <label style={labelStyle}>📅 Select Tour Date *</label>
+                <TourDateCalendar
+                  month={calendarMonth}
+                  selected={tourDate}
+                  onMonthChange={setCalendarMonth}
+                  onSelect={setTourDate}
                 />
+                {tourDate && (
+                  <div style={selectedDateBox}>
+                    Selected date: <strong>{dayjs(tourDate).format("DD MMM YYYY")}</strong>
+                    <button type="button" onClick={() => setTourDate("")} style={clearDateBtn}>
+                      Change
+                    </button>
+                  </div>
+                )}
               </div>
 
-              <div style={formGroup}>
-                <label style={labelStyle}>📝 Purpose of Visit *</label>
-                <textarea
-                  value={purpose}
-                  onChange={(e) => setPurpose(e.target.value)}
-                  placeholder="Describe the purpose of your tour (client meeting, site visit, etc.)"
-                  style={textareaStyle}
-                  rows={3}
-                  required
-                />
-              </div>
+              {tourDate && (
+                <>
+                  <div style={formGroup}>
+                    <label style={labelStyle}>📍 To Location *</label>
+                    <input
+                      type="text"
+                      value={toLocation}
+                      onChange={(e) => setToLocation(e.target.value)}
+                      placeholder="Enter destination city/place"
+                      style={inputStyle}
+                      required
+                    />
+                  </div>
 
-              <button type="submit" disabled={loading} style={submitBtnStyle}>
-                {loading ? "⏳ Submitting..." : "📤 Send Request"}
-              </button>
+                  <div style={formGroup}>
+                    <label style={labelStyle}>📝 Purpose of Visit *</label>
+                    <textarea
+                      value={purpose}
+                      onChange={(e) => setPurpose(e.target.value)}
+                      placeholder="Describe the purpose of your tour (client meeting, site visit, etc.)"
+                      style={textareaStyle}
+                      rows={3}
+                      required
+                    />
+                  </div>
+
+                  <button type="submit" disabled={submitting} style={submitBtnStyle}>
+                    {submitting ? "⏳ Submitting..." : "📤 Send Request"}
+                  </button>
+                </>
+              )}
             </form>
           </div>
         </div>
@@ -342,7 +397,7 @@ export default function TourApprovalForm({ token, user }) {
                           {req.purpose}
                         </p>
                         <p style={{ margin: "6px 0 0", fontSize: 12, color: "#9ca3af" }}>
-                          Requested: {new Date(req.requestDate).toLocaleDateString()}
+                          Tour Date: {req.requestDate ? dayjs(req.requestDate).format("DD MMM YYYY") : "-"}
                           {req.approvedBy && ` • Approved by: ${req.approvedBy}`}
                         </p>
                       </div>
@@ -434,7 +489,8 @@ export default function TourApprovalForm({ token, user }) {
                 <strong>Tour to: {selectedRequest.toLocation}</strong>
               </p>
               <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
-                Purpose: {selectedRequest.purpose}
+                Date: {selectedRequest.requestDate ? dayjs(selectedRequest.requestDate).format("DD MMM YYYY") : "-"}
+                {" • "}Purpose: {selectedRequest.purpose}
               </p>
             </div>
 
@@ -581,13 +637,59 @@ export default function TourApprovalForm({ token, user }) {
                 </span>
               </div>
 
-              <button type="submit" disabled={loading} style={submitBtnStyle}>
+              <button type="submit" disabled={loading || submitting} style={submitBtnStyle}>
                 {loading ? "⏳ Submitting..." : "📤 Submit Expenses for Verification"}
               </button>
             </form>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function TourDateCalendar({ month, selected, onMonthChange, onSelect }) {
+  const start = month.startOf("month");
+  const blanks = start.day();
+  const daysInMonth = month.daysInMonth();
+  const today = dayjs().format("YYYY-MM-DD");
+  const cells = [
+    ...Array.from({ length: blanks }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, i) => start.add(i, "day")),
+  ];
+
+  return (
+    <div style={calendarWrap}>
+      <div style={calendarNav}>
+        <button type="button" onClick={() => onMonthChange(month.subtract(1, "month"))} style={calNavBtn}>
+          ◀
+        </button>
+        <strong>{month.format("MMMM YYYY")}</strong>
+        <button type="button" onClick={() => onMonthChange(month.add(1, "month"))} style={calNavBtn}>
+          ▶
+        </button>
+      </div>
+      <div style={calendarGrid}>
+        {WEEKDAYS.map((d) => (
+          <div key={d} style={weekdayCell}>{d}</div>
+        ))}
+        {cells.map((day, idx) => {
+          if (!day) return <div key={`b-${idx}`} />;
+          const key = day.format("YYYY-MM-DD");
+          const isSelected = selected === key;
+          const isToday = key === today;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onSelect(key)}
+              style={dayCell(isSelected, isToday)}
+            >
+              {day.date()}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -805,6 +907,74 @@ const chipFailed = {
   background: "#fef2f2",
   color: "#991b1b",
   border: "1px solid #fecaca",
+};
+
+const calendarWrap = {
+  border: "1px solid #dbeafe",
+  borderRadius: 10,
+  padding: 12,
+  background: "#f8fafc",
+};
+
+const calendarNav = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: 10,
+};
+
+const calNavBtn = {
+  border: "1px solid #d1d5db",
+  background: "#fff",
+  borderRadius: 6,
+  padding: "4px 10px",
+  cursor: "pointer",
+};
+
+const calendarGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(7, 1fr)",
+  gap: 4,
+};
+
+const weekdayCell = {
+  textAlign: "center",
+  fontSize: 11,
+  fontWeight: 600,
+  color: "#6b7280",
+  padding: "4px 0",
+};
+
+const dayCell = (selected, today) => ({
+  border: selected ? "1px solid #1d4ed8" : "1px solid #e5e7eb",
+  background: selected ? "#2563eb" : today ? "#dbeafe" : "#fff",
+  color: selected ? "#fff" : "#111827",
+  borderRadius: 8,
+  minHeight: 36,
+  cursor: "pointer",
+  fontWeight: selected || today ? 700 : 500,
+});
+
+const selectedDateBox = {
+  marginTop: 10,
+  padding: "8px 12px",
+  background: "#ecfdf5",
+  border: "1px solid #a7f3d0",
+  borderRadius: 8,
+  fontSize: 13,
+  color: "#065f46",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8,
+};
+
+const clearDateBtn = {
+  border: "none",
+  background: "transparent",
+  color: "#2563eb",
+  cursor: "pointer",
+  fontWeight: 600,
 };
 
 const chipRemove = {

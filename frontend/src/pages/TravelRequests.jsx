@@ -567,7 +567,7 @@ export default function TravelRequests({ isAdmin = false }) {
                   {req.purpose}
                 </div>
                 <div style={{ fontSize: 11, color: "#9ca3af" }}>
-                  Requested: {new Date(req.requestDate).toLocaleDateString()}
+                  Tour Date: {req.requestDate ? new Date(req.requestDate).toLocaleDateString() : "-"}
                   {req.approvedBy && (
                     <span> • Approved by: {req.approvedBy}</span>
                   )}

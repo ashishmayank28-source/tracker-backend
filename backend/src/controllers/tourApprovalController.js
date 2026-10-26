@@ -4,16 +4,36 @@ import { getScopedEmpCodes, isEmpInScope } from "../utils/scopeUtils.js";
 import { verifyCustomerIdsForEmployee } from "../utils/customerIdVerification.js";
 import { publicUrlFromDiskFile } from "../utils/uploadsPath.js";
 
+function parseLocalDate(value) {
+  if (!value) return null;
+  const raw = String(value);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [year, month, day] = raw.split("-").map(Number);
+    return new Date(year, month - 1, day, 12, 0, 0);
+  }
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 /* =============================================================
    📤 Create Tour Request (Employee)
 ============================================================= */
 export const createTourRequest = async (req, res) => {
   try {
     const empCode = req.user?.empCode;
-    const { toLocation, purpose } = req.body;
+    const { toLocation, purpose, requestDate } = req.body;
 
     if (!toLocation || !purpose) {
       return res.status(400).json({ message: "Location and Purpose are required" });
+    }
+
+    if (!requestDate) {
+      return res.status(400).json({ message: "Tour date is required" });
+    }
+
+    const parsedDate = parseLocalDate(requestDate);
+    if (!parsedDate) {
+      return res.status(400).json({ message: "Invalid tour date" });
     }
 
     // ✅ Fetch full employee data from database to get correct reporting manager
@@ -68,8 +88,9 @@ export const createTourRequest = async (req, res) => {
       region: emp.region || "-",
       managerCode: managerCode || "ADMIN",
       managerName: managerName || "Admin",
-      toLocation,
-      purpose,
+      toLocation: String(toLocation).trim(),
+      purpose: String(purpose).trim(),
+      requestDate: parsedDate,
       status: "Pending",
     });
 
