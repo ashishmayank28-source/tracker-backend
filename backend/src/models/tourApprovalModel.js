@@ -65,6 +65,7 @@ const tourApprovalSchema = new mongoose.Schema(
 // Index for faster queries
 tourApprovalSchema.index({ empCode: 1, status: 1 });
 tourApprovalSchema.index({ managerCode: 1, status: 1 });
+tourApprovalSchema.index({ empCode: 1, requestDate: 1 });
 
 const TourApproval = mongoose.model("TourApproval", tourApprovalSchema);
 export default TourApproval;

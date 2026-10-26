@@ -66,3 +66,16 @@ export function classifyVisitType(visit, history = []) {
 export function historyKey(empCode, customerId) {
   return `${String(empCode || "").trim()}::${normalizeCustomerId(customerId)}`;
 }
+
+export function getVisitEmpCode(visit, customer) {
+  const visitEmp = visit?.empCode;
+  if (typeof visitEmp === "string" && visitEmp.trim()) return visitEmp.trim();
+  if (Array.isArray(visitEmp)) {
+    const first = visitEmp.map((code) => String(code || "").trim()).find(Boolean);
+    if (first) return first;
+  }
+  if (typeof visit?.createdBy === "string" && visit.createdBy.trim()) return visit.createdBy.trim();
+  if (visit?.createdBy?.empCode) return String(visit.createdBy.empCode).trim();
+  if (customer?.createdBy?.empCode) return String(customer.createdBy.empCode).trim();
+  return "";
+}

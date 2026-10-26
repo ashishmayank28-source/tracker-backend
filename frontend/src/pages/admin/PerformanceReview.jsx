@@ -1,539 +1,527 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../auth.jsx";
 import dayjs from "dayjs";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
-export default function PerformanceReview() {
-  const { token } = useAuth();
-  const [activeTab, setActiveTab] = useState("overview"); // overview, targets
-  const [employees, setEmployees] = useState([]);
-  const [regions, setRegions] = useState([]);
-  const [branches, setBranches] = useState([]);
-  const [loading, setLoading] = useState(true);
-  
-  // Filters
-  const [selectedRegion, setSelectedRegion] = useState("all");
-  const [selectedBranch, setSelectedBranch] = useState("all");
-  const [dateRange, setDateRange] = useState({
+const emptyKpis = {
+  totalEmployees: 0,
+  presentDays: 0,
+  absentDays: 0,
+  employeesOnApprovedTour: 0,
+  attendanceDays: 0,
+  tourDays: 0,
+  siteVisits: 0,
+  newVisits: 0,
+  revisits: 0,
+  uniqueCustomers: 0,
+  convertedCustomers: 0,
+  conversionRate: 0,
+  tourExpenses: 0,
+  totalRevenue: 0,
+};
+
+function monthRange() {
+  return {
     from: dayjs().startOf("month").format("YYYY-MM-DD"),
     to: dayjs().endOf("month").format("YYYY-MM-DD"),
+  };
+}
+
+export default function PerformanceReview() {
+  const { token } = useAuth();
+  const [activeTab, setActiveTab] = useState("overview");
+  const [employees, setEmployees] = useState([]);
+  const [filterOptions, setFilterOptions] = useState({
+    regions: [],
+    branches: [],
+    managers: [],
+    employees: [],
   });
-
-  // Selected employee for detail view
+  const [filters, setFilters] = useState({
+    preset: "month",
+    from: monthRange().from,
+    to: monthRange().to,
+    region: "all",
+    branch: "all",
+    managerCode: "all",
+    empCode: "all",
+  });
+  const [kpis, setKpis] = useState(emptyKpis);
+  const [rows, setRows] = useState([]);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(25);
+  const [total, setTotal] = useState(0);
+  const [sortBy, setSortBy] = useState("empName");
+  const [sortDir, setSortDir] = useState("asc");
+  const [loading, setLoading] = useState(true);
   const [selectedEmp, setSelectedEmp] = useState(null);
-  const [empDetails, setEmpDetails] = useState(null);
-  const [detailsLoading, setDetailsLoading] = useState(false);
 
-  // Fetch all employees
-  const fetchEmployees = useCallback(async () => {
+  const fetchUsers = useCallback(async () => {
+    const res = await fetch(`${API_BASE}/api/users`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    setEmployees(Array.isArray(data) ? data : []);
+  }, [token]);
+
+  const fetchFilterOptions = useCallback(async () => {
+    const res = await fetch(`${API_BASE}/api/performance/filters`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    setFilterOptions({
+      regions: data.regions || [],
+      branches: data.branches || [],
+      managers: data.managers || [],
+      employees: data.employees || [],
+    });
+  }, [token]);
+
+  const fetchOverview = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/users`, {
+      const params = new URLSearchParams({
+        from: filters.from,
+        to: filters.to,
+        region: filters.region,
+        branch: filters.branch,
+        managerCode: filters.managerCode,
+        empCode: filters.empCode,
+        page: String(page),
+        limit: String(limit),
+        sortBy,
+        sortDir,
+      });
+      const res = await fetch(`${API_BASE}/api/performance/overview?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      const emps = Array.isArray(data) ? data : [];
-      setEmployees(emps);
-      
-      // Extract unique regions and branches
-      const uniqueRegions = [...new Set(emps.map(e => e.region).filter(Boolean))];
-      const uniqueBranches = [...new Set(emps.map(e => e.branch).filter(Boolean))];
-      setRegions(uniqueRegions);
-      setBranches(uniqueBranches);
+      setKpis(data.kpis || emptyKpis);
+      setRows(Array.isArray(data.rows) ? data.rows : []);
+      setTotal(data.total || 0);
     } catch (err) {
-      console.error("Fetch employees error:", err);
+      console.error("Performance overview error:", err);
+      setKpis(emptyKpis);
+      setRows([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, filters, page, limit, sortBy, sortDir]);
 
   useEffect(() => {
-    if (token) fetchEmployees();
-  }, [token, fetchEmployees]);
+    if (!token) return;
+    fetchUsers();
+    fetchFilterOptions();
+  }, [token, fetchUsers, fetchFilterOptions]);
 
-  // Filter employees
-  const filteredEmployees = employees.filter(emp => {
-    if (emp.role !== "Employee") return false;
-    if (selectedRegion !== "all" && emp.region !== selectedRegion) return false;
-    if (selectedBranch !== "all" && emp.branch !== selectedBranch) return false;
-    return true;
-  });
+  useEffect(() => {
+    if (token) fetchOverview();
+  }, [token, fetchOverview]);
 
-  // Fetch employee details
-  async function fetchEmpDetails(emp) {
-    setSelectedEmp(emp);
-    setDetailsLoading(true);
-    
-    try {
-      const { from, to } = dateRange;
-      
-      // Fetch attendance data
-      const attendanceRes = await fetch(
-        `${API_BASE}/api/customers/reports-by-emp/${emp.empCode}?from=${from}&to=${to}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const attendance = await attendanceRes.json();
-      
-      // Fetch revenue data
-      const revenueRes = await fetch(
-        `${API_BASE}/api/customers/my-reports?from=${from}&to=${to}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const revenue = await revenueRes.json();
-
-      // Fetch sample boards data
-      let samplesUsed = 0;
-      let samplesAssigned = 0;
-      try {
-        const samplesRes = await fetch(
-          `${API_BASE}/api/assignments/employee/${emp.empCode}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const samplesData = await samplesRes.json();
-        if (samplesData.stock) {
-          samplesAssigned = samplesData.stock.reduce((sum, s) => sum + (s.total || 0), 0);
-          samplesUsed = samplesData.stock.reduce((sum, s) => sum + (s.used || 0), 0);
-        }
-      } catch (e) {
-        console.log("Sample data not available");
-      }
-
-      // Calculate metrics
-      const reports = Array.isArray(attendance) ? attendance : [];
-      const totalVisits = reports.length;
-      const externalVisits = reports.filter(r => r.meetingType === "External").length;
-      const internalMeetings = reports.filter(r => r.meetingType === "Internal").length;
-      const leaveCount = reports.filter(r => r.meetingType === "Leave").length;
-      
-      // Calculate working days and attendance
-      const startDate = dayjs(from);
-      const endDate = dayjs(to);
-      let workingDays = 0;
-      let current = startDate;
-      while (current.isBefore(endDate) || current.isSame(endDate, "day")) {
-        if (current.day() !== 0) workingDays++; // Exclude Sundays
-        current = current.add(1, "day");
-      }
-      
-      // Days with activity
-      const activeDays = new Set(reports.map(r => dayjs(r.date).format("YYYY-MM-DD"))).size;
-      const attendancePercent = workingDays > 0 ? Math.round((activeDays / workingDays) * 100) : 0;
-
-      // Revenue calculation (mock - actual would need proper API)
-      const orderWonVisits = reports.filter(r => r.orderStatus === "Won" || r.orderValue);
-      const totalRevenue = orderWonVisits.reduce((sum, r) => sum + (r.orderValue || 0), 0);
-
-      setEmpDetails({
-        totalVisits,
-        externalVisits,
-        internalMeetings,
-        leaveCount,
-        workingDays,
-        activeDays,
-        attendancePercent,
-        totalRevenue,
-        target: emp.target || 0,
-        achieved: totalRevenue,
-        reports,
-        samplesAssigned,
-        samplesUsed,
-      });
-    } catch (err) {
-      console.error("Fetch emp details error:", err);
-      setEmpDetails(null);
-    } finally {
-      setDetailsLoading(false);
+  const visibleBranches = useMemo(() => {
+    if (filters.region === "all") {
+      return [...new Set(filterOptions.employees.map((e) => e.branch).filter((b) => b && b !== "-"))];
     }
+    return [...new Set(
+      filterOptions.employees
+        .filter((e) => e.region === filters.region)
+        .map((e) => e.branch)
+        .filter((b) => b && b !== "-")
+    )];
+  }, [filterOptions.employees, filters.region]);
+
+  const visibleManagers = useMemo(() => {
+    return filterOptions.managers.filter((manager) =>
+      filterOptions.employees.some((emp) => {
+        if (emp.managerCode !== manager.empCode) return false;
+        if (filters.region !== "all" && emp.region !== filters.region) return false;
+        if (filters.branch !== "all" && emp.branch !== filters.branch) return false;
+        return true;
+      })
+    );
+  }, [filterOptions, filters.region, filters.branch]);
+
+  const visibleEmployees = useMemo(() => {
+    return filterOptions.employees.filter((emp) => {
+      if (filters.region !== "all" && emp.region !== filters.region) return false;
+      if (filters.branch !== "all" && emp.branch !== filters.branch) return false;
+      if (filters.managerCode !== "all" && emp.managerCode !== filters.managerCode) return false;
+      return true;
+    });
+  }, [filterOptions.employees, filters.region, filters.branch, filters.managerCode]);
+
+  function applyPreset(preset) {
+    if (preset === "today") {
+      const today = dayjs().format("YYYY-MM-DD");
+      setFilters((prev) => ({ ...prev, preset, from: today, to: today }));
+    } else if (preset === "month") {
+      setFilters((prev) => ({ ...prev, preset, ...monthRange() }));
+    } else {
+      setFilters((prev) => ({ ...prev, preset }));
+    }
+    setPage(1);
   }
 
-  // Calculate region/branch performance
-  function getGroupPerformance(group, type) {
-    const groupEmps = employees.filter(e => 
-      e.role === "Employee" && (type === "region" ? e.region === group : e.branch === group)
-    );
-    return {
-      name: group,
-      empCount: groupEmps.length,
-      totalTarget: groupEmps.reduce((sum, e) => sum + (e.target || 0), 0),
-      // More metrics would come from actual API calls
-    };
+  function updateFilter(key, value) {
+    setFilters((prev) => {
+      const next = { ...prev, [key]: value };
+      if (key === "region") {
+        next.branch = "all";
+        next.managerCode = "all";
+        next.empCode = "all";
+      }
+      if (key === "branch") {
+        next.managerCode = "all";
+        next.empCode = "all";
+      }
+      if (key === "managerCode") next.empCode = "all";
+      return next;
+    });
+    setPage(1);
   }
+
+  function toggleSort(column) {
+    if (sortBy === column) {
+      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(column);
+      setSortDir(column === "empName" ? "asc" : "desc");
+    }
+    setPage(1);
+  }
+
+  const pageCount = Math.max(1, Math.ceil(total / limit));
 
   return (
     <div style={{ padding: 20 }}>
-      {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>⭐ Performance Review</h2>
-        <button
-          onClick={fetchEmployees}
-          style={{
-            padding: "8px 16px",
-            background: "#3b82f6",
-            color: "white",
-            border: "none",
-            borderRadius: 6,
-            cursor: "pointer",
-            fontWeight: 500,
-          }}
-        >
-          🔄 Refresh
-        </button>
+        <button onClick={fetchOverview} style={refreshBtn}>🔄 Refresh</button>
       </div>
 
-      {/* Tabs */}
       <div style={{ display: "flex", gap: 0, marginBottom: 25 }}>
-        <TabButton 
-          active={activeTab === "overview"} 
-          onClick={() => setActiveTab("overview")}
-          label="📊 Performance Overview"
-        />
-        <TabButton 
-          active={activeTab === "targets"} 
-          onClick={() => setActiveTab("targets")}
-          label="🎯 Target Management"
-          isLast
-        />
+        <TabButton active={activeTab === "overview"} onClick={() => setActiveTab("overview")} label="📊 Performance Overview" />
+        <TabButton active={activeTab === "targets"} onClick={() => setActiveTab("targets")} label="🎯 Target Management" isLast />
       </div>
 
-      {/* Performance Overview Tab */}
       {activeTab === "overview" && (
         <div>
-          {/* Filters */}
           <div style={filterContainer}>
-            <div style={{ display: "flex", gap: 15, flexWrap: "wrap", alignItems: "center" }}>
-              <div>
-                <label style={labelStyle}>Region</label>
-                <select 
-                  value={selectedRegion} 
-                  onChange={(e) => setSelectedRegion(e.target.value)}
-                  style={selectStyle}
-                >
-                  <option value="all">All Regions</option>
-                  {regions.map(r => <option key={r} value={r}>{r}</option>)}
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "end" }}>
+              <FilterField label="Period">
+                <select value={filters.preset} onChange={(e) => applyPreset(e.target.value)} style={selectStyle}>
+                  <option value="today">Today</option>
+                  <option value="month">This Month</option>
+                  <option value="custom">Custom Range</option>
                 </select>
-              </div>
-              <div>
-                <label style={labelStyle}>Branch</label>
-                <select 
-                  value={selectedBranch} 
-                  onChange={(e) => setSelectedBranch(e.target.value)}
+              </FilterField>
+              <FilterField label="From">
+                <input
+                  type="date"
+                  value={filters.from}
+                  onChange={(e) => {
+                    setFilters((prev) => ({ ...prev, preset: "custom", from: e.target.value }));
+                    setPage(1);
+                  }}
                   style={selectStyle}
-                >
+                />
+              </FilterField>
+              <FilterField label="To">
+                <input
+                  type="date"
+                  value={filters.to}
+                  onChange={(e) => {
+                    setFilters((prev) => ({ ...prev, preset: "custom", to: e.target.value }));
+                    setPage(1);
+                  }}
+                  style={selectStyle}
+                />
+              </FilterField>
+              <FilterField label="Region">
+                <select value={filters.region} onChange={(e) => updateFilter("region", e.target.value)} style={selectStyle}>
+                  <option value="all">All India</option>
+                  {filterOptions.regions.map((region) => (
+                    <option key={region} value={region}>{region}</option>
+                  ))}
+                </select>
+              </FilterField>
+              <FilterField label="Branch">
+                <select value={filters.branch} onChange={(e) => updateFilter("branch", e.target.value)} style={selectStyle}>
                   <option value="all">All Branches</option>
-                  {branches.map(b => <option key={b} value={b}>{b}</option>)}
+                  {visibleBranches.map((branch) => (
+                    <option key={branch} value={branch}>{branch}</option>
+                  ))}
                 </select>
-              </div>
-              <div>
-                <label style={labelStyle}>From</label>
-                <input 
-                  type="date" 
-                  value={dateRange.from}
-                  onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
-                  style={selectStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>To</label>
-                <input 
-                  type="date" 
-                  value={dateRange.to}
-                  onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
-                  style={selectStyle}
-                />
-              </div>
+              </FilterField>
+              <FilterField label="Manager">
+                <select value={filters.managerCode} onChange={(e) => updateFilter("managerCode", e.target.value)} style={selectStyle}>
+                  <option value="all">All Managers</option>
+                  {visibleManagers.map((manager) => (
+                    <option key={manager.empCode} value={manager.empCode}>{manager.name}</option>
+                  ))}
+                </select>
+              </FilterField>
+              <FilterField label="Employee">
+                <select value={filters.empCode} onChange={(e) => updateFilter("empCode", e.target.value)} style={selectStyle}>
+                  <option value="all">All Employees</option>
+                  {visibleEmployees.map((emp) => (
+                    <option key={emp.empCode} value={emp.empCode}>{emp.name} ({emp.empCode})</option>
+                  ))}
+                </select>
+              </FilterField>
             </div>
           </div>
 
-          {/* Region-wise Summary Cards */}
-          {selectedRegion === "all" && (
-            <div style={{ marginBottom: 30 }}>
-              <h3 style={{ marginBottom: 15 }}>🌍 Region-wise Performance</h3>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 15 }}>
-                {regions.map(region => {
-                  const regionEmps = employees.filter(e => e.role === "Employee" && e.region === region);
-                  return (
-                    <div 
-                      key={region} 
-                      style={regionCard}
-                      onClick={() => setSelectedRegion(region)}
+          <div style={kpiGrid}>
+            <KpiCard label="Total Employees" value={kpis.totalEmployees} icon="👥" color="#3b82f6" />
+            <KpiCard label="Present / Absent" value={`${kpis.presentDays} / ${kpis.absentDays}`} icon="📅" color="#10b981" />
+            <KpiCard label="Employees on Approved Tour" value={kpis.employeesOnApprovedTour} icon="✈️" color="#0ea5e9" />
+            <KpiCard label="Attendance / Tour Days" value={`${kpis.attendanceDays} / ${kpis.tourDays}`} icon="🗓️" color="#6366f1" />
+            <KpiCard label="Site Visits" value={kpis.siteVisits} icon="📍" color="#8b5cf6" />
+            <KpiCard label="New Visits / Revisits" value={`${kpis.newVisits} / ${kpis.revisits}`} icon="🔁" color="#a855f7" />
+            <KpiCard label="Unique Customers" value={kpis.uniqueCustomers} icon="👤" color="#14b8a6" />
+            <KpiCard label="Converted Customers" value={kpis.convertedCustomers} icon="✅" color="#22c55e" />
+            <KpiCard label="Conversion Rate" value={`${kpis.conversionRate || 0}%`} icon="📈" color="#84cc16" />
+            <KpiCard label="Tour Expenses" value={`₹${Number(kpis.tourExpenses || 0).toLocaleString()}`} icon="🧾" color="#f59e0b" />
+            <KpiCard label="Total Revenue" value={`₹${Number(kpis.totalRevenue || 0).toLocaleString()}`} icon="💰" color="#16a34a" />
+          </div>
+
+          <div style={{ overflowX: "auto", background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb" }}>
+            <table style={tableStyle}>
+              <thead>
+                <tr style={{ background: "#f8fafc" }}>
+                  <Th onClick={() => toggleSort("empCode")} label="Employee Code" />
+                  <Th onClick={() => toggleSort("empName")} label="Employee Name" />
+                  <Th onClick={() => toggleSort("region")} label="Region / Branch" />
+                  <Th onClick={() => toggleSort("managerName")} label="Manager" />
+                  <th style={thStyle}>Attendance</th>
+                  <Th onClick={() => toggleSort("tourDays")} label="Tour Days" />
+                  <Th onClick={() => toggleSort("tourRequests")} label="Tour Requests" />
+                  <Th onClick={() => toggleSort("siteVisits")} label="Total Site Visits" />
+                  <Th onClick={() => toggleSort("newVisits")} label="New Visits" />
+                  <Th onClick={() => toggleSort("revisits")} label="Revisits" />
+                  <Th onClick={() => toggleSort("uniqueCustomers")} label="Unique Customers" />
+                  <Th onClick={() => toggleSort("convertedCustomers")} label="Converted Customers" />
+                  <Th onClick={() => toggleSort("tourExpenses")} label="Tour Expenses" />
+                  <Th onClick={() => toggleSort("totalRevenue")} label="Total Revenue" />
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan={14} style={tdStyle}>Loading performance...</td></tr>
+                ) : rows.length === 0 ? (
+                  <tr><td colSpan={14} style={tdStyle}>No employees found for the selected filters.</td></tr>
+                ) : (
+                  rows.map((row) => (
+                    <tr
+                      key={row.empCode}
+                      onClick={() => setSelectedEmp(row)}
+                      style={{ borderBottom: "1px solid #e5e7eb", cursor: "pointer" }}
                     >
-                      <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 4 }}>Region</div>
-                      <div style={{ fontSize: 20, fontWeight: 700, color: "#1e40af", marginBottom: 12 }}>{region}</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 13 }}>
-                        <div>👥 Employees:</div>
-                        <div style={{ fontWeight: 600 }}>{regionEmps.length}</div>
-                        <div>🎯 Total Target:</div>
-                        <div style={{ fontWeight: 600 }}>₹{regionEmps.reduce((s, e) => s + (e.target || 0), 0).toLocaleString()}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+                      <td style={tdStyle}>{row.empCode}</td>
+                      <td style={{ ...tdStyle, fontWeight: 700, color: "#1d4ed8" }}>{row.empName}</td>
+                      <td style={tdStyle}>{row.region} / {row.branch}</td>
+                      <td style={tdStyle}>{row.managerName || "-"}</td>
+                      <td style={tdStyle}>{row.attendanceLabel || "Unknown"}</td>
+                      <td style={tdStyle}>{row.tourDays || 0}</td>
+                      <td style={tdStyle}>{row.tourRequests || 0}{row.tourApproved ? ` (${row.tourApproved} approved)` : ""}</td>
+                      <td style={tdStyle}>{row.siteVisits || 0}</td>
+                      <td style={tdStyle}>{row.newVisits || 0}</td>
+                      <td style={tdStyle}>{row.revisits || 0}</td>
+                      <td style={tdStyle}>{row.uniqueCustomers || 0}</td>
+                      <td style={tdStyle}>{row.convertedCustomers || 0}</td>
+                      <td style={tdStyle}>₹{Number(row.tourExpenses || 0).toLocaleString()}</td>
+                      <td style={tdStyle}>₹{Number(row.totalRevenue || 0).toLocaleString()}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-          {/* Branch-wise Summary Cards */}
-          {selectedBranch === "all" && selectedRegion !== "all" && (
-            <div style={{ marginBottom: 30 }}>
-              <h3 style={{ marginBottom: 15 }}>🏢 Branch-wise Performance ({selectedRegion})</h3>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 15 }}>
-                {branches
-                  .filter(b => employees.some(e => e.branch === b && e.region === selectedRegion))
-                  .map(branch => {
-                    const branchEmps = employees.filter(e => e.role === "Employee" && e.branch === branch && e.region === selectedRegion);
-                    return (
-                      <div 
-                        key={branch} 
-                        style={{ ...regionCard, borderColor: "#22c55e" }}
-                        onClick={() => setSelectedBranch(branch)}
-                      >
-                        <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 4 }}>Branch</div>
-                        <div style={{ fontSize: 20, fontWeight: 700, color: "#166534", marginBottom: 12 }}>{branch}</div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 13 }}>
-                          <div>👥 Employees:</div>
-                          <div style={{ fontWeight: 600 }}>{branchEmps.length}</div>
-                          <div>🎯 Total Target:</div>
-                          <div style={{ fontWeight: 600 }}>₹{branchEmps.reduce((s, e) => s + (e.target || 0), 0).toLocaleString()}</div>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
+          <div style={pager}>
+            <span>Showing {rows.length} of {total}</span>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} style={pageBtn}>Prev</button>
+              <span style={{ padding: "8px 10px" }}>{page} / {pageCount}</span>
+              <button disabled={page >= pageCount} onClick={() => setPage((p) => p + 1)} style={pageBtn}>Next</button>
             </div>
-          )}
-
-          {/* Employee List */}
-          <div>
-            <h3 style={{ marginBottom: 15 }}>
-              👥 Employee Performance 
-              <span style={{ fontWeight: 400, fontSize: 14, color: "#6b7280", marginLeft: 10 }}>
-                ({filteredEmployees.length} employees)
-              </span>
-            </h3>
-            
-            {loading ? (
-              <p>Loading employees...</p>
-            ) : filteredEmployees.length === 0 ? (
-              <p style={{ color: "#6b7280" }}>No employees found for selected filters.</p>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 15 }}>
-                {filteredEmployees.map(emp => (
-                  <EmployeeCard 
-                    key={emp.empCode} 
-                    emp={emp} 
-                    onClick={() => fetchEmpDetails(emp)}
-                  />
-                ))}
-              </div>
-            )}
           </div>
         </div>
       )}
 
-      {/* Target Management Tab */}
       {activeTab === "targets" && (
-        <TargetManagement 
-          employees={employees.filter(e => e.role === "Employee")}
+        <TargetManagement
+          employees={employees.filter((e) => e.role === "Employee")}
           token={token}
-          onUpdate={fetchEmployees}
+          onUpdate={fetchUsers}
         />
       )}
 
-      {/* Employee Detail Modal */}
       {selectedEmp && (
-        <EmployeeDetailModal
+        <EmployeeDetailPanel
           emp={selectedEmp}
-          details={empDetails}
-          loading={detailsLoading}
-          dateRange={dateRange}
-          onClose={() => { setSelectedEmp(null); setEmpDetails(null); }}
+          token={token}
+          initialRange={{ from: filters.from, to: filters.to }}
+          onClose={() => setSelectedEmp(null)}
         />
       )}
     </div>
   );
 }
 
-/* ============ Employee Card ============ */
-function EmployeeCard({ emp, onClick }) {
-  const achievedPercent = emp.target > 0 ? Math.min(100, Math.round((emp.achieved || 0) / emp.target * 100)) : 0;
-  
+function EmployeeDetailPanel({ emp, token, initialRange, onClose }) {
+  const [range, setRange] = useState(initialRange);
+  const [details, setDetails] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadDetails = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/performance/employee/${emp.empCode}?from=${range.from}&to=${range.to}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = await res.json();
+      setDetails(res.ok ? data : null);
+    } catch (err) {
+      console.error("Employee performance error:", err);
+      setDetails(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [emp.empCode, range.from, range.to, token]);
+
+  useEffect(() => {
+    loadDetails();
+  }, [loadDetails]);
+
+  const profile = details?.profile || emp;
+  const calendar = details?.attendance?.calendar || [];
+
   return (
-    <div style={empCardStyle} onClick={onClick}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-        <div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#1f2937" }}>{emp.name}</div>
-          <div style={{ fontSize: 12, color: "#6b7280" }}>{emp.empCode}</div>
-        </div>
-        <div style={{ 
-          background: "#dbeafe", 
-          color: "#1e40af", 
-          padding: "4px 10px", 
-          borderRadius: 20,
-          fontSize: 11,
-          fontWeight: 600,
-        }}>
-          {emp.role}
-        </div>
-      </div>
-      
-      <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 8 }}>
-        📍 {emp.branch || "N/A"} • {emp.region || "N/A"}
-      </div>
-
-      {/* Target Progress */}
-      <div style={{ marginTop: 12 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
-          <span>Target Achievement</span>
-          <span style={{ fontWeight: 600 }}>{achievedPercent}%</span>
-        </div>
-        <div style={{ height: 8, background: "#e5e7eb", borderRadius: 4, overflow: "hidden" }}>
-          <div style={{ 
-            height: "100%", 
-            width: `${achievedPercent}%`,
-            background: achievedPercent >= 80 ? "#22c55e" : achievedPercent >= 50 ? "#f59e0b" : "#ef4444",
-            borderRadius: 4,
-            transition: "width 0.3s ease",
-          }} />
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#6b7280", marginTop: 4 }}>
-          <span>₹{(emp.achieved || 0).toLocaleString()}</span>
-          <span>₹{(emp.target || 0).toLocaleString()}</span>
-        </div>
-      </div>
-
-      <button style={viewDetailBtn}>
-        📊 View Details
-      </button>
-    </div>
-  );
-}
-
-/* ============ Employee Detail Modal ============ */
-function EmployeeDetailModal({ emp, details, loading, dateRange, onClose }) {
-  return (
-    <div style={modalOverlay} onClick={onClose}>
-      <div style={modalContent} onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div style={modalHeader}>
+    <div style={drawerOverlay} onClick={onClose}>
+      <aside style={drawer} onClick={(e) => e.stopPropagation()}>
+        <div style={drawerHeader}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 22 }}>{emp.name}</h2>
-            <p style={{ margin: "4px 0 0 0", opacity: 0.9 }}>{emp.empCode} • {emp.branch} • {emp.region}</p>
+            <div style={{ fontSize: 18, fontWeight: 700 }}>{profile.name || emp.empName}</div>
+            <div style={{ fontSize: 12, opacity: 0.9 }}>
+              {profile.empCode} • {profile.region || emp.region} • {profile.branch || emp.branch}
+            </div>
           </div>
           <button onClick={onClose} style={closeBtn}>✕</button>
         </div>
 
-        {loading ? (
-          <div style={{ padding: 40, textAlign: "center" }}>Loading details...</div>
-        ) : details ? (
-          <div style={{ padding: 20 }}>
-            {/* Summary Cards */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 15, marginBottom: 25 }}>
-              <MetricCard label="Attendance" value={`${details.attendancePercent}%`} icon="📅" color="#3b82f6" />
-              <MetricCard label="Total Visits" value={details.totalVisits} icon="📍" color="#8b5cf6" />
-              <MetricCard label="Revenue" value={`₹${details.totalRevenue.toLocaleString()}`} icon="💰" color="#22c55e" />
-              <MetricCard label="Target" value={`₹${(emp.target || 0).toLocaleString()}`} icon="🎯" color="#f59e0b" />
-              <MetricCard label="Samples Used" value={`${details.samplesUsed || 0}/${details.samplesAssigned || 0}`} icon="📦" color="#ec4899" />
-            </div>
-
-            {/* Detailed Stats */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
-              {/* Attendance Section */}
-              <div style={sectionCard}>
-                <h4 style={sectionTitle}>📅 Attendance Summary</h4>
-                <div style={statsGrid}>
-                  <StatRow label="Working Days" value={details.workingDays} />
-                  <StatRow label="Days Present" value={details.activeDays} />
-                  <StatRow label="Leaves Taken" value={details.leaveCount} />
-                  <StatRow label="Attendance %" value={`${details.attendancePercent}%`} highlight />
-                </div>
-              </div>
-
-              {/* Visits Section */}
-              <div style={sectionCard}>
-                <h4 style={sectionTitle}>📍 Visit Summary</h4>
-                <div style={statsGrid}>
-                  <StatRow label="External Visits" value={details.externalVisits} />
-                  <StatRow label="Internal Meetings" value={details.internalMeetings} />
-                  <StatRow label="Total Activities" value={details.totalVisits} highlight />
-                  <StatRow label="Avg Visits/Day" value={(details.activeDays > 0 ? (details.totalVisits / details.activeDays).toFixed(1) : 0)} />
-                </div>
-              </div>
-
-              {/* Sample Boards Section */}
-              <div style={{ ...sectionCard, background: "#fdf4ff", borderColor: "#f0abfc" }}>
-                <h4 style={sectionTitle}>📦 Sample Boards</h4>
-                <div style={statsGrid}>
-                  <StatRow label="Total Assigned" value={details.samplesAssigned || 0} />
-                  <StatRow label="Used" value={details.samplesUsed || 0} />
-                  <StatRow label="Available" value={(details.samplesAssigned || 0) - (details.samplesUsed || 0)} />
-                  <StatRow 
-                    label="Usage %" 
-                    value={`${details.samplesAssigned > 0 ? Math.round((details.samplesUsed / details.samplesAssigned) * 100) : 0}%`} 
-                    highlight 
-                  />
-                </div>
-              </div>
-
-              {/* Revenue Section */}
-              <div style={sectionCard}>
-                <h4 style={sectionTitle}>💰 Revenue Summary</h4>
-                <div style={statsGrid}>
-                  <StatRow label="Target" value={`₹${(emp.target || 0).toLocaleString()}`} />
-                  <StatRow label="Achieved" value={`₹${details.totalRevenue.toLocaleString()}`} />
-                  <StatRow label="Balance" value={`₹${((emp.target || 0) - details.totalRevenue).toLocaleString()}`} />
-                  <StatRow 
-                    label="Achievement %" 
-                    value={`${emp.target > 0 ? Math.round((details.totalRevenue / emp.target) * 100) : 0}%`} 
-                    highlight 
-                  />
-                </div>
-              </div>
-
-              {/* Performance Rating */}
-              <div style={{ ...sectionCard, gridColumn: "span 2" }}>
-                <h4 style={sectionTitle}>⭐ Performance Rating</h4>
-                <PerformanceGauge 
-                  attendance={details.attendancePercent}
-                  visits={details.totalVisits}
-                  revenue={emp.target > 0 ? (details.totalRevenue / emp.target) * 100 : 0}
-                />
-              </div>
-            </div>
-
-            {/* Period Info */}
-            <div style={{ marginTop: 20, padding: 12, background: "#f8fafc", borderRadius: 8, fontSize: 13, color: "#6b7280" }}>
-              📆 Period: {dayjs(dateRange.from).format("DD MMM YYYY")} - {dayjs(dateRange.to).format("DD MMM YYYY")}
-            </div>
+        <div style={{ padding: 16, overflowY: "auto", height: "calc(100% - 72px)" }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <input type="date" value={range.from} onChange={(e) => setRange((p) => ({ ...p, from: e.target.value }))} style={selectStyle} />
+            <input type="date" value={range.to} onChange={(e) => setRange((p) => ({ ...p, to: e.target.value }))} style={selectStyle} />
           </div>
-        ) : (
-          <div style={{ padding: 40, textAlign: "center", color: "#6b7280" }}>
-            Unable to load details. Please try again.
-          </div>
-        )}
-      </div>
+
+          {loading ? (
+            <p>Loading employee details...</p>
+          ) : !details ? (
+            <p>Unable to load details for this employee.</p>
+          ) : (
+            <>
+              <Section title="Employee Profile">
+                <p>Code: {details.profile.empCode}</p>
+                <p>Manager: {details.profile.managerName || "-"}</p>
+                <p>Region / Branch: {details.profile.region} / {details.profile.branch}</p>
+              </Section>
+
+              <Section title="Attendance Calendar">
+                <p style={{ fontSize: 12, color: "#64748b" }}>
+                  P {details.attendance.summary.P} · HD {details.attendance.summary.HD} · A {details.attendance.summary.A} · L {details.attendance.summary.L}
+                </p>
+                <div style={calGrid}>
+                  {calendar.map((day) => (
+                    <div key={day.date} title={day.holidayName || day.status} style={calCell(day.status)}>
+                      <div>{dayjs(day.date).format("DD")}</div>
+                      <div>{day.status}</div>
+                    </div>
+                  ))}
+                </div>
+              </Section>
+
+              <Section title="Tour Details">
+                {details.tours.length === 0 ? <p>No tours in this period.</p> : details.tours.map((tour) => (
+                  <div key={tour.id} style={miniCard}>
+                    <div><strong>{tour.toLocation}</strong> • {tour.status}</div>
+                    <div>Date: {tour.requestDate || "Unknown"} {tour.approvedDate ? `• Approved: ${tour.approvedDate}` : ""}</div>
+                    <div>{tour.purpose}</div>
+                  </div>
+                ))}
+              </Section>
+
+              <Section title="Tour Expenses">
+                {details.tours.filter((t) => t.expensesFilled).length === 0 ? (
+                  <p>No submitted tour expenses in this period.</p>
+                ) : details.tours.filter((t) => t.expensesFilled).map((tour) => (
+                  <div key={`${tour.id}-exp`} style={miniCard}>
+                    <div>Submitted: ₹{Number(tour.submittedAmount || 0).toLocaleString()}</div>
+                    <div>Travel ₹{tour.travelExpense} · Food ₹{tour.foodExpense} · Stay ₹{tour.accommodationExpense}</div>
+                    <div>Reimbursed: {tour.reimbursed ? `Yes (${tour.reimbursedDate || "-"})` : "No"}</div>
+                  </div>
+                ))}
+              </Section>
+
+              <Section title="Site Visit Details">
+                {details.visits.length === 0 ? <p>No qualifying site visits in this period.</p> : details.visits.map((visit, idx) => (
+                  <div key={`${visit.customerId}-${idx}`} style={miniCard}>
+                    <div>{visit.date} • {visit.visitType}</div>
+                    <div>{visit.customerId} • {visit.customerName}</div>
+                    <div>Report: {visit.status}</div>
+                  </div>
+                ))}
+              </Section>
+
+              <Section title="Customer Conversion">
+                {details.conversions.length === 0 ? (
+                  <p>No conversion evidence in Daily Tracker revenue for this period.</p>
+                ) : details.conversions.map((item, idx) => (
+                  <div key={`${item.customerId}-${idx}`} style={miniCard}>
+                    <div>{item.date} • {item.customerId} • {item.customerName}</div>
+                    <div>₹{Number(item.orderValue || 0).toLocaleString()} {item.poNumber && item.poNumber !== "-" ? `• PO ${item.poNumber}` : ""}</div>
+                  </div>
+                ))}
+              </Section>
+
+              <Section title="Revenue Details">
+                <p><strong>Total: ₹{Number(details.revenue.total || 0).toLocaleString()}</strong></p>
+                {details.revenue.entries.length === 0 ? <p>No Daily Tracker revenue entries.</p> : details.revenue.entries.map((item, idx) => (
+                  <div key={`${item.date}-${idx}`} style={miniCard}>
+                    <div>{item.date} • {item.customerName}</div>
+                    <div>₹{Number(item.orderValue || 0).toLocaleString()}</div>
+                  </div>
+                ))}
+              </Section>
+            </>
+          )}
+        </div>
+      </aside>
     </div>
   );
 }
 
-/* ============ Target Management ============ */
 function TargetManagement({ employees, token, onUpdate }) {
   const [targets, setTargets] = useState({});
   const [saving, setSaving] = useState(false);
   const [filterBranch, setFilterBranch] = useState("all");
 
   useEffect(() => {
-    // Initialize targets from employees
     const initial = {};
-    employees.forEach(emp => {
+    employees.forEach((emp) => {
       initial[emp.empCode] = emp.target || 0;
     });
     setTargets(initial);
   }, [employees]);
 
-  const branches = [...new Set(employees.map(e => e.branch).filter(Boolean))];
-  const filteredEmps = filterBranch === "all" 
-    ? employees 
-    : employees.filter(e => e.branch === filterBranch);
+  const branches = [...new Set(employees.map((e) => e.branch).filter(Boolean))];
+  const filteredEmps = filterBranch === "all" ? employees : employees.filter((e) => e.branch === filterBranch);
 
   async function saveTarget(empCode) {
     setSaving(true);
@@ -546,16 +534,7 @@ function TargetManagement({ employees, token, onUpdate }) {
         },
         body: JSON.stringify({ target: Number(targets[empCode]) || 0 }),
       });
-      
-      if (res.ok) {
-        alert("✅ Target updated successfully!");
-        onUpdate();
-      } else {
-        alert("❌ Failed to update target");
-      }
-    } catch (err) {
-      console.error("Save target error:", err);
-      alert("❌ Error saving target");
+      if (res.ok) onUpdate();
     } finally {
       setSaving(false);
     }
@@ -568,8 +547,7 @@ function TargetManagement({ employees, token, onUpdate }) {
         empCode,
         target: Number(target) || 0,
       }));
-
-      const res = await fetch(`${API_BASE}/api/users/bulk-targets`, {
+      await fetch(`${API_BASE}/api/users/bulk-targets`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -577,16 +555,7 @@ function TargetManagement({ employees, token, onUpdate }) {
         },
         body: JSON.stringify({ targets: updates }),
       });
-      
-      if (res.ok) {
-        alert("✅ All targets updated successfully!");
-        onUpdate();
-      } else {
-        alert("❌ Failed to update targets");
-      }
-    } catch (err) {
-      console.error("Save all targets error:", err);
-      alert("❌ Error saving targets");
+      onUpdate();
     } finally {
       setSaving(false);
     }
@@ -594,16 +563,11 @@ function TargetManagement({ employees, token, onUpdate }) {
 
   return (
     <div>
-      {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 15 }}>
         <div style={{ display: "flex", gap: 15, alignItems: "center" }}>
-          <select 
-            value={filterBranch} 
-            onChange={(e) => setFilterBranch(e.target.value)}
-            style={selectStyle}
-          >
+          <select value={filterBranch} onChange={(e) => setFilterBranch(e.target.value)} style={selectStyle}>
             <option value="all">All Branches</option>
-            {branches.map(b => <option key={b} value={b}>{b}</option>)}
+            {branches.map((b) => <option key={b} value={b}>{b}</option>)}
           </select>
           <span style={{ color: "#6b7280" }}>{filteredEmps.length} employees</span>
         </div>
@@ -611,51 +575,33 @@ function TargetManagement({ employees, token, onUpdate }) {
           {saving ? "Saving..." : "💾 Save All Targets"}
         </button>
       </div>
-
-      {/* Target Table */}
       <div style={{ overflowX: "auto" }}>
         <table style={tableStyle}>
           <thead>
             <tr style={{ background: "#f1f5f9" }}>
-              <th style={thStyle}>#</th>
               <th style={thStyle}>Employee</th>
               <th style={thStyle}>Branch</th>
-              <th style={thStyle}>Region</th>
               <th style={thStyle}>Current Target (₹)</th>
               <th style={thStyle}>Set New Target (₹)</th>
               <th style={thStyle}>Action</th>
             </tr>
           </thead>
           <tbody>
-            {filteredEmps.map((emp, idx) => (
+            {filteredEmps.map((emp) => (
               <tr key={emp.empCode} style={{ borderBottom: "1px solid #e5e7eb" }}>
-                <td style={tdStyle}>{idx + 1}</td>
-                <td style={tdStyle}>
-                  <div style={{ fontWeight: 600 }}>{emp.name}</div>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>{emp.empCode}</div>
-                </td>
+                <td style={tdStyle}><div style={{ fontWeight: 600 }}>{emp.name}</div><div style={{ fontSize: 12, color: "#6b7280" }}>{emp.empCode}</div></td>
                 <td style={tdStyle}>{emp.branch || "-"}</td>
-                <td style={tdStyle}>{emp.region || "-"}</td>
-                <td style={{ ...tdStyle, fontWeight: 600, color: "#3b82f6" }}>
-                  ₹{(emp.target || 0).toLocaleString()}
-                </td>
+                <td style={tdStyle}>₹{(emp.target || 0).toLocaleString()}</td>
                 <td style={tdStyle}>
                   <input
                     type="number"
                     value={targets[emp.empCode] || ""}
                     onChange={(e) => setTargets({ ...targets, [emp.empCode]: e.target.value })}
                     style={targetInput}
-                    placeholder="Enter target"
                   />
                 </td>
                 <td style={tdStyle}>
-                  <button 
-                    onClick={() => saveTarget(emp.empCode)} 
-                    disabled={saving}
-                    style={saveBtnSmall}
-                  >
-                    💾 Save
-                  </button>
+                  <button onClick={() => saveTarget(emp.empCode)} disabled={saving} style={saveBtnSmall}>Save</button>
                 </td>
               </tr>
             ))}
@@ -666,7 +612,15 @@ function TargetManagement({ employees, token, onUpdate }) {
   );
 }
 
-/* ============ Helper Components ============ */
+function FilterField({ label, children }) {
+  return (
+    <div>
+      <label style={labelStyle}>{label}</label>
+      {children}
+    </div>
+  );
+}
+
 function TabButton({ active, onClick, label, isLast }) {
   return (
     <button
@@ -687,236 +641,61 @@ function TabButton({ active, onClick, label, isLast }) {
   );
 }
 
-function MetricCard({ label, value, icon, color }) {
+function KpiCard({ label, value, icon, color }) {
   return (
-    <div style={{
-      padding: 16,
-      background: "white",
-      borderRadius: 12,
-      boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-      borderLeft: `4px solid ${color}`,
-    }}>
-      <div style={{ fontSize: 24, marginBottom: 4 }}>{icon}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, color }}>{value}</div>
-      <div style={{ fontSize: 12, color: "#6b7280" }}>{label}</div>
+    <div style={{ padding: 14, background: "white", borderRadius: 12, borderLeft: `4px solid ${color}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+      <div style={{ fontSize: 18 }}>{icon}</div>
+      <div style={{ fontSize: 20, fontWeight: 700, color }}>{value}</div>
+      <div style={{ fontSize: 11, color: "#6b7280" }}>{label}</div>
     </div>
   );
 }
 
-function StatRow({ label, value, highlight }) {
+function Th({ label, onClick }) {
   return (
-    <>
-      <div style={{ color: "#6b7280" }}>{label}</div>
-      <div style={{ fontWeight: highlight ? 700 : 600, color: highlight ? "#1e40af" : "#1f2937" }}>{value}</div>
-    </>
+    <th style={{ ...thStyle, cursor: "pointer" }} onClick={onClick}>{label}</th>
   );
 }
 
-function PerformanceGauge({ attendance, visits, revenue }) {
-  const overall = Math.round((attendance * 0.3 + Math.min(100, visits * 2) * 0.3 + Math.min(100, revenue) * 0.4));
-  const rating = overall >= 80 ? "Excellent" : overall >= 60 ? "Good" : overall >= 40 ? "Average" : "Needs Improvement";
-  const color = overall >= 80 ? "#22c55e" : overall >= 60 ? "#3b82f6" : overall >= 40 ? "#f59e0b" : "#ef4444";
-
+function Section({ title, children }) {
   return (
-    <div style={{ textAlign: "center", padding: 20 }}>
-      <div style={{ 
-        width: 100, 
-        height: 100, 
-        borderRadius: "50%", 
-        background: `conic-gradient(${color} ${overall * 3.6}deg, #e5e7eb ${overall * 3.6}deg)`,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        margin: "0 auto 15px auto",
-      }}>
-        <div style={{ 
-          width: 80, 
-          height: 80, 
-          borderRadius: "50%", 
-          background: "white",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexDirection: "column",
-        }}>
-          <div style={{ fontSize: 24, fontWeight: 700, color }}>{overall}%</div>
-        </div>
-      </div>
-      <div style={{ fontSize: 16, fontWeight: 600, color }}>{rating}</div>
-      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>Overall Performance</div>
+    <div style={{ marginBottom: 18 }}>
+      <h4 style={{ margin: "0 0 8px", fontSize: 14 }}>{title}</h4>
+      <div style={{ fontSize: 13, color: "#334155" }}>{children}</div>
     </div>
   );
 }
 
-/* ============ Styles ============ */
 const filterContainer = {
-  background: "#f8fafc",
-  padding: 20,
-  borderRadius: 12,
-  marginBottom: 25,
-  border: "1px solid #e2e8f0",
-};
-
-const labelStyle = {
-  display: "block",
-  fontSize: 12,
-  fontWeight: 600,
-  color: "#6b7280",
-  marginBottom: 4,
-};
-
-const selectStyle = {
-  padding: "8px 12px",
-  borderRadius: 6,
-  border: "1px solid #d1d5db",
-  fontSize: 14,
-  minWidth: 140,
-};
-
-const regionCard = {
-  padding: 20,
-  background: "white",
-  borderRadius: 12,
-  border: "2px solid #3b82f6",
-  cursor: "pointer",
-  transition: "all 0.2s",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-};
-
-const empCardStyle = {
-  padding: 20,
-  background: "white",
-  borderRadius: 12,
-  border: "1px solid #e5e7eb",
-  cursor: "pointer",
-  transition: "all 0.2s",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-};
-
-const viewDetailBtn = {
-  width: "100%",
-  marginTop: 15,
-  padding: "10px",
-  background: "#f1f5f9",
-  border: "none",
-  borderRadius: 8,
-  cursor: "pointer",
-  fontWeight: 600,
-  fontSize: 13,
-  color: "#3b82f6",
-};
-
-const modalOverlay = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(0,0,0,0.6)",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  zIndex: 100,
-  padding: 20,
-};
-
-const modalContent = {
-  background: "white",
-  borderRadius: 16,
-  width: "95%",
-  maxWidth: 900,
-  maxHeight: "90vh",
-  overflow: "auto",
-  boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
-};
-
-const modalHeader = {
-  background: "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)",
-  color: "white",
-  padding: "20px 24px",
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-};
-
-const closeBtn = {
-  background: "rgba(255,255,255,0.2)",
-  border: "none",
-  color: "white",
-  width: 36,
-  height: 36,
-  borderRadius: "50%",
-  cursor: "pointer",
-  fontSize: 18,
-};
-
-const sectionCard = {
   background: "#f8fafc",
   padding: 16,
   borderRadius: 12,
+  marginBottom: 20,
   border: "1px solid #e2e8f0",
 };
-
-const sectionTitle = {
-  margin: "0 0 12px 0",
-  fontSize: 14,
-  fontWeight: 600,
-  color: "#374151",
-};
-
-const statsGrid = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "8px 16px",
-  fontSize: 14,
-};
-
-const tableStyle = {
-  width: "100%",
-  borderCollapse: "collapse",
-  background: "white",
-  borderRadius: 8,
-  overflow: "hidden",
-  boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-};
-
-const thStyle = {
-  padding: "14px 16px",
-  textAlign: "left",
-  fontWeight: 600,
-  borderBottom: "2px solid #e5e7eb",
-  fontSize: 13,
-};
-
-const tdStyle = {
-  padding: "14px 16px",
-  fontSize: 14,
-};
-
-const targetInput = {
-  padding: "8px 12px",
-  border: "2px solid #3b82f6",
+const labelStyle = { display: "block", fontSize: 12, fontWeight: 600, color: "#6b7280", marginBottom: 4 };
+const selectStyle = { padding: "8px 12px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 14, minWidth: 140 };
+const kpiGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, marginBottom: 20 };
+const tableStyle = { width: "100%", borderCollapse: "collapse", minWidth: 1200 };
+const thStyle = { padding: "12px 10px", textAlign: "left", fontWeight: 600, borderBottom: "2px solid #e5e7eb", fontSize: 12, whiteSpace: "nowrap" };
+const tdStyle = { padding: "12px 10px", fontSize: 13, whiteSpace: "nowrap" };
+const pager = { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12 };
+const pageBtn = { padding: "8px 12px", borderRadius: 6, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" };
+const refreshBtn = { padding: "8px 16px", background: "#3b82f6", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 500 };
+const targetInput = { padding: "8px 12px", border: "2px solid #3b82f6", borderRadius: 6, fontSize: 14, width: 120 };
+const saveBtnSmall = { padding: "6px 14px", background: "#22c55e", color: "white", border: "none", borderRadius: 6, cursor: "pointer" };
+const saveAllBtn = { padding: "10px 20px", background: "#3b82f6", color: "white", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 };
+const drawerOverlay = { position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", zIndex: 80, display: "flex", justifyContent: "flex-end" };
+const drawer = { width: "min(460px, 100%)", height: "100%", background: "#fff", boxShadow: "-8px 0 24px rgba(0,0,0,0.15)" };
+const drawerHeader = { background: "#1d4ed8", color: "#fff", padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center" };
+const closeBtn = { background: "rgba(255,255,255,0.2)", border: "none", color: "white", width: 32, height: 32, borderRadius: "50%", cursor: "pointer" };
+const miniCard = { padding: 8, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, marginBottom: 8 };
+const calGrid = { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 };
+const calCell = (status) => ({
+  border: "1px solid #e5e7eb",
   borderRadius: 6,
-  fontSize: 14,
-  width: 120,
-};
-
-const saveBtnSmall = {
-  padding: "6px 14px",
-  background: "#22c55e",
-  color: "white",
-  border: "none",
-  borderRadius: 6,
-  cursor: "pointer",
-  fontWeight: 500,
-  fontSize: 13,
-};
-
-const saveAllBtn = {
-  padding: "10px 20px",
-  background: "#3b82f6",
-  color: "white",
-  border: "none",
-  borderRadius: 8,
-  cursor: "pointer",
-  fontWeight: 600,
-  fontSize: 14,
-};
-
+  padding: 4,
+  textAlign: "center",
+  fontSize: 10,
+  background: status === "P" ? "#dcfce7" : status === "A" ? "#fee2e2" : status === "HD" ? "#fef3c7" : status === "L" ? "#dbeafe" : "#f8fafc",
+});

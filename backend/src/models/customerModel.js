@@ -69,4 +69,8 @@ const customerSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+customerSchema.index({ "visits.empCode": 1, "visits.date": 1 });
+customerSchema.index({ "visits.createdBy": 1, "visits.date": 1 });
+customerSchema.index({ "createdBy.empCode": 1 });
+
 export default mongoose.model("Customer", customerSchema);

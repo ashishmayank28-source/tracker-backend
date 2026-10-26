@@ -31,6 +31,7 @@ import customerDatabaseRoutes from "./routes/customerDatabaseRoutes.js"; // ✅ 
 import assetRequestRoutes from "./routes/assetRequestRoutes.js"; // ✅ Asset Request routes
 import itemNameRoutes from "./routes/itemNameRoutes.js";
 import channelPartnerRoutes from "./routes/channelPartnerRoutes.js";
+import performanceRoutes from "./routes/performanceRoutes.js";
 
 
 async function start() {
@@ -91,6 +92,7 @@ async function start() {
   app.use("/api/asset-requests", assetRequestRoutes); // ✅ Asset Request routes
   app.use("/api/item-names", itemNameRoutes);
   app.use("/api/channel-partners", channelPartnerRoutes);
+  app.use("/api/performance", performanceRoutes);
   
   // Serve uploaded files from the same folder multer writes to
   const __filename = fileURLToPath(import.meta.url);
