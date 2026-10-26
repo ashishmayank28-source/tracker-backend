@@ -243,7 +243,7 @@ export const getPerformanceOverview = async (req, res) => {
   try {
     const { from, to } = parseRange(req.query);
     const page = Math.max(1, Number(req.query.page) || 1);
-    const limit = Math.min(100, Math.max(10, Number(req.query.limit) || 25));
+    const limit = Math.min(2000, Math.max(10, Number(req.query.limit) || 25));
     const sortBy = req.query.sortBy || "empName";
     const sortDir = req.query.sortDir === "desc" ? -1 : 1;
 

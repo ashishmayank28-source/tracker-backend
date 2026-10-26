@@ -38,7 +38,13 @@ const TILE_CONFIG = {
 
 export default function GuestDashboard() {
   const { user, logout } = useAuth() || {};
-  const [activeTile, setActiveTile] = useState("dashboard");
+  const [activeTile, setActiveTile] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get("tile") || "dashboard";
+    } catch {
+      return "dashboard";
+    }
+  });
 
   // ✅ Get allowed tiles from user object (saved during login)
   const allowedTiles = user?.allowedTiles || [];

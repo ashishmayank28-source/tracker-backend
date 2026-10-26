@@ -17,9 +17,17 @@ import TravelRequests from "./TravelRequests.jsx";
 import CustomerDatabase from "./customerDatabase/CustomerDatabase.jsx"; // ✅ Customer Database
 import ItemNamesManager from "./admin/ItemNamesManager.jsx";
 
+function tileFromUrl() {
+  try {
+    return new URLSearchParams(window.location.search).get("tile") || "dashboard";
+  } catch {
+    return "dashboard";
+  }
+}
+
 export default function AdminDashboard() {
   const { user } = useAuth();
-  const [activeTile, setActiveTile] = useState("dashboard");
+  const [activeTile, setActiveTile] = useState(tileFromUrl);
 
   return (
     <div style={{ maxWidth: "1400px", margin: "0 auto", padding: 20 }}>

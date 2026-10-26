@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../auth.jsx";
 import dayjs from "dayjs";
+import * as XLSX from "xlsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
 
@@ -21,6 +22,24 @@ const emptyKpis = {
   totalRevenue: 0,
 };
 
+const VIEWS_KEY = "performanceTableViews";
+const emptyColumnFilters = {
+  empCode: "",
+  empName: "",
+  regionBranch: "",
+  managerName: "",
+  attendance: "",
+  tourDays: "",
+  tourRequests: "",
+  siteVisits: "",
+  newVisits: "",
+  revisits: "",
+  uniqueCustomers: "",
+  convertedCustomers: "",
+  tourExpenses: "",
+  totalRevenue: "",
+};
+
 function monthRange() {
   return {
     from: dayjs().startOf("month").format("YYYY-MM-DD"),
@@ -28,8 +47,55 @@ function monthRange() {
   };
 }
 
+function readSharedState() {
+  try {
+    const raw = new URLSearchParams(window.location.search).get("pf");
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function matchText(value, expr) {
+  const needle = String(expr || "").trim().toLowerCase();
+  if (!needle) return true;
+  return String(value || "").toLowerCase().includes(needle);
+}
+
+function matchNumber(value, expr) {
+  const raw = String(expr || "").trim();
+  if (!raw) return true;
+  const n = Number(value) || 0;
+  const range = raw.match(/^(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)$/);
+  if (range) return n >= Number(range[1]) && n <= Number(range[2]);
+  const op = raw.match(/^(>=|<=|>|<|=)?\s*(-?\d+(?:\.\d+)?)$/);
+  if (op) {
+    const cmp = Number(op[2]);
+    switch (op[1] || "=") {
+      case ">": return n > cmp;
+      case "<": return n < cmp;
+      case ">=": return n >= cmp;
+      case "<=": return n <= cmp;
+      default: return n === cmp;
+    }
+  }
+  return String(value ?? "").includes(raw);
+}
+
+function loadSavedViews() {
+  try {
+    const raw = localStorage.getItem(VIEWS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function PerformanceReview() {
   const { token } = useAuth();
+  const shared = readSharedState();
   const [activeTab, setActiveTab] = useState("overview");
   const [employees, setEmployees] = useState([]);
   const [filterOptions, setFilterOptions] = useState({
@@ -39,23 +105,29 @@ export default function PerformanceReview() {
     employees: [],
   });
   const [filters, setFilters] = useState({
-    preset: "month",
-    from: monthRange().from,
-    to: monthRange().to,
-    region: "all",
-    branch: "all",
-    managerCode: "all",
-    empCode: "all",
+    preset: shared?.filters?.preset || "month",
+    from: shared?.filters?.from || monthRange().from,
+    to: shared?.filters?.to || monthRange().to,
+    region: shared?.filters?.region || "all",
+    branch: shared?.filters?.branch || "all",
+    managerCode: shared?.filters?.managerCode || "all",
+    empCode: shared?.filters?.empCode || "all",
+  });
+  const [columnFilters, setColumnFilters] = useState({
+    ...emptyColumnFilters,
+    ...(shared?.columnFilters || {}),
   });
   const [kpis, setKpis] = useState(emptyKpis);
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
   const [limit] = useState(25);
-  const [total, setTotal] = useState(0);
-  const [sortBy, setSortBy] = useState("empName");
-  const [sortDir, setSortDir] = useState("asc");
+  const [sortBy, setSortBy] = useState(shared?.sortBy || "empName");
+  const [sortDir, setSortDir] = useState(shared?.sortDir || "asc");
   const [loading, setLoading] = useState(true);
   const [selectedEmp, setSelectedEmp] = useState(null);
+  const [savedViews, setSavedViews] = useState(loadSavedViews);
+  const [selectedView, setSelectedView] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
 
   const fetchUsers = useCallback(async () => {
     const res = await fetch(`${API_BASE}/api/users`, {
@@ -89,8 +161,8 @@ export default function PerformanceReview() {
         branch: filters.branch,
         managerCode: filters.managerCode,
         empCode: filters.empCode,
-        page: String(page),
-        limit: String(limit),
+        page: "1",
+        limit: "2000",
         sortBy,
         sortDir,
       });
@@ -100,16 +172,14 @@ export default function PerformanceReview() {
       const data = await res.json();
       setKpis(data.kpis || emptyKpis);
       setRows(Array.isArray(data.rows) ? data.rows : []);
-      setTotal(data.total || 0);
     } catch (err) {
       console.error("Performance overview error:", err);
       setKpis(emptyKpis);
       setRows([]);
-      setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [token, filters, page, limit, sortBy, sortDir]);
+  }, [token, filters, sortBy, sortDir]);
 
   useEffect(() => {
     if (!token) return;
@@ -193,7 +263,130 @@ export default function PerformanceReview() {
     setPage(1);
   }
 
-  const pageCount = Math.max(1, Math.ceil(total / limit));
+  function updateColumnFilter(key, value) {
+    setColumnFilters((prev) => ({ ...prev, [key]: value }));
+    setPage(1);
+  }
+
+  const filteredRows = useMemo(() => rows.filter((row) => {
+    const regionBranch = `${row.region || ""} / ${row.branch || ""}`;
+    return (
+      matchText(row.empCode, columnFilters.empCode) &&
+      matchText(row.empName, columnFilters.empName) &&
+      matchText(regionBranch, columnFilters.regionBranch) &&
+      matchText(row.managerName, columnFilters.managerName) &&
+      matchText(row.attendanceLabel || "Unknown", columnFilters.attendance) &&
+      matchNumber(row.tourDays, columnFilters.tourDays) &&
+      matchNumber(row.tourRequests, columnFilters.tourRequests) &&
+      matchNumber(row.siteVisits, columnFilters.siteVisits) &&
+      matchNumber(row.newVisits, columnFilters.newVisits) &&
+      matchNumber(row.revisits, columnFilters.revisits) &&
+      matchNumber(row.uniqueCustomers, columnFilters.uniqueCustomers) &&
+      matchNumber(row.convertedCustomers, columnFilters.convertedCustomers) &&
+      matchNumber(row.tourExpenses, columnFilters.tourExpenses) &&
+      matchNumber(row.totalRevenue, columnFilters.totalRevenue)
+    );
+  }), [rows, columnFilters]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / limit));
+  const safePage = Math.min(page, pageCount);
+  const pagedRows = filteredRows.slice((safePage - 1) * limit, safePage * limit);
+  const hasColumnFilters = Object.values(columnFilters).some((value) => String(value || "").trim());
+
+  function currentViewState() {
+    return { filters, columnFilters, sortBy, sortDir };
+  }
+
+  function saveView() {
+    const name = window.prompt("Save this view as");
+    if (!name?.trim()) return;
+    const next = [
+      {
+        id: String(Date.now()),
+        name: name.trim(),
+        createdAt: new Date().toISOString(),
+        ...currentViewState(),
+      },
+      ...savedViews,
+    ].slice(0, 20);
+    localStorage.setItem(VIEWS_KEY, JSON.stringify(next));
+    setSavedViews(next);
+    setSelectedView(next[0].id);
+    setActionMessage("View saved on this browser.");
+  }
+
+  function applyView(id) {
+    setSelectedView(id);
+    const view = savedViews.find((item) => item.id === id);
+    if (!view) return;
+    setFilters({
+      preset: "month",
+      from: monthRange().from,
+      to: monthRange().to,
+      region: "all",
+      branch: "all",
+      managerCode: "all",
+      empCode: "all",
+      ...(view.filters || {}),
+    });
+    setColumnFilters({ ...emptyColumnFilters, ...(view.columnFilters || {}) });
+    setSortBy(view.sortBy || "empName");
+    setSortDir(view.sortDir || "asc");
+    setPage(1);
+    setActionMessage(`Loaded "${view.name}".`);
+  }
+
+  function deleteSelectedView() {
+    if (!selectedView) return;
+    const next = savedViews.filter((item) => item.id !== selectedView);
+    localStorage.setItem(VIEWS_KEY, JSON.stringify(next));
+    setSavedViews(next);
+    setSelectedView("");
+    setActionMessage("Saved view deleted.");
+  }
+
+  async function shareView() {
+    const url = new URL(window.location.href);
+    url.searchParams.set("tile", "performance");
+    url.searchParams.set("pf", JSON.stringify(currentViewState()));
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      setActionMessage("Share link copied.");
+    } catch {
+      window.prompt("Copy share link", url.toString());
+    }
+  }
+
+  function exportExcel() {
+    const sheetData = filteredRows.map((row) => ({
+      "Employee Code": row.empCode,
+      "Employee Name": row.empName,
+      "Region / Branch": `${row.region || "-"} / ${row.branch || "-"}`,
+      Manager: row.managerName || "-",
+      Attendance: row.attendanceLabel || "Unknown",
+      "Tour Days": row.tourDays || 0,
+      "Tour Requests": row.tourRequests || 0,
+      "Tour Approved": row.tourApproved || 0,
+      "Total Site Visits": row.siteVisits || 0,
+      "New Visits": row.newVisits || 0,
+      Revisits: row.revisits || 0,
+      "Unique Customers": row.uniqueCustomers || 0,
+      "Converted Customers": row.convertedCustomers || 0,
+      "Tour Expenses": Number(row.tourExpenses || 0),
+      "Total Revenue": Number(row.totalRevenue || 0),
+    }));
+    const ws = XLSX.utils.json_to_sheet(sheetData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Performance");
+    XLSX.writeFile(wb, `Performance_Review_${filters.from}_to_${filters.to}.xlsx`);
+    setActionMessage(`Exported ${sheetData.length} rows.`);
+  }
+
+  const freeze = hasColumnFilters
+    || filters.region !== "all"
+    || filters.branch !== "all"
+    || filters.managerCode !== "all"
+    || filters.empCode !== "all";
 
   return (
     <div style={{ padding: 20 }}>
@@ -289,40 +482,86 @@ export default function PerformanceReview() {
             <KpiCard label="Total Revenue" value={`₹${Number(kpis.totalRevenue || 0).toLocaleString()}`} icon="💰" color="#16a34a" />
           </div>
 
-          <div style={{ overflowX: "auto", background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb" }}>
+          <div style={tableToolbar}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <select value={selectedView} onChange={(e) => applyView(e.target.value)} style={selectStyle}>
+                <option value="">Saved views</option>
+                {savedViews.map((view) => (
+                  <option key={view.id} value={view.id}>{view.name}</option>
+                ))}
+              </select>
+              <button type="button" onClick={saveView} style={refreshBtn}>💾 Save view</button>
+              <button type="button" onClick={shareView} style={refreshBtn}>🔗 Share</button>
+              <button type="button" onClick={exportExcel} style={refreshBtn}>📥 Export to Excel</button>
+              {selectedView && (
+                <button type="button" onClick={deleteSelectedView} style={secondaryBtn}>Delete view</button>
+              )}
+              {hasColumnFilters && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setColumnFilters(emptyColumnFilters);
+                    setPage(1);
+                  }}
+                  style={secondaryBtn}
+                >
+                  Clear column filters
+                </button>
+              )}
+            </div>
+            {actionMessage && <span style={{ fontSize: 12, color: "#047857" }}>{actionMessage}</span>}
+          </div>
+
+          <div style={tableWrap(freeze)}>
             <table style={tableStyle}>
               <thead>
                 <tr style={{ background: "#f8fafc" }}>
-                  <Th onClick={() => toggleSort("empCode")} label="Employee Code" />
-                  <Th onClick={() => toggleSort("empName")} label="Employee Name" />
-                  <Th onClick={() => toggleSort("region")} label="Region / Branch" />
-                  <Th onClick={() => toggleSort("managerName")} label="Manager" />
-                  <th style={thStyle}>Attendance</th>
-                  <Th onClick={() => toggleSort("tourDays")} label="Tour Days" />
-                  <Th onClick={() => toggleSort("tourRequests")} label="Tour Requests" />
-                  <Th onClick={() => toggleSort("siteVisits")} label="Total Site Visits" />
-                  <Th onClick={() => toggleSort("newVisits")} label="New Visits" />
-                  <Th onClick={() => toggleSort("revisits")} label="Revisits" />
-                  <Th onClick={() => toggleSort("uniqueCustomers")} label="Unique Customers" />
-                  <Th onClick={() => toggleSort("convertedCustomers")} label="Converted Customers" />
-                  <Th onClick={() => toggleSort("tourExpenses")} label="Tour Expenses" />
-                  <Th onClick={() => toggleSort("totalRevenue")} label="Total Revenue" />
+                  <Th freeze={freeze} col={0} row="head" onClick={() => toggleSort("empCode")} label="Employee Code" />
+                  <Th freeze={freeze} col={1} row="head" onClick={() => toggleSort("empName")} label="Employee Name" />
+                  <Th freeze={freeze} col={2} row="head" onClick={() => toggleSort("region")} label="Region / Branch" />
+                  <Th freeze={freeze} col={3} row="head" onClick={() => toggleSort("managerName")} label="Manager" />
+                  <th style={headerCellStyle(freeze, 4, "head")}>Attendance</th>
+                  <Th freeze={freeze} col={5} row="head" onClick={() => toggleSort("tourDays")} label="Tour Days" />
+                  <Th freeze={freeze} col={6} row="head" onClick={() => toggleSort("tourRequests")} label="Tour Requests" />
+                  <Th freeze={freeze} col={7} row="head" onClick={() => toggleSort("siteVisits")} label="Total Site Visits" />
+                  <Th freeze={freeze} col={8} row="head" onClick={() => toggleSort("newVisits")} label="New Visits" />
+                  <Th freeze={freeze} col={9} row="head" onClick={() => toggleSort("revisits")} label="Revisits" />
+                  <Th freeze={freeze} col={10} row="head" onClick={() => toggleSort("uniqueCustomers")} label="Unique Customers" />
+                  <Th freeze={freeze} col={11} row="head" onClick={() => toggleSort("convertedCustomers")} label="Converted Customers" />
+                  <Th freeze={freeze} col={12} row="head" onClick={() => toggleSort("tourExpenses")} label="Tour Expenses" />
+                  <Th freeze={freeze} col={13} row="head" onClick={() => toggleSort("totalRevenue")} label="Total Revenue" />
+                </tr>
+                <tr style={{ background: "#fff" }}>
+                  <FilterCell freeze={freeze} col={0} value={columnFilters.empCode} onChange={(v) => updateColumnFilter("empCode", v)} placeholder="Search" />
+                  <FilterCell freeze={freeze} col={1} value={columnFilters.empName} onChange={(v) => updateColumnFilter("empName", v)} placeholder="Search" />
+                  <FilterCell freeze={freeze} col={2} value={columnFilters.regionBranch} onChange={(v) => updateColumnFilter("regionBranch", v)} placeholder="Search" />
+                  <FilterCell freeze={freeze} col={3} value={columnFilters.managerName} onChange={(v) => updateColumnFilter("managerName", v)} placeholder="Search" />
+                  <FilterCell freeze={freeze} col={4} value={columnFilters.attendance} onChange={(v) => updateColumnFilter("attendance", v)} placeholder="P / A / HD" />
+                  <FilterCell freeze={freeze} col={5} value={columnFilters.tourDays} onChange={(v) => updateColumnFilter("tourDays", v)} placeholder=">10, 5-20" />
+                  <FilterCell freeze={freeze} col={6} value={columnFilters.tourRequests} onChange={(v) => updateColumnFilter("tourRequests", v)} placeholder=">0" />
+                  <FilterCell freeze={freeze} col={7} value={columnFilters.siteVisits} onChange={(v) => updateColumnFilter("siteVisits", v)} placeholder=">5" />
+                  <FilterCell freeze={freeze} col={8} value={columnFilters.newVisits} onChange={(v) => updateColumnFilter("newVisits", v)} placeholder=">=1" />
+                  <FilterCell freeze={freeze} col={9} value={columnFilters.revisits} onChange={(v) => updateColumnFilter("revisits", v)} placeholder="0" />
+                  <FilterCell freeze={freeze} col={10} value={columnFilters.uniqueCustomers} onChange={(v) => updateColumnFilter("uniqueCustomers", v)} placeholder=">2" />
+                  <FilterCell freeze={freeze} col={11} value={columnFilters.convertedCustomers} onChange={(v) => updateColumnFilter("convertedCustomers", v)} placeholder=">=1" />
+                  <FilterCell freeze={freeze} col={12} value={columnFilters.tourExpenses} onChange={(v) => updateColumnFilter("tourExpenses", v)} placeholder=">1000" />
+                  <FilterCell freeze={freeze} col={13} value={columnFilters.totalRevenue} onChange={(v) => updateColumnFilter("totalRevenue", v)} placeholder=">50000" />
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr><td colSpan={14} style={tdStyle}>Loading performance...</td></tr>
-                ) : rows.length === 0 ? (
+                ) : filteredRows.length === 0 ? (
                   <tr><td colSpan={14} style={tdStyle}>No employees found for the selected filters.</td></tr>
                 ) : (
-                  rows.map((row) => (
+                  pagedRows.map((row) => (
                     <tr
                       key={row.empCode}
                       onClick={() => setSelectedEmp(row)}
                       style={{ borderBottom: "1px solid #e5e7eb", cursor: "pointer" }}
                     >
-                      <td style={tdStyle}>{row.empCode}</td>
-                      <td style={{ ...tdStyle, fontWeight: 700, color: "#1d4ed8" }}>{row.empName}</td>
+                      <td style={bodyCellStyle(freeze, 0)}>{row.empCode}</td>
+                      <td style={{ ...bodyCellStyle(freeze, 1), fontWeight: 700, color: "#1d4ed8" }}>{row.empName}</td>
                       <td style={tdStyle}>{row.region} / {row.branch}</td>
                       <td style={tdStyle}>{row.managerName || "-"}</td>
                       <td style={tdStyle}>{row.attendanceLabel || "Unknown"}</td>
@@ -343,11 +582,11 @@ export default function PerformanceReview() {
           </div>
 
           <div style={pager}>
-            <span>Showing {rows.length} of {total}</span>
+            <span>Showing {pagedRows.length} of {filteredRows.length}</span>
             <div style={{ display: "flex", gap: 8 }}>
-              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} style={pageBtn}>Prev</button>
-              <span style={{ padding: "8px 10px" }}>{page} / {pageCount}</span>
-              <button disabled={page >= pageCount} onClick={() => setPage((p) => p + 1)} style={pageBtn}>Next</button>
+              <button disabled={safePage <= 1} onClick={() => setPage((p) => p - 1)} style={pageBtn}>Prev</button>
+              <span style={{ padding: "8px 10px" }}>{safePage} / {pageCount}</span>
+              <button disabled={safePage >= pageCount} onClick={() => setPage((p) => p + 1)} style={pageBtn}>Next</button>
             </div>
           </div>
         </div>
@@ -651,10 +890,76 @@ function KpiCard({ label, value, icon, color }) {
   );
 }
 
-function Th({ label, onClick }) {
+function Th({ label, onClick, freeze, col, row }) {
   return (
-    <th style={{ ...thStyle, cursor: "pointer" }} onClick={onClick}>{label}</th>
+    <th style={{ ...headerCellStyle(freeze, col, row), cursor: "pointer" }} onClick={onClick}>{label}</th>
   );
+}
+
+function FilterCell({ value, onChange, placeholder, freeze, col }) {
+  return (
+    <th style={filterCellStyle(freeze, col)}>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={colFilterInput}
+      />
+    </th>
+  );
+}
+
+const CODE_COL_WIDTH = 120;
+const NAME_COL_WIDTH = 180;
+const HEAD_ROW_HEIGHT = 42;
+
+function tableWrap(freeze) {
+  return {
+    overflow: "auto",
+    background: "#fff",
+    borderRadius: 12,
+    border: "1px solid #e5e7eb",
+    maxHeight: freeze ? "70vh" : undefined,
+  };
+}
+
+function stickyCol(freeze, col) {
+  if (!freeze || (col !== 0 && col !== 1)) return {};
+  return {
+    position: "sticky",
+    left: col === 0 ? 0 : CODE_COL_WIDTH,
+    minWidth: col === 0 ? CODE_COL_WIDTH : NAME_COL_WIDTH,
+    width: col === 0 ? CODE_COL_WIDTH : NAME_COL_WIDTH,
+    boxShadow: col === 1 ? "2px 0 6px rgba(15,23,42,0.12)" : undefined,
+  };
+}
+
+function headerCellStyle(freeze, col, row) {
+  return {
+    ...thStyle,
+    background: "#f8fafc",
+    ...(freeze ? { position: "sticky", top: row === "filter" ? HEAD_ROW_HEIGHT : 0, zIndex: col <= 1 ? 6 : 4 } : {}),
+    ...stickyCol(freeze, col),
+  };
+}
+
+function filterCellStyle(freeze, col) {
+  return {
+    padding: "6px 8px",
+    borderBottom: "1px solid #e5e7eb",
+    background: "#f8fafc",
+    ...(freeze ? { position: "sticky", top: HEAD_ROW_HEIGHT, zIndex: col <= 1 ? 6 : 4 } : {}),
+    ...stickyCol(freeze, col),
+  };
+}
+
+function bodyCellStyle(freeze, col) {
+  return {
+    ...tdStyle,
+    background: "#fff",
+    ...stickyCol(freeze, col),
+    ...(freeze && col <= 1 ? { zIndex: 2 } : {}),
+  };
 }
 
 function Section({ title, children }) {
@@ -682,6 +987,9 @@ const tdStyle = { padding: "12px 10px", fontSize: 13, whiteSpace: "nowrap" };
 const pager = { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12 };
 const pageBtn = { padding: "8px 12px", borderRadius: 6, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" };
 const refreshBtn = { padding: "8px 16px", background: "#3b82f6", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 500 };
+const secondaryBtn = { padding: "8px 12px", background: "#fff", color: "#334155", border: "1px solid #d1d5db", borderRadius: 6, cursor: "pointer" };
+const tableToolbar = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 10, flexWrap: "wrap" };
+const colFilterInput = { width: "100%", minWidth: 80, padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 12 };
 const targetInput = { padding: "8px 12px", border: "2px solid #3b82f6", borderRadius: 6, fontSize: 14, width: 120 };
 const saveBtnSmall = { padding: "6px 14px", background: "#22c55e", color: "white", border: "none", borderRadius: 6, cursor: "pointer" };
 const saveAllBtn = { padding: "10px 20px", background: "#3b82f6", color: "white", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 };
