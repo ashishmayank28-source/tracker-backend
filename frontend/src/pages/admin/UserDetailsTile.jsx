@@ -38,6 +38,7 @@ export default function UserDetailsTile() {
 
   // Filter users
   const filteredUsers = users.filter((u) => {
+    if (u.isActive === false) return false;
     const matchesSearch =
       !search ||
       u.name?.toLowerCase().includes(search.toLowerCase()) ||

@@ -24,7 +24,7 @@ export const getHierarchy = async (req, res) => {
     const root = await User.findOne({ empCode }).lean();
     if (!root) return res.status(404).json({ message: "User not found" });
 
-    const allUsers = await User.find({ region: root.region }).lean();
+    const allUsers = await User.find({ region: root.region, isActive: { $ne: false } }).lean();
 
     const tree = await buildTree(root, allUsers);
 
@@ -39,7 +39,7 @@ export const getHierarchy = async (req, res) => {
 export const getBranchReportees = async (req, res) => {
   try {
     const { empCode } = req.params;
-    const reportees = await User.find({ branchManagerCode: empCode }).lean();
+    const reportees = await User.find({ branchManagerCode: empCode, isActive: { $ne: false } }).lean();
     res.json(reportees || []);
   } catch (err) {
     console.error("getBranchReportees error:", err);
@@ -51,7 +51,7 @@ export const getBranchReportees = async (req, res) => {
 export const getManagerTeam = async (req, res) => {
   try {
     const { empCode } = req.params;
-    const team = await User.find({ "reportTo.empCode": empCode }).lean();
+    const team = await User.find({ "reportTo.empCode": empCode, isActive: { $ne: false } }).lean();
     res.json(team || []);
   } catch (err) {
     console.error("getManagerTeam error:", err);

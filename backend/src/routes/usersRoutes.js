@@ -2,7 +2,7 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import { protect, adminOnly } from "../middleware/authMiddleware.js";
 import User from "../models/userModel.js";
-import { getScopedUsers, isEmpInScope } from "../utils/scopeUtils.js";
+import { ACTIVE_USER_FILTER, getScopedUsers, isEmpInScope } from "../utils/scopeUtils.js";
 
 const router = express.Router();
 
@@ -48,7 +48,7 @@ router.get("/", protect, async (req, res) => {
   try {
     const { role } = req.user;
     if (role === "Admin") {
-      const users = await User.find().select("-passwordHash");
+      const users = await User.find(ACTIVE_USER_FILTER).select("-passwordHash");
       return res.json(users);
     }
     const users = await getScopedUsers(req.user);
@@ -66,7 +66,7 @@ router.get("/all", protect, async (req, res) => {
     if (req.user.role !== "Admin" && req.user.role !== "Guest") {
       return res.status(403).json({ message: "Access denied" });
     }
-    const users = await User.find().select("-passwordHash").lean();
+    const users = await User.find(ACTIVE_USER_FILTER).select("-passwordHash").lean();
     res.json(users);
   } catch (err) {
     console.error("All users error:", err);

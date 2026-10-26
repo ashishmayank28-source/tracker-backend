@@ -43,7 +43,7 @@ const userSchema = new mongoose.Schema(
     // Profile photo (base64 or URL)
     profilePhoto: { type: String, default: "" },
 
-    isActive: { type: Boolean, default: true },
+    isActive: { type: Boolean, default: true, index: true },
 
     // Revenue approval assignment (set by Admin)
     revenueApproverEmpCode: { type: String, default: "" },

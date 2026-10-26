@@ -7,7 +7,7 @@ export const getBranchReportees = async (req, res) => {
     const { empCode } = req.params;
 
     // BM ke under sabhi users (direct reportees)
-    const reportees = await User.find({ "reportTo.empCode": empCode })
+    const reportees = await User.find({ "reportTo.empCode": empCode, isActive: { $ne: false } })
       .select("empCode name designation region branch role")
       .lean();
 
@@ -25,7 +25,7 @@ export const getBranchSummary = async (req, res) => {
     const { from, to, customerType } = req.query;
 
     // BM ke under sabhi employees
-    const team = await User.find({ "reportTo.empCode": empCode })
+    const team = await User.find({ "reportTo.empCode": empCode, isActive: { $ne: false } })
       .select("empCode name")
       .lean();
     const empCodes = team.map((t) => t.empCode);

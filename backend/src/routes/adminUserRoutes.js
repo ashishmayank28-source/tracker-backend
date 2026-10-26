@@ -7,7 +7,7 @@ const router = express.Router();
 // 🔹 Admin: Fetch all users list
 router.get("/all", protect, adminOnly, async (req, res) => {
   try {
-    const users = await User.find({}, "-password"); // sab users, password exclude
+    const users = await User.find({ isActive: { $ne: false } }, "-password");
     res.json(users);
   } catch (err) {
     console.error("Error fetching all users (admin):", err);

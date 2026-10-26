@@ -7,7 +7,7 @@ import {
 } from "../controllers/reportController.js";
 import { protect, adminOnly } from "../middleware/authMiddleware.js";
 import User from "../models/userModel.js";
-import { getScopedUsers, isEmpInScope } from "../utils/scopeUtils.js";
+import { ACTIVE_USER_FILTER, getScopedUsers, isEmpInScope } from "../utils/scopeUtils.js";
 
 const router = express.Router();
 
@@ -27,7 +27,7 @@ router.get("/submitted", protect, getSubmittedReports);   // ✅ NEW
 router.get("/users", protect, async (req, res) => {
   try {
     if (req.user.role === "Admin") {
-      const users = await User.find().lean();
+      const users = await User.find(ACTIVE_USER_FILTER).lean();
       return res.json(users);
     }
     const users = await getScopedUsers(req.user);

@@ -2,7 +2,7 @@ import Customer from "../models/customerModel.js";
 import User from "../models/userModel.js";
 import Revenue from "../models/revenueModel.js";
 import multer from "multer";
-import { getScopedUsers, getScopedEmpCodes, isEmpInScope } from "../utils/scopeUtils.js";
+import { ACTIVE_USER_FILTER, getScopedUsers, getScopedEmpCodes, isEmpInScope } from "../utils/scopeUtils.js";
 import { ensureUploadMonthDir, publicUrlFromDiskFile } from "../utils/uploadsPath.js";
 
 /* =============================================================
@@ -668,8 +668,8 @@ export const getRevenueTrackerManager = async (req, res) => {
     const { role, empCode } = req.user;
     const reportees =
       role === "Admin"
-        ? await User.find().distinct("empCode")
-        : await User.find({ "reportTo.empCode": empCode }).distinct("empCode");
+        ? await User.find(ACTIVE_USER_FILTER).distinct("empCode")
+        : await User.find({ "reportTo.empCode": empCode, ...ACTIVE_USER_FILTER }).distinct("empCode");
 
     const customers = await Customer.find({
       "visits.createdBy": { $in: reportees },

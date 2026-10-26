@@ -22,7 +22,7 @@ const AVAILABLE_TILES = [
 
 export default function UsersTile() {
   const { setUsers: setContextUsers } = useUserHierarchy();
-  const { token } = useAuth();
+  const { token, user: currentUser } = useAuth();
 
   const [users, setUsers] = useState([]);
   const [form, setForm] = useState({
@@ -44,23 +44,30 @@ export default function UsersTile() {
   const [managerEmpCode, setManagerEmpCode] = useState("");
   const [editUser, setEditUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [showTileModal, setShowTileModal] = useState(false); // ✅ Tile selection modal
 
   const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
   const api = (path) => `${API_BASE}/api/admin${path}`;
 
   // Get users by role for dropdowns
-  const managers = users.filter((u) => u.role === "Manager");
-  const branchManagers = users.filter((u) => u.role === "BranchManager");
-  const regionalManagers = users.filter((u) => u.role === "RegionalManager");
+  const isActiveUser = (u) => u.isActive !== false;
+  const activeUsers = users.filter(isActiveUser);
+  const managers = activeUsers.filter((u) => u.role === "Manager");
+  const branchManagers = activeUsers.filter((u) => u.role === "BranchManager");
+  const regionalManagers = activeUsers.filter((u) => u.role === "RegionalManager");
 
   // Filter users based on search
-  const filteredUsers = users.filter(
-    (u) =>
+  const filteredUsers = users.filter((u) => {
+    const matchesSearch =
       u.empCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.role?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+      u.role?.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!matchesSearch) return false;
+    if (statusFilter === "active") return isActiveUser(u);
+    if (statusFilter === "resigned") return !isActiveUser(u);
+    return true;
+  });
 
   // 🔄 Load Users
   async function loadUsers() {
@@ -71,7 +78,7 @@ export default function UsersTile() {
       const data = await res.json();
       if (!Array.isArray(data)) throw new Error("Invalid data");
       setUsers(data);
-      setContextUsers(data);
+      setContextUsers(data.filter((u) => u.isActive !== false));
     } catch (e) {
       setErr(e.message);
     }
@@ -127,6 +134,27 @@ export default function UsersTile() {
       headers: { Authorization: `Bearer ${token}` },
     });
     loadUsers();
+  }
+
+  async function updateUserStatus(empCode, status) {
+    setErr("");
+    setSuccess("");
+    try {
+      const res = await fetch(api(`/users/${empCode}/status`), {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to update status");
+      setSuccess(data.message || `User marked as ${status}`);
+      loadUsers();
+    } catch (e) {
+      setErr(e.message);
+    }
   }
 
   // 🔑 Reset Password
@@ -404,6 +432,31 @@ export default function UsersTile() {
         }}
       />
 
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+        {[
+          { key: "all", label: `All (${users.length})` },
+          { key: "active", label: `Active (${users.filter((u) => u.isActive !== false).length})` },
+          { key: "resigned", label: `Resigned (${users.filter((u) => u.isActive === false).length})` },
+        ].map((item) => (
+          <button
+            key={item.key}
+            onClick={() => setStatusFilter(item.key)}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 6,
+              border: "1px solid #d1d5db",
+              background: statusFilter === item.key ? "#1d4ed8" : "#fff",
+              color: statusFilter === item.key ? "#fff" : "#334155",
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
       {/* 📋 Users Table */}
       <div style={{ overflowX: "auto" }}>
         <table
@@ -415,7 +468,7 @@ export default function UsersTile() {
         >
           <thead style={{ background: "#f1f5f9" }}>
             <tr>
-              {["EmpCode", "Name", "Role", "Branch", "Reports To", "Actions"].map((h) => (
+              {["EmpCode", "Name", "Role", "Branch", "Status", "Reports To", "Actions"].map((h) => (
                 <th
                   key={h}
                   style={{
@@ -434,7 +487,10 @@ export default function UsersTile() {
             {filteredUsers.map((u, i) => (
               <tr
                 key={u.empCode}
-                style={{ background: i % 2 === 0 ? "#fff" : "#f8fafc" }}
+                style={{
+                  background: u.isActive === false ? "#fef2f2" : i % 2 === 0 ? "#fff" : "#f8fafc",
+                  opacity: u.isActive === false ? 0.85 : 1,
+                }}
               >
                 <td style={{ border: "1px solid #e2e8f0", padding: "8px", fontWeight: 600, color: "#3b82f6" }}>
                   {u.empCode}
@@ -475,6 +531,25 @@ export default function UsersTile() {
                 </td>
                 <td style={{ border: "1px solid #e2e8f0", padding: "8px", color: "#64748b" }}>
                   {u.branch || "-"}
+                </td>
+                <td style={{ border: "1px solid #e2e8f0", padding: "8px" }}>
+                  <select
+                    value={u.isActive === false ? "Resigned" : "Active"}
+                    disabled={currentUser?.empCode === u.empCode}
+                    onChange={(e) => updateUserStatus(u.empCode, e.target.value)}
+                    style={{
+                      padding: "4px 8px",
+                      borderRadius: 6,
+                      border: "1px solid #d1d5db",
+                      background: u.isActive === false ? "#fee2e2" : "#dcfce7",
+                      color: u.isActive === false ? "#991b1b" : "#166534",
+                      fontWeight: 600,
+                      fontSize: 12,
+                    }}
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Resigned">Resigned</option>
+                  </select>
                 </td>
                 <td style={{ border: "1px solid #e2e8f0", padding: "8px" }}>
                   {u.reportTo?.length > 0 ? (
@@ -583,7 +658,9 @@ export default function UsersTile() {
         }}
       >
         <span>Total: <b>{users.length}</b></span>
-        <span>Employees: <b>{users.filter((u) => u.role === "Employee").length}</b></span>
+        <span>Active: <b>{activeUsers.length}</b></span>
+        <span>Resigned: <b>{users.filter((u) => u.isActive === false).length}</b></span>
+        <span>Employees: <b>{activeUsers.filter((u) => u.role === "Employee").length}</b></span>
         <span>Managers: <b>{managers.length}</b></span>
         <span>BMs: <b>{branchManagers.length}</b></span>
         <span>RMs: <b>{regionalManagers.length}</b></span>
@@ -632,7 +709,7 @@ export default function UsersTile() {
               }}
             >
               <option value="">-- Select Manager/Supervisor --</option>
-              {users
+              {activeUsers
                 .filter((u) => u.empCode !== reportUser.empCode)
                 .filter((u) => ["Manager", "BranchManager", "RegionalManager", "Admin"].includes(u.role))
                 .map((u) => (

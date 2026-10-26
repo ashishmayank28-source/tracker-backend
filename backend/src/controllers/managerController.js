@@ -5,7 +5,7 @@ import Customer from "../models/customerModel.js";
 export const getManagerTeam = async (req, res) => {
   try {
     const { empCode } = req.params;
-    const team = await User.find({ "reportTo.empCode": empCode })
+    const team = await User.find({ "reportTo.empCode": empCode, isActive: { $ne: false } })
       .select("empCode name designation region branch role")
       .lean();
 
@@ -23,7 +23,7 @@ export const getManagerTeamSummary = async (req, res) => {
     const { from, to, customerType } = req.query;
 
     // Manager ke under employees
-    const team = await User.find({ "reportTo.empCode": empCode })
+    const team = await User.find({ "reportTo.empCode": empCode, isActive: { $ne: false } })
       .select("empCode name")
       .lean();
     const empCodes = team.map((t) => t.empCode);

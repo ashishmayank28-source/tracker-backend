@@ -1,7 +1,7 @@
 import Customer from "../models/customerModel.js";
 import User from "../models/userModel.js";
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
-import { getScopedEmpCodes, isEmpInScope } from "../utils/scopeUtils.js";
+import { ACTIVE_USER_FILTER, getScopedEmpCodes, isEmpInScope } from "../utils/scopeUtils.js";
 import {
   classifyVisitType,
   historyKey,
@@ -96,7 +96,7 @@ export const getReportsDump = async (req, res) => {
 async function getReportees(currentUser) {
   if (!currentUser) return [];
   if (currentUser.role === "Admin") {
-    return User.find().distinct("empCode");
+    return User.find(ACTIVE_USER_FILTER).distinct("empCode");
   }
   return getScopedEmpCodes(currentUser);
 }
@@ -168,7 +168,7 @@ export const getReportsSummary = async (req, res) => {
     let allowedEmpCodes = [];
 
     if (req.user.role === "Admin") {
-      allowedEmpCodes = await User.find().distinct("empCode");
+      allowedEmpCodes = await User.find(ACTIVE_USER_FILTER).distinct("empCode");
     } else {
       allowedEmpCodes = await getReportees(req.user);
     }
@@ -318,7 +318,7 @@ export const getSubmittedReports = async (req, res) => {
       }
       allowedEmpCodes = [String(empCode)];
     } else if (req.user.role === "Admin") {
-      allowedEmpCodes = await User.find().distinct("empCode");
+      allowedEmpCodes = await User.find(ACTIVE_USER_FILTER).distinct("empCode");
       allowedEmpCodes = allowedEmpCodes.map(e => String(e));
     } else {
       allowedEmpCodes = await getReportees(req.user);

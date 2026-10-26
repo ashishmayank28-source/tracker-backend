@@ -1,5 +1,7 @@
 import User from "../models/userModel.js";
 
+export const ACTIVE_USER_FILTER = { isActive: { $ne: false } };
+
 /** MongoDB filter for users visible to Manager / BM / RM */
 export function getScopedUserFilter(currentUser) {
   const { role, empCode, branch, region } = currentUser || {};
@@ -21,14 +23,14 @@ export function getScopedUserFilter(currentUser) {
 export async function getScopedUsers(currentUser, extraFilter = {}) {
   if (!currentUser) return [];
   if (currentUser.role === "Admin") {
-    return User.find({ isActive: { $ne: false }, ...extraFilter })
+    return User.find({ ...ACTIVE_USER_FILTER, ...extraFilter })
       .select("-passwordHash")
       .lean();
   }
   if (!["Manager", "BranchManager", "RegionalManager"].includes(currentUser.role)) {
     return [];
   }
-  return User.find({ ...getScopedUserFilter(currentUser), ...extraFilter })
+  return User.find({ ...ACTIVE_USER_FILTER, ...getScopedUserFilter(currentUser), ...extraFilter })
     .select("-passwordHash")
     .lean();
 }

@@ -75,6 +75,54 @@ export const createUser = async (req, res) => {
   }
 };
 
+/* ---------- Update Active / Resigned status ---------- */
+export const updateUserStatus = async (req, res) => {
+  try {
+    const { empCode } = req.params;
+    const { status } = req.body;
+    const nextStatus = String(status || "").trim();
+
+    if (!["Active", "Resigned"].includes(nextStatus)) {
+      return res.status(400).json({ message: "Status must be Active or Resigned" });
+    }
+
+    if (req.user?.empCode && String(req.user.empCode).toUpperCase() === String(empCode).toUpperCase() && nextStatus === "Resigned") {
+      return res.status(400).json({ message: "You cannot mark your own account as Resigned" });
+    }
+
+    const user = await User.findOne({ empCode });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (user.role === "Admin" && nextStatus === "Resigned") {
+      const otherAdmins = await User.countDocuments({
+        role: "Admin",
+        isActive: { $ne: false },
+        empCode: { $ne: user.empCode },
+      });
+      if (otherAdmins === 0) {
+        return res.status(400).json({ message: "At least one Active Admin is required" });
+      }
+    }
+
+    user.isActive = nextStatus === "Active";
+    user.dateOfLeaving = nextStatus === "Resigned"
+      ? (user.dateOfLeaving || new Date().toISOString().slice(0, 10))
+      : "";
+    await user.save();
+
+    const sanitized = user.toObject();
+    delete sanitized.passwordHash;
+    res.json({
+      success: true,
+      message: `${user.name} marked as ${nextStatus}`,
+      user: sanitized,
+    });
+  } catch (err) {
+    console.error("Update user status error:", err);
+    res.status(500).json({ message: "Failed to update user status" });
+  }
+};
+
 /* ---------- Remove User ---------- */
 export const removeUser = async (req, res) => {
   try {
