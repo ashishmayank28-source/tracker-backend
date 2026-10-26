@@ -1,7 +1,7 @@
 // backend/src/controllers/uploadPOController.js
 import multer from "multer";
 import fs from "fs";
-import path from "path";
+import { ensureUploadMonthDir, publicUrlFromDiskFile, UPLOADS_DIR } from "../utils/uploadsPath.js";
 import archiver from "archiver";
 
 const ensureDir = (dir) => {
@@ -13,10 +13,7 @@ const ensureDir = (dir) => {
 ------------------------------------------------------------------ */
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const year = new Date().getFullYear();
-    const month = String(new Date().getMonth() + 1).padStart(2, "0");
-    const dir = path.join("uploads", `${year}`, `${month}`);
-    ensureDir(dir);
+    const { dir } = ensureUploadMonthDir();
     cb(null, dir);
   },
   filename: (req, file, cb) => {
@@ -59,7 +56,7 @@ export const handlePOUpload = async (req, res) => {
 
     const fileInfo = {
       fileName: file.filename,
-      filePath: file.path,
+      filePath: publicUrlFromDiskFile(file),
       sizeKB: Math.round(file.size / 1024),
       year: new Date().getFullYear(),
       month: new Date().getMonth() + 1,
@@ -87,7 +84,7 @@ export const handlePOUpload = async (req, res) => {
    4️⃣  Archiver Function (for yearly zipping)
 ------------------------------------------------------------------ */
 export const archiveYear = async (year = new Date().getFullYear()) => {
-  const srcDir = `uploads/${year}`;
+  const srcDir = `${UPLOADS_DIR}/${year}`;
   const dest = `archives/${year}.zip`;
   ensureDir("archives");
   const output = fs.createWriteStream(dest);

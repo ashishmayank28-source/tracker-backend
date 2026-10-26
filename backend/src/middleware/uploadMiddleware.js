@@ -1,19 +1,10 @@
 import multer from "multer";
-import fs from "fs";
-import path from "path";
+import { ensureUploadMonthDir } from "../utils/uploadsPath.js";
 
-// 🧩 Dynamic storage destination: /uploads/YYYY/MM/
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const uploadPath = path.join("uploads", year.toString(), month);
-
-    // 🟢 Ensure folder exists
-    fs.mkdirSync(uploadPath, { recursive: true });
-
-    cb(null, uploadPath);
+    const { dir } = ensureUploadMonthDir();
+    cb(null, dir);
   },
 
   filename: function (req, file, cb) {

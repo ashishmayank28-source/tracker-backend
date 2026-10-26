@@ -2,9 +2,8 @@ import Customer from "../models/customerModel.js";
 import User from "../models/userModel.js";
 import Revenue from "../models/revenueModel.js";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
 import { getScopedUsers, getScopedEmpCodes, isEmpInScope } from "../utils/scopeUtils.js";
+import { ensureUploadMonthDir, publicUrlFromDiskFile } from "../utils/uploadsPath.js";
 
 /* =============================================================
    🔍 Shared revenue list filters (branch, region, employee, date)
@@ -143,10 +142,7 @@ function enrichRowWithApproverMeta(row, employeeUser, currentUser) {
 ============================================================= */
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const year = new Date().getFullYear();
-    const month = String(new Date().getMonth() + 1).padStart(2, "0");
-    const dir = path.join("uploads", `${year}`, `${month}`);
-    fs.mkdirSync(dir, { recursive: true });
+    const { dir } = ensureUploadMonthDir();
     cb(null, dir);
   },
   filename: (req, file, cb) => {
@@ -166,9 +162,7 @@ export const uploadPOForManager = async (req, res) => {
         .status(400)
         .json({ success: false, message: "No file uploaded" });
 
-    const filePath = `/uploads/${new Date().getFullYear()}/${String(
-      new Date().getMonth() + 1
-    ).padStart(2, "0")}/${req.file.filename}`;
+    const filePath = publicUrlFromDiskFile(req.file);
 
     res.json({
       success: true,

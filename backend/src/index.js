@@ -6,6 +6,7 @@ import { connectDB } from './config/db.js';
 import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { UPLOADS_DIR, LEGACY_UPLOADS_DIR, ensureUploadsDir } from './utils/uploadsPath.js';
 
 // 🔹 Routes
 import authRoutes from './routes/authRoutes.js';
@@ -91,11 +92,12 @@ async function start() {
   app.use("/api/item-names", itemNameRoutes);
   app.use("/api/channel-partners", channelPartnerRoutes);
   
-  // ✅ Serve uploaded files with absolute path
+  // Serve uploaded files from the same folder multer writes to
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-  const uploadsDir = path.join(__dirname, '../../uploads');
-  app.use("/uploads", express.static(uploadsDir));
+  ensureUploadsDir();
+  app.use("/uploads", express.static(UPLOADS_DIR));
+  app.use("/uploads", express.static(LEGACY_UPLOADS_DIR));
 
   // Serve frontend static files if built (Vite build outputs to frontend/dist)
   try {

@@ -2,6 +2,7 @@ import Customer from "../models/customerModel.js";
 import User from "../models/userModel.js";
 import generateCustomerId from "../utils/generateCustomerId.js";
 import { getScopedEmpCodes } from "../utils/scopeUtils.js";
+import { publicUrlFromDiskFile } from "../utils/uploadsPath.js";
 
 /* -------------------------------------------------------------
    🧾 Create New Visit (Employee Daily Tracker)
@@ -179,11 +180,7 @@ export const createVisit = async (req, res) => {
     }
 
     // 🔹 File path (if uploaded)
-    const poFilePath = req.file
-      ? `/uploads/${new Date().getFullYear()}/${String(
-          new Date().getMonth() + 1
-        ).padStart(2, "0")}/${req.file.filename}`
-      : poFileUrl || "";
+    const poFilePath = req.file ? publicUrlFromDiskFile(req.file) : poFileUrl || "";
 
     // 🔹 Construct visit object
     const newVisit = {
@@ -384,11 +381,7 @@ export const revisit = async (req, res) => {
     if (!c) return res.status(404).json({ message: "Customer not found" });
 
     // 🔹 File path (if uploaded via FormData)
-    const poFilePath = req.file
-      ? `/uploads/${new Date().getFullYear()}/${String(
-          new Date().getMonth() + 1
-        ).padStart(2, "0")}/${req.file.filename}`
-      : poFileUrl || "";
+    const poFilePath = req.file ? publicUrlFromDiskFile(req.file) : poFileUrl || "";
 
     const newVisit = {
       meetingType: "Revisit",

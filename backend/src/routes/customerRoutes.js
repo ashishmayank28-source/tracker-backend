@@ -1,7 +1,6 @@
 import express from "express";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
+import { ensureUploadMonthDir } from "../utils/uploadsPath.js";
 import {
   createVisit,
   searchCustomer,
@@ -18,10 +17,7 @@ import { isEmpInScope } from "../utils/scopeUtils.js";
 const router = express.Router();
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const year = new Date().getFullYear();
-    const month = String(new Date().getMonth() + 1).padStart(2, "0");
-    const dir = path.join("uploads", `${year}`, `${month}`);
-    fs.mkdirSync(dir, { recursive: true });
+    const { dir } = ensureUploadMonthDir();
     cb(null, dir);
   },
   filename: (req, file, cb) => {

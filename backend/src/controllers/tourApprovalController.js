@@ -2,6 +2,7 @@ import TourApproval from "../models/tourApprovalModel.js";
 import User from "../models/userModel.js";
 import { getScopedEmpCodes, isEmpInScope } from "../utils/scopeUtils.js";
 import { verifyCustomerIdsForEmployee } from "../utils/customerIdVerification.js";
+import { publicUrlFromDiskFile } from "../utils/uploadsPath.js";
 
 /* =============================================================
    📤 Create Tour Request (Employee)
@@ -286,18 +287,9 @@ export const submitTourExpenses = async (req, res) => {
 
     // ✅ Handle file uploads (bills, tickets, invoices)
     const files = req.files || {};
-    const year = new Date().getFullYear();
-    const month = String(new Date().getMonth() + 1).padStart(2, "0");
-    
-    const billsUrl = files.bills?.[0] 
-      ? `/uploads/${year}/${month}/${files.bills[0].filename}` 
-      : "";
-    const ticketsUrl = files.tickets?.[0] 
-      ? `/uploads/${year}/${month}/${files.tickets[0].filename}` 
-      : "";
-    const invoicesUrl = files.invoices?.[0] 
-      ? `/uploads/${year}/${month}/${files.invoices[0].filename}` 
-      : "";
+    const billsUrl = publicUrlFromDiskFile(files.bills?.[0]);
+    const ticketsUrl = publicUrlFromDiskFile(files.tickets?.[0]);
+    const invoicesUrl = publicUrlFromDiskFile(files.invoices?.[0]);
 
     console.log("📄 Expense files:", { billsUrl, ticketsUrl, invoicesUrl });
 
